@@ -314,9 +314,66 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 .room-status{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;
   white-space:nowrap;flex-shrink:0;border:1px solid transparent}
 .room-status.empty{color:#aaa;background:#f5f5f5;border-color:#e0e0e0;font-weight:400}
+
+/* ─── Login Screen ─── */
+.login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a3a6b 0%,#2563a8 100%);
+  display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:16px}
+.login-screen.hidden{display:none}
+.login-box{background:#fff;border-radius:18px;padding:38px 42px;width:380px;max-width:94vw;
+  box-shadow:0 28px 70px rgba(0,0,0,.38);text-align:center}
+.login-logo{font-size:22px;font-weight:800;color:var(--primary);margin-bottom:4px;letter-spacing:.3px}
+.login-sub{font-size:11px;color:var(--muted);margin-bottom:26px}
+.login-field{text-align:left;margin-bottom:14px}
+.login-field label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px}
+.login-field input{width:100%;height:40px;border:1.5px solid var(--border);border-radius:9px;
+  padding:0 13px;font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
+.login-field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,160,.12)}
+.login-btn{width:100%;height:42px;background:var(--primary);color:#fff;border:none;
+  border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;
+  transition:opacity .15s,transform .1s;letter-spacing:.3px}
+.login-btn:hover{opacity:.88;transform:translateY(-1px)}
+.login-btn:active{transform:translateY(0)}
+.login-err{color:#c92a2a;font-size:11px;margin-top:10px;display:none;
+  background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px}
+.login-hint{color:rgba(255,255,255,.55);font-size:10px;text-align:center}
+
+/* ─── Parallel segment ─── */
+.seg-card.seg-parallel .seg-hdr{background:linear-gradient(90deg,#fff3e0,#fff8f0)}
+.seg-card.seg-parallel .seg-num{color:#e67700}
+.seg-btns-row{display:flex;gap:8px;margin-top:2px}
+.seg-btns-row .btn-add-seg,.btn-add-parallel{flex:1;height:34px;border-radius:7px;
+  font-size:11px;cursor:pointer;margin-top:2px;transition:background .12s;display:flex;
+  align-items:center;justify-content:center;gap:4px;font-weight:600}
+.seg-btns-row .btn-add-seg{border:2px dashed var(--border);background:transparent;color:var(--primary)}
+.seg-btns-row .btn-add-seg:hover{background:var(--primary-light)}
+.btn-add-parallel{border:2px dashed #e67700;background:transparent;color:#e67700}
+.btn-add-parallel:hover{background:#fff3e0}
+.parallel-badge{font-size:9px;background:#fff3e0;color:#e67700;border:1px solid #e67700;
+  padding:1px 6px;border-radius:8px;white-space:nowrap;font-weight:700}
 </style>
 </head>
 <body>
+
+<!-- ═══ Login Screen ═══ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🏠 全居短租排房系統</div>
+    <div class="login-sub">Quanju Short-Term Rental · 請登入以繼續</div>
+    <div class="login-field">
+      <label>帳號</label>
+      <input type="text" id="login-user" placeholder="請輸入帳號" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="login-field">
+      <label>密碼</label>
+      <input type="password" id="login-pass" placeholder="請輸入密碼" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 登入系統</button>
+    <div class="login-err" id="login-err">⚠️ 帳號或密碼錯誤，請重新輸入</div>
+  </div>
+  <div class="login-hint">預設帳號：admin　／　預設密碼：quanju888</div>
+</div>
 
 <!-- TopBar -->
 <div class="topbar">
@@ -341,6 +398,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
   <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
   <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
+  <button class="btn-top btn-mgt-top" onclick="doLogout()" title="登出系統" style="background:rgba(255,255,255,.1);margin-left:4px">🚪</button>
 </div>
 
 <!-- Toolbar -->
@@ -420,7 +478,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <span id="conflict-msg"></span>
     </div>
     <div id="segs"></div>
-    <button class="btn-add-seg" onclick="addSeg()">＋ 加下一間房（換房）</button>
+    <div class="seg-btns-row">
+      <button class="btn-add-seg" onclick="addSwitchSeg()">🔄 加下一段（換房）</button>
+      <button class="btn-add-parallel" onclick="addParallelSeg()">🏠 加並行房間（同期入住）</button>
+    </div>
     <div class="total-bar">
       <span>訂單總計</span>
       <div style="display:flex;align-items:baseline;gap:8px">
@@ -619,9 +680,13 @@ function syncAutoTasks(bk){
   let tasks=loadTasks().filter(t=>t.bookingId!==bk.id);
   bk.segments.forEach((seg,i)=>{
     if(i<bk.segments.length-1){
-      tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-        start:seg.checkout,end:addDays(seg.checkout,2),
-        note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
+      const nextSeg=bk.segments[i+1];
+      // Only create auto-clean for sequential switch segments (not parallel rooms)
+      if(nextSeg.segType!=='parallel'){
+        tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
+          start:seg.checkout,end:addDays(seg.checkout,2),
+          note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
+      }
     }
   });
   saveTasks(tasks);
@@ -637,9 +702,48 @@ function scheduleCheckoutCleaning(seg,bkGuest){
 }
 
 // ════════════════════════════════════════════════
+// AUTH / LOGIN
+// ════════════════════════════════════════════════
+function getAuthCfg(){
+  try{const d=localStorage.getItem('qj_auth');return d?JSON.parse(d):{user:'admin',pass:'quanju888'};}
+  catch(e){return{user:'admin',pass:'quanju888'};}
+}
+function checkLogin(){
+  const ok=sessionStorage.getItem('qj_sess')==='1';
+  const scr=document.getElementById('login-screen');
+  if(scr)scr.classList.toggle('hidden',ok);
+  return ok;
+}
+function doLogin(){
+  const u=(document.getElementById('login-user').value||'').trim();
+  const p=document.getElementById('login-pass').value||'';
+  const cfg=getAuthCfg();
+  const err=document.getElementById('login-err');
+  if(u===cfg.user&&p===cfg.pass){
+    sessionStorage.setItem('qj_sess','1');
+    document.getElementById('login-screen').classList.add('hidden');
+    err.style.display='none';
+    if(!document.getElementById('month-lbl').textContent)init();
+  }else{
+    err.style.display='block';
+    document.getElementById('login-pass').value='';
+    document.getElementById('login-pass').focus();
+  }
+}
+function doLogout(){
+  if(!confirm('確定要登出系統？'))return;
+  sessionStorage.removeItem('qj_sess');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+  setTimeout(()=>document.getElementById('login-user').focus(),100);
+}
+
+// ════════════════════════════════════════════════
 // INIT & NAVIGATION
 // ════════════════════════════════════════════════
 function init(){
+  if(!checkLogin())return; // Stop if not logged in
   const n=new Date();curY=n.getFullYear();curM=n.getMonth()+1;
   populatePropFilter();
   const ca=document.getElementById('ca');
@@ -1183,6 +1287,7 @@ function renderSegs(){
   const ap=getAllProps();
   const c=document.getElementById('segs');
   c.innerHTML=curSegs.map((seg,i)=>{
+    const isParallel=seg.segType==='parallel';
     const pOpts=ap.map(p=>'<option value="'+String(p.id)+'" '+
       (String(seg.prop_id)===String(p.id)?'selected':'')+'>'+
       p.name+(p.custom?' [自訂]':'')+'</option>').join('');
@@ -1191,10 +1296,14 @@ function renderSegs(){
     const days=seg.checkin&&seg.checkout?diffDays(seg.checkin,seg.checkout):0;
     const sub=days>0&&seg.monthlyPrice>0?calcRent(seg.checkin,seg.checkout,seg.monthlyPrice):0;
     seg.totalRent=sub;
-    return '<div class="seg-card" data-idx="'+i+'">'+
+    let segLabel,segNote='';
+    if(i===0) segLabel='🏠 第 1 間（主房）';
+    else if(isParallel){ segLabel='🏠 第 '+(i+1)+' 間（並行入住）';}
+    else{ segLabel='🔄 第 '+(i+1)+' 段（換房）'; segNote='<span class="seg-clean-note">↑ 第'+i+'段退房後自動 2 天打掃期</span>';}
+    return '<div class="seg-card'+(isParallel?' seg-parallel':'')+'" data-idx="'+i+'">'+
       '<div class="seg-hdr">'+
-        '<span class="seg-num">'+(i===0?'🏠 第 1 段住宿':'🔄 第 '+(i+1)+' 段住宿（換房）')+'</span>'+
-        (i>0?'<span class="seg-clean-note">↑ 第'+i+'段退房後自動 2 天打掃期</span>':'')+
+        '<span class="seg-num">'+segLabel+'</span>'+
+        (isParallel?'<span class="parallel-badge">同期</span>':segNote)+
         (curSegs.length>1?'<button class="seg-del-btn" onclick="removeSeg('+i+')">✕ 移除</button>':'')+
       '</div>'+
       '<div class="seg-body">'+
@@ -1246,7 +1355,8 @@ function bindSegEvents(i){
   if(ci)ci.onchange=function(){curSegs[i].checkin=this.value;updSegCalc(i);updateTotal();checkConflWarn();};
   if(co)co.onchange=function(){
     const newCo=this.value;curSegs[i].checkout=newCo;
-    if(i+1<curSegs.length){
+    // Propagate to next segment only if it's a sequential switch (not parallel)
+    if(i+1<curSegs.length&&curSegs[i+1].segType!=='parallel'){
       curSegs[i+1].checkin=newCo;renderSegs();setTimeout(()=>rePopSegs(),20);
     }
     updSegCalc(i);updateTotal();checkConflWarn();
@@ -1295,13 +1405,24 @@ function checkConflWarn(){
     warn.style.display='block';
   }else warn.style.display='none';
 }
-function addSeg(){
+function addSwitchSeg(){
+  // Sequential 換房：接上一段的退房日作為新入住日
   const prev=curSegs[curSegs.length-1];
   curSegs.push({seg_id:genId('S'),prop_id:'',room:'',
     checkin:prev?(prev.checkout||''):'',checkout:'',
-    monthlyPrice:0,totalRent:0,status:'reserved'});
+    monthlyPrice:0,totalRent:0,status:'reserved',segType:'switch'});
   renderSegs();setTimeout(()=>rePopSegs(),20);updateTotal();
 }
+function addParallelSeg(){
+  // 並行房間：複製第一段的日期，同期入住不同房間
+  const base=curSegs[0];
+  curSegs.push({seg_id:genId('S'),prop_id:'',room:'',
+    checkin:base?(base.checkin||''):'',checkout:base?(base.checkout||''):'',
+    monthlyPrice:0,totalRent:0,status:'reserved',segType:'parallel'});
+  renderSegs();setTimeout(()=>rePopSegs(),20);updateTotal();
+}
+// Keep legacy alias for backward compatibility
+function addSeg(){addSwitchSeg();}
 function removeSeg(idx){
   if(curSegs.length<=1)return;
   curSegs.splice(idx,1);
@@ -1384,7 +1505,11 @@ function openOrderOverview(){
       const mainSeg=b.segments[0]||{};
       const prop=getProp(mainSeg.prop_id);
       const propName=prop?prop.name:'—';
-      const rooms=[...new Set(b.segments.map(s=>s.room))].join(' → ');
+      const rooms=b.segments.map((s,si)=>{
+        const r=s.room||'?';
+        if(si===0)return r;
+        return(s.segType==='parallel'?'＋':'→')+r;
+      }).join(' ');
       const cis=b.segments.map(s=>s.checkin).filter(Boolean).sort();
       const cos=b.segments.map(s=>s.checkout).filter(Boolean).sort();
       const minCi=cis[0]||'';
