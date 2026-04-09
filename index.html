@@ -350,6 +350,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 .btn-add-parallel:hover{background:#fff3e0}
 .parallel-badge{font-size:9px;background:#fff3e0;color:#e67700;border:1px solid #e67700;
   padding:1px 6px;border-radius:8px;white-space:nowrap;font-weight:700}
+/* Parallel seg: independent dates label */
+.seg-card.seg-parallel .seg-ci{border-color:#e67700!important;background:#fff8f0}
+/* Conflict hard-block color */
+.conflict-warn.hard-block{background:#fff5f5;border-color:#c92a2a}
+/* Per-segment guest fields */
+.seg-guest-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;
+  border-top:1px dashed var(--border);margin-top:6px;padding-top:6px}
 </style>
 </head>
 <body>
@@ -480,7 +487,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div id="segs"></div>
     <div class="seg-btns-row">
       <button class="btn-add-seg" onclick="addSwitchSeg()">🔄 加下一段（換房）</button>
-      <button class="btn-add-parallel" onclick="addParallelSeg()">🏠 加並行房間（同期入住）</button>
+      <button class="btn-add-parallel" onclick="addParallelSeg()">🏠 加同組房間（獨立日期）</button>
     </div>
     <div class="total-bar">
       <span>訂單總計</span>
@@ -666,15 +673,37 @@ function todayStr(){const n=new Date();return ds(n.getFullYear(),n.getMonth()+1,
 // CONFLICT CHECK & AUTO-TASKS
 // ════════════════════════════════════════════════
 function checkConflicts(segs,excludeBkId){
+  // Check against tasks (cleaning/repair)
   const tasks=loadTasks().filter(t=>!excludeBkId||t.bookingId!==excludeBkId);
   const out=[];
   segs.forEach((seg,i)=>{
+    if(!seg.prop_id||!seg.room||!seg.checkin||!seg.checkout)return;
     const ct=tasks.filter(t=>
       String(t.prop_id)===String(seg.prop_id)&&t.room===seg.room&&
       t.start<seg.checkout&&t.end>seg.checkin);
     if(ct.length>0)out.push({segIdx:i,tasks:ct});
   });
   return out;
+}
+// Check booking-to-booking room conflicts (blocks saving)
+function checkBookingConflicts(segs,excludeBkId){
+  const BLOCK_STATUSES=['reserved','pending','checkin'];
+  const allBks=loadBks().filter(b=>b.id!==excludeBkId);
+  const conflicts=[];
+  segs.forEach((seg,i)=>{
+    if(!seg.prop_id||!seg.room||!seg.checkin||!seg.checkout)return;
+    allBks.forEach(b=>{
+      b.segments.forEach(s=>{
+        if(String(s.prop_id)!==String(seg.prop_id)||s.room!==seg.room)return;
+        if(!BLOCK_STATUSES.includes(s.status))return;
+        // Overlap check: existing booking overlaps with new segment
+        if(s.checkin<seg.checkout&&s.checkout>seg.checkin){
+          conflicts.push({segIdx:i,bk:b,existSeg:s});
+        }
+      });
+    });
+  });
+  return conflicts;
 }
 function syncAutoTasks(bk){
   let tasks=loadTasks().filter(t=>t.bookingId!==bk.id);
@@ -892,6 +921,8 @@ function render(){
           '<div class="tt-row"><span class="tt-lbl">狀態</span><span style="color:'+st.color+';font-weight:700">'+st.emoji+' '+st.label+'</span></div>'+
           '<div class="tt-row"><span class="tt-lbl">入住</span>'+seg.checkin+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">退房</span>'+seg.checkout+'</div>'+
+          (seg.guestName?'<div class="tt-row"><span class="tt-lbl">入住人</span>'+seg.guestName+(seg.guestPhone?' · '+seg.guestPhone:'')+'</div>':'')+
+          (bk.phone&&!seg.guestName?'<div class="tt-row"><span class="tt-lbl">電話</span>'+bk.phone+'</div>':'')+
           (bk.totalRent?'<div class="tt-row"><span class="tt-lbl">訂單總金額</span>$'+Number(bk.totalRent).toLocaleString()+'</div>':''))
       });
     });
@@ -1298,7 +1329,7 @@ function renderSegs(){
     seg.totalRent=sub;
     let segLabel,segNote='';
     if(i===0) segLabel='🏠 第 1 間（主房）';
-    else if(isParallel){ segLabel='🏠 第 '+(i+1)+' 間（並行入住）';}
+    else if(isParallel){ segLabel='🏠 第 '+(i+1)+' 間（同組 · 獨立日期）';}
     else{ segLabel='🔄 第 '+(i+1)+' 段（換房）'; segNote='<span class="seg-clean-note">↑ 第'+i+'段退房後自動 2 天打掃期</span>';}
     return '<div class="seg-card'+(isParallel?' seg-parallel':'')+'" data-idx="'+i+'">'+
       '<div class="seg-hdr">'+
@@ -1316,13 +1347,17 @@ function renderSegs(){
               '<option value="">— 請先選館別 —</option></select></div>'+
           '<div class="field"><label>入住日期 <span class="req">*</span></label>'+
             '<input class="seg-ci" type="date" value="'+(seg.checkin||'')+'" '+
-              (i>0?'readonly ':'')+'></div>'+
+              (i>0&&!isParallel?'readonly title="接上段退房日，自動連動" ':'')+'></div>'+
           '<div class="field"><label>退房日期 <span class="req">*</span></label>'+
             '<input class="seg-co" type="date" value="'+(seg.checkout||'')+'"></div>'+
           '<div class="field"><label>月租金 (NT$)</label>'+
             '<input class="seg-price" type="number" min="0" value="'+(seg.monthlyPrice||'')+'" placeholder="自動帶入"></div>'+
           '<div class="field"><label>此段狀態</label>'+
             '<select class="seg-status">'+stOpts+'</select></div>'+
+          '<div class="field"><label>入住人姓名</label>'+
+            '<input class="seg-gname" type="text" value="'+(seg.guestName||'')+'" placeholder="同主訂人可留空"></div>'+
+          '<div class="field"><label>入住人電話</label>'+
+            '<input class="seg-gphone" type="tel" value="'+(seg.guestPhone||'')+'" placeholder="同主訂人可留空"></div>'+
         '</div>'+
       '</div>'+
       '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong></div>'+
@@ -1340,6 +1375,8 @@ function bindSegEvents(i){
   const co=c.querySelector('.seg-co');
   const pr=c.querySelector('.seg-price');
   const st=c.querySelector('.seg-status');
+  const gn=c.querySelector('.seg-gname');
+  const gp=c.querySelector('.seg-gphone');
   if(pp)pp.onchange=function(){
     curSegs[i].prop_id=this.value;curSegs[i].room='';curSegs[i].monthlyPrice=0;
     fillSegRoom(c,this.value,'');updSegCalc(i);updateTotal();checkConflWarn();
@@ -1363,6 +1400,8 @@ function bindSegEvents(i){
   };
   if(pr)pr.onchange=function(){curSegs[i].monthlyPrice=parseFloat(this.value)||0;updSegCalc(i);updateTotal();};
   if(st)st.onchange=function(){curSegs[i].status=this.value;};
+  if(gn)gn.oninput=function(){curSegs[i].guestName=this.value.trim();};
+  if(gp)gp.oninput=function(){curSegs[i].guestPhone=this.value.trim();};
 }
 
 function fillSegRoom(card,propId,selRoom){
@@ -1394,15 +1433,29 @@ function updateTotal(){
   document.getElementById('tot-rent').textContent='$'+rent.toLocaleString();
 }
 function checkConflWarn(){
+  const STATUS_LABEL={reserved:'預定中',pending:'待付款',checkin:'入住中'};
+  const bkCf=checkBookingConflicts(curSegs,editingBkId);
   const cf=checkConflicts(curSegs,editingBkId);
   const warn=document.getElementById('conflict-warn');
   const msg=document.getElementById('conflict-msg');
+  const parts=[];
+  if(bkCf.length>0){
+    warn.style.borderColor='#c92a2a';warn.style.background='#fff5f5';
+    bkCf.forEach(c=>{
+      const s=curSegs[c.segIdx];const es=c.existSeg;
+      parts.push('❌ 第'+(c.segIdx+1)+'段['+s.room+'] 衝突訂單「'+c.bk.guest+'」'+(STATUS_LABEL[es.status]||es.status)+'('+es.checkin+'~'+es.checkout+')');
+    });
+  }
   if(cf.length>0){
-    msg.textContent=cf.map(c=>{
+    cf.forEach(c=>{
       const s=curSegs[c.segIdx];
-      return '第'+(c.segIdx+1)+'段 ['+s.room+']：'+c.tasks.map(t=>(t.type==='repair'?'維修':'打掃')+'('+t.start+'~'+t.end+')').join('、');
-    }).join(' | ');
+      parts.push('⚠️ 第'+(c.segIdx+1)+'段['+s.room+']：'+c.tasks.map(t=>(t.type==='repair'?'維修':'打掃')+'('+t.start+'~'+t.end+')').join('、'));
+    });
+  }
+  if(parts.length>0){
+    msg.textContent=parts.join(' | ');
     warn.style.display='block';
+    if(bkCf.length===0){warn.style.borderColor='#f59f00';warn.style.background='#fff3cd';}
   }else warn.style.display='none';
 }
 function addSwitchSeg(){
@@ -1410,15 +1463,17 @@ function addSwitchSeg(){
   const prev=curSegs[curSegs.length-1];
   curSegs.push({seg_id:genId('S'),prop_id:'',room:'',
     checkin:prev?(prev.checkout||''):'',checkout:'',
-    monthlyPrice:0,totalRent:0,status:'reserved',segType:'switch'});
+    monthlyPrice:0,totalRent:0,status:'reserved',segType:'switch',
+    guestName:'',guestPhone:''});
   renderSegs();setTimeout(()=>rePopSegs(),20);updateTotal();
 }
 function addParallelSeg(){
-  // 並行房間：複製第一段的日期，同期入住不同房間
+  // 並行房間：日期獨立設定，預設沿用第一段日期但可自由修改
   const base=curSegs[0];
   curSegs.push({seg_id:genId('S'),prop_id:'',room:'',
     checkin:base?(base.checkin||''):'',checkout:base?(base.checkout||''):'',
-    monthlyPrice:0,totalRent:0,status:'reserved',segType:'parallel'});
+    monthlyPrice:0,totalRent:0,status:'reserved',segType:'parallel',
+    guestName:'',guestPhone:''});
   renderSegs();setTimeout(()=>rePopSegs(),20);updateTotal();
 }
 // Keep legacy alias for backward compatibility
@@ -1453,6 +1508,19 @@ function saveBk(){
     if(!s.prop_id||!s.room||!s.checkin||!s.checkout){alert('第'+(i+1)+'段：請填寫完整（館別、房號、入住/退房日期）');return;}
     if(s.checkin>=s.checkout){alert('第'+(i+1)+'段：退房日期必須晚於入住日期');return;}
   }
+  // ── Booking-to-booking hard block ──
+  const bkCf=checkBookingConflicts(curSegs,editingBkId);
+  if(bkCf.length>0){
+    const STATUS_LABEL={reserved:'預定中',pending:'待付款',checkin:'入住中'};
+    const msg=bkCf.map(c=>{
+      const s=curSegs[c.segIdx];
+      const es=c.existSeg;
+      return '第'+(c.segIdx+1)+'段 ['+s.room+']：已有「'+c.bk.guest+'」'+(STATUS_LABEL[es.status]||es.status)+' ('+es.checkin+' ~ '+es.checkout+')';
+    }).join('\n');
+    alert('❌ 無法儲存：以下房間已有衝突訂單，請等客人退房或打掃完畢後再安排。\n\n'+msg);
+    return;
+  }
+  // ── Task conflicts (soft warn) ──
   const cf=checkConflicts(curSegs,editingBkId);
   if(cf.length>0){
     const msg=cf.map(c=>{
