@@ -465,6 +465,20 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <span class="qa-lbl">快捷：</span>
       <div id="qa-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
+    <!-- 續約面板 -->
+    <div id="renewal-panel" style="display:none;background:#ebfbee;border:1.5px solid #2f9e44;
+      border-radius:8px;padding:10px 13px;margin-top:6px">
+      <div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:8px">
+        🔄 續約 / 延長租期 — 請設定新的退房日期（需晚於原退房日）
+      </div>
+      <div id="renewal-rows"></div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-primary" onclick="applyRenewal()"
+          style="height:28px;font-size:11px;padding:0 12px">✅ 確認延長</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('renewal-panel').style.display='none'"
+          style="height:28px;font-size:11px;padding:0 10px">取消</button>
+      </div>
+    </div>
     <div class="section-title">客戶資訊</div>
     <div class="form-grid">
       <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
@@ -519,7 +533,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="modal-body">
     <div id="tk-auto-badge" class="auto-badge" style="display:none">
-      🔄 此為換房自動產生的打掃期，可調整結束日期
+      🔄 自動排程（可自由調整開始 / 結束日期，館別與房號鎖定）
     </div>
     <div class="form-grid">
       <div class="field span2">
@@ -711,16 +725,21 @@ function checkBookingConflicts(segs,excludeBkId){
   return conflicts;
 }
 function syncAutoTasks(bk){
-  let tasks=loadTasks().filter(t=>t.bookingId!==bk.id);
+  // Remove all previous auto tasks for this booking
+  let tasks=loadTasks().filter(t=>!(t.isAuto&&t.bookingId===bk.id));
   bk.segments.forEach((seg,i)=>{
-    if(i<bk.segments.length-1){
-      const nextSeg=bk.segments[i+1];
-      // Only create auto-clean for sequential switch segments (not parallel rooms)
-      if(nextSeg.segType!=='parallel'){
-        tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-          start:seg.checkout,end:addDays(seg.checkout,2),
-          note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
-      }
+    if(!seg.checkout||!seg.prop_id||!seg.room)return;
+    const nextSeg=i+1<bk.segments.length?bk.segments[i+1]:null;
+    if(nextSeg&&nextSeg.segType==='switch'){
+      // 換房中間：在本段退房日排清潔（客人換去另一間，此間需打掃）
+      tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
+        start:seg.checkout,end:addDays(seg.checkout,2),
+        note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
+    } else {
+      // 所有其他情況：退房當天起排 2 天打掃（最後一段、並行房間、單間）
+      tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
+        start:seg.checkout,end:addDays(seg.checkout,2),
+        note:'退房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
     }
   });
   saveTasks(tasks);
@@ -1127,10 +1146,10 @@ function openEditTask(tk){
   const isAuto=!!tk.isAuto;
   document.getElementById('tk-auto-badge').style.display=isAuto?'flex':'none';
   document.getElementById('tk-start').value=tk.start||'';
-  document.getElementById('tk-start').readOnly=isAuto;
+  document.getElementById('tk-start').readOnly=false;   // 開始日期永遠可修改（含自動排程）
   document.getElementById('tk-end').value=tk.end||'';
   document.getElementById('tk-note').value=tk.note||'';
-
+  // 館別/房號鎖定讓使用者不誤改，但開始/結束日期全部開放
   populateTkProps(String(tk.prop_id||''),isAuto);
   fillTkRooms(String(tk.prop_id||''),tk.room||'',isAuto);
   document.getElementById('tk-ov').classList.add('open');
@@ -1199,7 +1218,7 @@ function saveTk(){
       tasks[idx]={...old,type:curTkType,
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
-        start:old.isAuto?old.start:start,
+        start,   // 開始日期現在允許修改（含自動排程）
         end,note};
     }
   }else{
@@ -1277,7 +1296,11 @@ function openEditBk(bk){
     updateTotal();
   },50);
 }
-function closeBk(){document.getElementById('bk-ov').classList.remove('open');}
+function closeBk(){
+  document.getElementById('bk-ov').classList.remove('open');
+  const rp=document.getElementById('renewal-panel');
+  if(rp)rp.style.display='none';
+}
 
 function renderQA(bk){
   const bar=document.getElementById('qa-bar'),btns=document.getElementById('qa-btns');
@@ -1285,8 +1308,49 @@ function renderQA(bk){
   const hasCi=bk.segments.some(s=>s.status==='checkin');
   let html='';
   if(hasRes)html+='<button class="qa-btn qa-green" onclick="doConfirmCheckin()">✅ 確認付款，轉為入住中</button>';
-  if(hasCi) html+='<button class="qa-btn qa-red" onclick="doEarlyCheckout()">🚪 確定提前退房</button>';
+  if(hasCi){
+    html+='<button class="qa-btn qa-green" onclick="doRenewal()" style="background:#d3f9d8;color:#2f9e44;border-color:#2f9e44">🔄 續約/延長租期</button>';
+    html+='<button class="qa-btn qa-red" onclick="doEarlyCheckout()">🚪 確定提前退房</button>';
+  }
   if(html){btns.innerHTML=html;bar.style.display='flex';}else bar.style.display='none';
+}
+function doRenewal(){
+  const panel=document.getElementById('renewal-panel');
+  const rows=document.getElementById('renewal-rows');
+  rows.innerHTML='';
+  let hasCheckin=false;
+  curSegs.forEach((seg,i)=>{
+    if(seg.status!=='checkin')return;
+    hasCheckin=true;
+    const p=getProp(seg.prop_id);
+    const pName=p?p.name:'—';
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap';
+    div.innerHTML=
+      '<span style="font-size:11px;flex:1;min-width:120px">'+pName+' 【'+seg.room+'】<br>'+
+      '<span style="color:var(--muted);font-size:10px">現退房日：'+seg.checkout+'</span></span>'+
+      '<div style="display:flex;align-items:center;gap:4px">'+
+      '<label style="font-size:10px;color:var(--muted)">新退房日：</label>'+
+      '<input type="date" id="rn-'+i+'" value="'+seg.checkout+'" min="'+addDays(seg.checkout,1)+'" '+
+      'style="height:28px;font-size:11px;border:1.5px solid #2f9e44;border-radius:5px;padding:0 6px;outline:none"></div>';
+    rows.appendChild(div);
+  });
+  if(!hasCheckin){alert('目前沒有「入住中」狀態的房間可以續約');return;}
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function applyRenewal(){
+  let changed=0;
+  curSegs.forEach((seg,i)=>{
+    if(seg.status!=='checkin')return;
+    const inp=document.getElementById('rn-'+i);
+    if(!inp)return;
+    const newCo=inp.value;
+    if(newCo&&newCo>seg.checkout){seg.checkout=newCo;changed++;}
+  });
+  if(!changed){alert('未變更：新退房日需晚於原退房日');return;}
+  document.getElementById('renewal-panel').style.display='none';
+  saveBk(); // 儲存並更新打掃排程
 }
 function doConfirmCheckin(){
   if(!editingBkId)return;
@@ -1299,20 +1363,16 @@ function doEarlyCheckout(){
   if(!confirm('確定提前退房？\n退房日期將更新為今天，原訂租金維持不變。'))return;
   const tod=todayStr();
   const all=loadBks();const bk=all.find(b=>b.id===editingBkId);if(!bk)return;
-  let cleanSegs=[];
+  let changedCount=0;
   bk.segments.forEach(s=>{
     if(s.status==='checkin'&&s.checkout>tod){
       s.checkout=tod;s.status='checkout';
-      cleanSegs.push({...s});
+      changedCount++;
     }
   });
-  saveBks(all);syncAutoTasks(bk);
-  // Ask to schedule cleaning
-  if(cleanSegs.length>0){
-    if(confirm('退房完成！是否自動安排後 2 天打掃行程？')){
-      cleanSegs.forEach(s=>scheduleCheckoutCleaning(s,bk.guest));
-    }
-  }
+  saveBks(all);
+  syncAutoTasks(bk);  // 自動更新所有清潔排程（退房日即起）
+  if(changedCount>0)alert('退房完成！已自動安排退房後 2 天打掃行程。');
   closeBk();render();
 }
 
