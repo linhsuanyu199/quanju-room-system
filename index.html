@@ -489,6 +489,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <button class="btn-add-seg" onclick="addSwitchSeg()">🔄 加下一段（換房）</button>
       <button class="btn-add-parallel" onclick="addParallelSeg()">🏠 加同組房間（獨立日期）</button>
     </div>
+    <div id="seg-tip" style="display:none;font-size:10px;color:var(--muted);padding:4px 6px;
+      background:#f8f9fa;border-radius:5px;margin-top:4px;line-height:1.6">
+      💡 取消單一房間：點該房間右上角「✕ 取消此房間」→ 再按「儲存預定」，其他房間不受影響。<br>
+      取消整筆訂單：按底部「🗑 取消整筆訂單」（會刪除此客戶的所有房間預定）。
+    </div>
     <div class="total-bar">
       <span>訂單總計</span>
       <div style="display:flex;align-items:baseline;gap:8px">
@@ -499,7 +504,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="form-actions">
     <button class="btn btn-ghost" onclick="closeBk()">取消</button>
-    <button class="btn btn-danger" id="btn-del" style="display:none" onclick="deleteBk()">🗑 刪除預定</button>
+    <button class="btn btn-danger" id="btn-del" style="display:none" onclick="deleteBk()">🗑 取消整筆訂單</button>
     <button class="btn btn-primary" onclick="saveBk()">💾 儲存預定</button>
   </div>
 </div>
@@ -1317,6 +1322,9 @@ function doEarlyCheckout(){
 function renderSegs(){
   const ap=getAllProps();
   const c=document.getElementById('segs');
+  // Show tip when editing a multi-room booking
+  const tip=document.getElementById('seg-tip');
+  if(tip)tip.style.display=(curSegs.length>1&&editingBkId)?'block':'none';
   c.innerHTML=curSegs.map((seg,i)=>{
     const isParallel=seg.segType==='parallel';
     const pOpts=ap.map(p=>'<option value="'+String(p.id)+'" '+
@@ -1334,8 +1342,8 @@ function renderSegs(){
     return '<div class="seg-card'+(isParallel?' seg-parallel':'')+'" data-idx="'+i+'">'+
       '<div class="seg-hdr">'+
         '<span class="seg-num">'+segLabel+'</span>'+
-        (isParallel?'<span class="parallel-badge">同期</span>':segNote)+
-        (curSegs.length>1?'<button class="seg-del-btn" onclick="removeSeg('+i+')">✕ 移除</button>':'')+
+        (isParallel?'<span class="parallel-badge">同組</span>':segNote)+
+        (curSegs.length>1?'<button class="seg-del-btn" onclick="confirmRemoveSeg('+i+')" title="僅移除此房間，不影響其他房間">✕ 取消此房間</button>':'')+
       '</div>'+
       '<div class="seg-body">'+
         '<div class="form-grid">'+
@@ -1478,10 +1486,29 @@ function addParallelSeg(){
 }
 // Keep legacy alias for backward compatibility
 function addSeg(){addSwitchSeg();}
+function confirmRemoveSeg(idx){
+  const seg=curSegs[idx];
+  const p=getProp(seg.prop_id);
+  const roomDesc=(p?p.name:'')+(seg.room?' 【'+seg.room+'】':'（未選擇）');
+  const msg=seg.prop_id&&seg.room
+    ?'僅取消 '+roomDesc+' 這一間，其他房間維持不變。\n確定移除？'
+    :'移除此房間段落？（其他房間不受影響）';
+  if(!confirm(msg))return;
+  removeSeg(idx);
+}
 function removeSeg(idx){
   if(curSegs.length<=1)return;
+  const removedSeg=curSegs[idx];
   curSegs.splice(idx,1);
-  for(let i=1;i<curSegs.length;i++)curSegs[i].checkin=curSegs[i-1].checkout||curSegs[i].checkin;
+  // Only propagate dates for sequential switch segments — NEVER overwrite parallel rooms' independent dates
+  for(let i=1;i<curSegs.length;i++){
+    if(curSegs[i].segType==='switch'){
+      curSegs[i].checkin=curSegs[i-1].segType==='switch'||i===1
+        ?curSegs[i-1].checkout||curSegs[i].checkin
+        :curSegs[i].checkin;
+    }
+    // parallel segments keep their own dates unchanged
+  }
   renderSegs();setTimeout(()=>rePopSegs(),20);updateTotal();checkConflWarn();
 }
 function rePopSegs(){
@@ -1546,7 +1573,17 @@ function saveBk(){
 }
 function deleteBk(){
   if(!editingBkId)return;
-  if(!confirm('確定要刪除此預定？'))return;
+  const bk=loadBks().find(b=>b.id===editingBkId);
+  if(!bk)return;
+  const roomCount=bk.segments.length;
+  const roomList=bk.segments.map((s,i)=>{
+    const p=getProp(s.prop_id);
+    return (i+1)+'.'+(p?p.name:'?')+'【'+s.room+'】('+s.checkin+' ~ '+s.checkout+')';
+  }).join('\n');
+  const msg=roomCount>1
+    ?'⚠️ 此操作將取消「'+bk.guest+'」的整筆訂單，共 '+roomCount+' 間房間全部刪除：\n\n'+roomList+'\n\n若只需取消其中某間，請關閉此對話框，在該房間右上角點「✕ 取消此房間」再按「儲存預定」，其他房間不受影響。\n\n確定取消整筆訂單（所有房間）？'
+    :'確定要取消「'+bk.guest+'」的預定（'+bk.segments[0].room+'）？';
+  if(!confirm(msg))return;
   saveTasks(loadTasks().filter(t=>t.bookingId!==editingBkId));
   saveBks(loadBks().filter(b=>b.id!==editingBkId));
   closeBk();render();
