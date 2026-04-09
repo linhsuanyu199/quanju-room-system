@@ -465,6 +465,23 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <span class="qa-lbl">快捷：</span>
       <div id="qa-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
+    <!-- 提前退房選擇面板 -->
+    <div id="earlychk-panel" style="display:none;background:#fff5f5;border:1.5px solid #c92a2a;
+      border-radius:8px;padding:10px 13px;margin-top:6px">
+      <div style="font-size:11px;font-weight:700;color:#c92a2a;margin-bottom:6px">
+        🚪 選擇要提前退房的房間（其他房間不受影響）
+      </div>
+      <div id="earlychk-rows"></div>
+      <div style="font-size:10px;color:var(--muted);margin:5px 0">
+        勾選的房間退房日期將更新為今天，原訂租金維持不變。
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-danger" onclick="applyEarlyCheckout()"
+          style="height:28px;font-size:11px;padding:0 12px">✅ 確認退房</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('earlychk-panel').style.display='none'"
+          style="height:28px;font-size:11px;padding:0 10px">取消</button>
+      </div>
+    </div>
     <!-- 續約面板 -->
     <div id="renewal-panel" style="display:none;background:#ebfbee;border:1.5px solid #2f9e44;
       border-radius:8px;padding:10px 13px;margin-top:6px">
@@ -1298,8 +1315,9 @@ function openEditBk(bk){
 }
 function closeBk(){
   document.getElementById('bk-ov').classList.remove('open');
-  const rp=document.getElementById('renewal-panel');
-  if(rp)rp.style.display='none';
+  ['renewal-panel','earlychk-panel'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
 }
 
 function renderQA(bk){
@@ -1354,26 +1372,92 @@ function applyRenewal(){
 }
 function doConfirmCheckin(){
   if(!editingBkId)return;
-  const all=loadBks();const bk=all.find(b=>b.id===editingBkId);if(!bk)return;
-  bk.segments.forEach(s=>{if(s.status==='reserved'||s.status==='pending')s.status='checkin';});
-  saveBks(all);openEditBk(bk);render();
-}
-function doEarlyCheckout(){
-  if(!editingBkId)return;
-  if(!confirm('確定提前退房？\n退房日期將更新為今天，原訂租金維持不變。'))return;
   const tod=todayStr();
   const all=loadBks();const bk=all.find(b=>b.id===editingBkId);if(!bk)return;
-  let changedCount=0;
+  // 只更新「入住日 <= 今天」的預定/待付款房間，尚未到入住日的保留原狀
+  let updated=[],skipped=[];
   bk.segments.forEach(s=>{
-    if(s.status==='checkin'&&s.checkout>tod){
-      s.checkout=tod;s.status='checkout';
-      changedCount++;
-    }
+    if(s.status!=='reserved'&&s.status!=='pending')return;
+    if(s.checkin<=tod){s.status='checkin';updated.push(s);}
+    else skipped.push(s);
   });
+  if(updated.length===0){
+    alert('目前沒有「入住日已到」的房間可轉換。\n所有房間的入住日期尚未到達。');
+    return;
+  }
   saveBks(all);
-  syncAutoTasks(bk);  // 自動更新所有清潔排程（退房日即起）
-  if(changedCount>0)alert('退房完成！已自動安排退房後 2 天打掃行程。');
-  closeBk();render();
+  if(skipped.length>0){
+    const info=skipped.map(s=>{
+      const p=getProp(s.prop_id);
+      return '・'+(p?p.name:'?')+'【'+s.room+'】入住日：'+s.checkin;
+    }).join('\n');
+    alert('✅ 已更新 '+updated.length+' 間為入住中。\n\n以下房間入住日尚未到達，維持原狀態不變：\n'+info);
+  }
+  openEditBk(bk);render();
+}
+
+function doEarlyCheckout(){
+  if(!editingBkId)return;
+  const tod=todayStr();
+  // 收集所有入住中的段落，供使用者選擇要退哪幾間
+  const checkinIdxs=[];
+  curSegs.forEach((s,i)=>{if(s.status==='checkin'&&s.checkout>tod)checkinIdxs.push(i);});
+  if(checkinIdxs.length===0){alert('目前沒有可提前退房的入住中房間');return;}
+
+  // 判斷是否所有入住中房間的入住日與退房日完全相同（同步更新條件）
+  const allSameDates=checkinIdxs.length>1&&checkinIdxs.every(i=>{
+    const s=curSegs[i];
+    return s.checkin===curSegs[checkinIdxs[0]].checkin
+        &&s.checkout===curSegs[checkinIdxs[0]].checkout;
+  });
+
+  const panel=document.getElementById('earlychk-panel');
+  const rows=document.getElementById('earlychk-rows');
+  rows.innerHTML='';
+  checkinIdxs.forEach(i=>{
+    const s=curSegs[i];
+    const p=getProp(s.prop_id);
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:7px';
+    // 同日期的全部預選；不同日期的都先不勾選，讓使用者自行選
+    const preChecked=allSameDates||checkinIdxs.length===1?'checked':'';
+    div.innerHTML=
+      '<input type="checkbox" id="ec-'+i+'" '+preChecked+
+        ' style="width:14px;height:14px;accent-color:#c92a2a;cursor:pointer">'+
+      '<label for="ec-'+i+'" style="font-size:11px;cursor:pointer;line-height:1.5">'+
+        (p?p.name:'?')+' 【'+s.room+'】'+
+        '<span style="color:var(--muted);font-size:10px;margin-left:6px">'+
+          s.checkin+' ~ '+s.checkout+'</span>'+
+        (allSameDates?'<span style="color:#c92a2a;font-size:9px;margin-left:4px">（同日期全選）</span>':'')+
+      '</label>';
+    rows.appendChild(div);
+  });
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function applyEarlyCheckout(){
+  const tod=todayStr();
+  // 確認哪些房間被勾選
+  const selected=[];
+  curSegs.forEach((s,i)=>{
+    const cb=document.getElementById('ec-'+i);
+    if(cb&&cb.checked&&s.status==='checkin'&&s.checkout>tod)selected.push(i);
+  });
+  if(selected.length===0){alert('請至少勾選一間要退房的房間');return;}
+  const info=selected.map(i=>{const s=curSegs[i];const p=getProp(s.prop_id);return (p?p.name:'?')+'【'+s.room+'】';}).join('、');
+  if(!confirm('確定提前退房：'+info+'？\n退房日更新為今天，原訂租金維持不變。'))return;
+
+  const all=loadBks();const bk=all.find(b=>b.id===editingBkId);if(!bk)return;
+  // 同時更新 bk.segments 與 curSegs
+  selected.forEach(i=>{
+    bk.segments[i].checkout=tod;bk.segments[i].status='checkout';
+    curSegs[i].checkout=tod;curSegs[i].status='checkout';
+  });
+  document.getElementById('earlychk-panel').style.display='none';
+  saveBks(all);syncAutoTasks(bk);
+  alert('已完成 '+selected.length+' 間提前退房，打掃排程已自動更新。');
+  openEditBk(bk);render();
 }
 
 // ════════════════════════════════════════════════
