@@ -427,6 +427,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <option value="cleaning">🔵 打掃中</option>
     <option value="repair">🔴 維修中</option>
   </select>
+  <select class="sel" id="f-svc" onchange="render()" title="服務類型篩選">
+    <option value="">全部類型</option>
+    <option value="包租">📦 包租</option>
+    <option value="合作拆帳">🤝 合作拆帳</option>
+  </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
 </div>
 
@@ -499,10 +504,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="section-title">客戶資訊</div>
     <div class="form-grid">
       <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
-      <div class="field"><label>聯絡電話</label><input id="g-phone" type="tel" placeholder="0912-345-678"></div>
+      <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required></div>
       <div class="field"><label>Email</label><input id="g-email" type="email"></div>
       <div class="field"><label>付款方式</label>
-        <select id="g-payment"><option>永豐(誠毅)</option><option>Paypal(全居)</option>
+        <select id="g-payment"><option>國泰(全居)</option><option>Paypal(全居)</option>
           <option>藍新</option><option>綠界</option><option>現金</option><option>其他</option></select>
       </div>
       <div class="field"><label>押金 (NT$)</label><input id="g-deposit" type="number" min="0" placeholder="0"></div>
@@ -608,8 +613,16 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="pm-add-prop-section" id="pm-add-section">
       <div class="section-title">＋ 新增館別</div>
       <div class="form-grid">
-        <div class="field"><label>館別名稱 <span class="req">*</span></label><input id="np-name" type="text" placeholder="如 信義新館"></div>
-        <div class="field"><label>館別地址</label><input id="np-addr" type="text" placeholder="台北市…"></div>
+        <div class="field"><label>館別名稱 <span class="req">*</span></label><input id="np-name" type="text" placeholder="如 台大公館一館"></div>
+        <div class="field"><label>館別代號</label><input id="np-code" type="text" placeholder="如 888001"></div>
+        <div class="field"><label>館別地址 <span class="req">*</span></label><input id="np-addr" type="text" placeholder="台北市羅斯福路…"></div>
+        <div class="field"><label>服務類型</label>
+          <select id="np-svc">
+            <option value="">一般</option>
+            <option value="包租">📦 包租</option>
+            <option value="合作拆帳">🤝 合作拆帳</option>
+          </select>
+        </div>
         <div class="field" style="grid-column:1/-1;align-items:flex-start">
           <button class="btn btn-primary" onclick="doAddProp()">建立館別</button>
         </div>
@@ -673,17 +686,38 @@ function loadExtras(){try{return JSON.parse(localStorage.getItem('qj_ext')||'{}'
 function saveExtras(o){localStorage.setItem('qj_ext',JSON.stringify(o));}
 function loadTasks(){try{return JSON.parse(localStorage.getItem('qj_tasks')||'[]');}catch(e){return[];}}
 function saveTasks(a){localStorage.setItem('qj_tasks',JSON.stringify(a));}
+function loadPropInfo(){try{return JSON.parse(localStorage.getItem('qj_propinfo')||'{}')}catch(e){return{};}}
+function savePropInfo(d){localStorage.setItem('qj_propinfo',JSON.stringify(d));}
+function savePropInfoField(pid,field,val){const d=loadPropInfo();if(!d[pid])d[pid]={};d[pid][field]=val;savePropInfo(d);}
 function genId(p){return(p||'ID')+Date.now()+Math.random().toString(36).slice(2,5).toUpperCase();}
 
 // ════════════════════════════════════════════════
 // PROPERTY HELPERS
 // ════════════════════════════════════════════════
 function getAllProps(){
-  const ovr=loadOvr(),ext=loadExtras();
-  function ao(pid,r){const ov=ovr[String(pid)];return{...r,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};}
-  const ep=EXCEL_DATA.properties.map(p=>({...p,
-    rooms:[...p.rooms.map(r=>ao(p.id,r)),...(ext[String(p.id)]||[]).map(r=>ao(p.id,r))]}));
-  const cp=loadCPs().map(p=>({...p,rooms:p.rooms.map(r=>ao(p.id,r))}));
+  const ovr=loadOvr(),ext=loadExtras(),pi=loadPropInfo();
+  function ao(pid,r){
+    const ov=ovr[String(pid)];
+    const rpi=pi[String(pid)];
+    const rn=rpi&&rpi.roomNames&&rpi.roomNames[r.room]?rpi.roomNames[r.room]:r.room;
+    return{...r,room:rn,_origRoom:r.room,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
+  }
+  const ep=EXCEL_DATA.properties.map(p=>{
+    const info=pi[String(p.id)]||{};
+    return {...p,
+      address:info.address!==undefined?info.address:p.address,
+      code:info.code!==undefined?info.code:p.code,
+      serviceType:info.serviceType||p.serviceType||'',
+      rooms:[...p.rooms.map(r=>ao(p.id,r)),...(ext[String(p.id)]||[]).map(r=>ao(p.id,r))]};
+  });
+  const cp=loadCPs().map(p=>{
+    const info=pi[String(p.id)]||{};
+    return {...p,
+      address:info.address!==undefined?info.address:p.address,
+      code:info.code!==undefined?info.code:p.code,
+      serviceType:info.serviceType||p.serviceType||'',
+      rooms:p.rooms.map(r=>ao(p.id,r))};
+  });
   return[...ep,...cp];
 }
 function getProp(pid){return getAllProps().find(p=>String(p.id)===String(pid));}
@@ -829,7 +863,8 @@ function populatePropFilter(){
   pf.innerHTML='<option value="">全部館別</option>';
   getAllProps().forEach(p=>{
     const o=document.createElement('option');
-    o.value=String(p.id);o.textContent=p.name+(p.address?' ('+p.address+')':'');
+    const svcLabel=p.serviceType?' ['+p.serviceType+']':'';
+    o.value=String(p.id);o.textContent=p.name+svcLabel+(p.address?' ('+p.address+')':'');
     if(String(p.id)===cur)o.selected=true;
     pf.appendChild(o);
   });
@@ -1001,7 +1036,9 @@ function render(){
   }
 
   let ap=getAllProps();
+  const fsvc=(document.getElementById('f-svc')||{}).value||'';
   if(fp)ap=ap.filter(p=>String(p.id)===fp);
+  if(fsvc)ap=ap.filter(p=>(p.serviceType||'')=== fsvc);
   let tRooms=0,tRDays=0,occD=0,actualRev=0;
   // Count unique local booking IDs active this month
   const activeBkIds=new Set();
@@ -1015,7 +1052,7 @@ function render(){
     const ph=document.createElement('div');
     ph.className='prop-hdr';ph.dataset.pid=pid;
     ph.innerHTML='<span class="prop-toggle '+(isColl?'closed':'open')+'">▾</span>'+
-      '<span class="prop-name">'+prop.name+'</span>'+
+      '<span class="prop-name">'+prop.name+(prop.serviceType?'<span style="font-size:9px;background:rgba(255,255,255,.25);border-radius:3px;padding:1px 4px;margin-left:4px">'+prop.serviceType+'</span>':'')+' '+(prop.code?'<span style="font-size:9px;opacity:.7">('+prop.code+')</span>':'')+'</span>'+
       (prop.custom?'<span class="custom-badge">自訂</span>':'')+
       '<span class="prop-cnt">'+prop.rooms.length+'間</span>';
     ph.addEventListener('click',()=>toggleProp(pid));
@@ -1267,7 +1304,7 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('conflict-warn').style.display='none';
   ['g-name','g-phone','g-email','g-note'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('g-deposit').value='';
-  document.getElementById('g-payment').value='永豐(誠毅)';
+  document.getElementById('g-payment').value='國泰(全居)';
   curSegs=[{seg_id:genId('S'),prop_id:propId||'',room:roomNo||'',
     checkin:dateS||'',checkout:'',monthlyPrice:0,totalRent:0,status:'reserved'}];
   renderSegs();updateTotal();
@@ -1295,7 +1332,7 @@ function openEditBk(bk){
   document.getElementById('g-phone').value=bk.phone||'';
   document.getElementById('g-email').value=bk.email||'';
   document.getElementById('g-deposit').value=bk.deposit||'';
-  document.getElementById('g-payment').value=bk.payment||'永豐(誠毅)';
+  document.getElementById('g-payment').value=bk.payment||'國泰(全居)';
   document.getElementById('g-note').value=bk.note||'';
   renderQA(bk);
   curSegs=bk.segments.map(s=>({...s}));
@@ -1459,6 +1496,17 @@ function applyEarlyCheckout(){
   alert('已完成 '+selected.length+' 間提前退房，打掃排程已自動更新。');
   openEditBk(bk);render();
 }
+function copyMainGuestToSeg(idx,field){
+  const cards=document.querySelectorAll('.seg-card');
+  if(!cards[idx])return;
+  if(field==='name'){
+    const mainName=(document.getElementById('g-name').value||'').trim();
+    cards[idx].querySelector('.seg-gname').value=mainName;
+  }else{
+    const mainPhone=(document.getElementById('g-phone').value||'').trim();
+    cards[idx].querySelector('.seg-gphone').value=mainPhone;
+  }
+}
 
 // ════════════════════════════════════════════════
 // SEGMENTS
@@ -1507,9 +1555,15 @@ function renderSegs(){
           '<div class="field"><label>此段狀態</label>'+
             '<select class="seg-status">'+stOpts+'</select></div>'+
           '<div class="field"><label>入住人姓名</label>'+
-            '<input class="seg-gname" type="text" value="'+(seg.guestName||'')+'" placeholder="同主訂人可留空"></div>'+
+            '<div style="display:flex;gap:3px">'+
+            '<input class="seg-gname" type="text" value="'+(seg.guestName||'')+'" placeholder="同主訂人可留空" style="flex:1">'+
+            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'name\')" title="帶入主訂人姓名" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#f8f9fa">👤 同</button>'+
+            '</div></div>'+
           '<div class="field"><label>入住人電話</label>'+
-            '<input class="seg-gphone" type="tel" value="'+(seg.guestPhone||'')+'" placeholder="同主訂人可留空"></div>'+
+            '<div style="display:flex;gap:3px">'+
+            '<input class="seg-gphone" type="tel" value="'+(seg.guestPhone||'')+'" placeholder="同主訂人可留空" style="flex:1">'+
+            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'phone\')" title="帶入主訂人電話" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#f8f9fa">📞 同</button>'+
+            '</div></div>'+
         '</div>'+
       '</div>'+
       '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong></div>'+
@@ -1674,6 +1728,8 @@ function rePopSegs(){
 function saveBk(){
   const guest=document.getElementById('g-name').value.trim();
   if(!guest){alert('請填寫客戶姓名');return;}
+  const gPhone=(document.getElementById('g-phone').value||'').trim();
+  if(!gPhone){alert('請填寫聯絡電話');return;}
   for(let i=0;i<curSegs.length;i++){
     const s=curSegs[i];
     if(!s.prop_id||!s.room||!s.checkin||!s.checkout){alert('第'+(i+1)+'段：請填寫完整（館別、房號、入住/退房日期）');return;}
@@ -1807,30 +1863,56 @@ function renderPM(){
     const ov=ovr[pid]||{};
     const origProp=EXCEL_DATA.properties.find(p=>String(p.id)===pid);
     const roomRows=prop.rooms.map(room=>{
-      const orig=origProp?origProp.rooms.find(r=>r.room===room.room):null;
+      const origRoom=room._origRoom||room.room;
+      const orig=origProp?origProp.rooms.find(r=>r.room===origRoom):null;
       const origP=orig?orig.price:room.price;
-      const curP=ov[room.room]!==undefined?ov[room.room]:room.price;
-      const changed=ov[room.room]!==undefined&&ov[room.room]!==origP;
-      const isExtra=!!(ext[pid]&&ext[pid].some(r=>r.room===room.room));
+      const curP=ov[origRoom]!==undefined?ov[origRoom]:room.price;
+      const changed=ov[origRoom]!==undefined&&ov[origRoom]!==origP;
+      const isExtra=!!(ext[pid]&&ext[pid].some(r=>r.room===origRoom));
       return '<div class="pm-room-row">'+
         '<span class="pm-rno">'+room.room+'</span>'+
         (room.type?'<span class="pm-rtype">'+room.type+'</span>':'')+
         '<span class="pm-price-wrap">NT$&nbsp;'+
           '<input class="pm-price-input'+(changed?' changed':'')+'" type="number" '+
             'value="'+(curP||'')+'" placeholder="月租金" '+
-            'onchange="setRP(\''+pid+'\',\''+room.room+'\',this)">&nbsp;/月'+
+            'onchange="setRP(\''+pid+'\',\''+origRoom+'\',this)">&nbsp;/月'+
         '</span>'+
-        (isCustom||isExtra?'<button class="pm-icon-del" onclick="delRoom(\''+pid+'\',\''+room.room+'\','+isExtra+')">🗑</button>':'')+
+        (isCustom||isExtra?'<button class="pm-icon-del" onclick="delRoom(\''+pid+'\',\''+origRoom+'\','+isExtra+')">🗑</button>':'')+
       '</div>';
     }).join('');
+    const svcBadge=prop.serviceType?'<span style="font-size:9px;background:rgba(255,255,255,.25);border-radius:3px;padding:1px 5px;margin-left:5px">'+prop.serviceType+'</span>':'';
+    const codeBadge=prop.code?'<span style="font-size:9px;opacity:.7;margin-left:5px">('+prop.code+')</span>':'';
     return '<div class="pm-prop">'+
       '<div class="pm-prop-hdr">'+
-        '<span class="prop-nm">'+prop.name+(prop.custom?'<span class="custom-badge" style="margin-left:6px">自訂</span>':'')+'</span>'+
-        '<span class="prop-addr">'+(prop.address||'（尚未設定地址）')+'</span>'+
+        '<div style="display:flex;flex-direction:column;flex:1;min-width:0">'+
+          '<span class="prop-nm">'+prop.name+svcBadge+codeBadge+'</span>'+
+          '<span class="prop-addr">'+(prop.address||'（尚未設定地址）')+'</span>'+
+        '</div>'+
         '<div class="pm-hdr-btns">'+
-          (isCustom?'<button class="pm-icon-btn" onclick="editPropInfo(\''+pid+'\')">✏️ 編輯</button>'+
-            '<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')
-        +'</div>'+
+          '<button class="pm-icon-btn" onclick="togglePropEdit(\''+pid+'\')">✏️ 編輯</button>'+
+          (isCustom?'<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')+
+        '</div>'+
+      '</div>'+
+      // Inline edit panel (hidden by default)
+      '<div class="pm-edit-panel" id="pe-'+pid+'" style="display:none;padding:10px 11px;background:#f8f9fa;border-top:1px solid var(--border)">'+
+        '<div class="form-grid">'+
+          '<div class="field"><label style="font-size:10px">館別名稱</label>'+
+            '<input type="text" id="pe-nm-'+pid+'" value="'+escH(prop.name)+'" style="height:28px;font-size:11px"></div>'+
+          '<div class="field"><label style="font-size:10px">館別代號</label>'+
+            '<input type="text" id="pe-code-'+pid+'" value="'+escH(prop.code||'')+'" placeholder="如 888001" style="height:28px;font-size:11px"></div>'+
+          '<div class="field"><label style="font-size:10px">館別地址</label>'+
+            '<input type="text" id="pe-addr-'+pid+'" value="'+escH(prop.address||'')+'" placeholder="完整地址" style="height:28px;font-size:11px"></div>'+
+          '<div class="field"><label style="font-size:10px">服務類型</label>'+
+            '<select id="pe-svc-'+pid+'" style="height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 6px">'+
+              '<option value="" '+((!prop.serviceType)?'selected':'')+'>一般</option>'+
+              '<option value="包租" '+(prop.serviceType==='包租'?'selected':'')+'>📦 包租</option>'+
+              '<option value="合作拆帳" '+(prop.serviceType==='合作拆帳'?'selected':'')+'>🤝 合作拆帳</option>'+
+            '</select></div>'+
+          '<div class="field" style="align-self:flex-end;flex-direction:row;gap:5px">'+
+            '<button class="btn btn-primary sm" onclick="savePropEdit(\''+pid+'\')">💾 儲存</button>'+
+            '<button class="btn btn-ghost sm" onclick="togglePropEdit(\''+pid+'\')">取消</button>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
       '<div class="pm-rooms">'+roomRows+'</div>'+
       '<div class="pm-add-row"><button class="btn btn-ghost sm" onclick="showAF(\''+pid+'\')">＋ 新增房間</button></div>'+
@@ -1880,11 +1962,36 @@ function delRoom(pid,rno,isExtra){
   else{const cps=loadCPs();const p=cps.find(x=>String(x.id)===pid);if(p){p.rooms=p.rooms.filter(r=>r.room!==rno);saveCPs(cps);}}
   renderPM();
 }
-function editPropInfo(pid){
-  const cps=loadCPs();const p=cps.find(x=>String(x.id)===pid);if(!p)return;
-  const nm=prompt('館別名稱：',p.name);if(nm===null)return;
-  const addr=prompt('館別地址：',p.address||'');if(addr===null)return;
-  p.name=nm.trim()||p.name;p.address=addr.trim();saveCPs(cps);renderPM();
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function togglePropEdit(pid){
+  const panel=document.getElementById('pe-'+pid);
+  if(panel)panel.style.display=panel.style.display==='none'?'block':'none';
+}
+function savePropEdit(pid){
+  const nm=(document.getElementById('pe-nm-'+pid).value||'').trim();
+  const code=(document.getElementById('pe-code-'+pid).value||'').trim();
+  const addr=(document.getElementById('pe-addr-'+pid).value||'').trim();
+  const svc=(document.getElementById('pe-svc-'+pid).value||'');
+  if(!nm){alert('館別名稱不可空白');return;}
+  // Check if it's a custom prop or EXCEL prop
+  const cps=loadCPs();const cp=cps.find(x=>String(x.id)===pid);
+  if(cp){
+    // Custom prop: save directly
+    cp.name=nm;cp.code=code;cp.address=addr;cp.serviceType=svc;saveCPs(cps);
+  } else {
+    // EXCEL prop: save overrides in propinfo
+    const pi=loadPropInfo();if(!pi[pid])pi[pid]={};
+    pi[pid].code=code;pi[pid].address=addr;pi[pid].serviceType=svc;
+    // Also update name override for EXCEL props
+    pi[pid].name=nm;
+    savePropInfo(pi);
+    // Update EXCEL_DATA in-memory name (for this session)
+    const ep=EXCEL_DATA.properties.find(p=>String(p.id)===pid);
+    if(ep)ep.name=nm;
+  }
+  document.getElementById('pe-'+pid).style.display='none';
+  renderPM();
+  alert('館別資訊已儲存！');
 }
 function delProp(pid){
   if(!confirm('確定刪除此館別（及所有房間）？'))return;
@@ -1893,9 +2000,14 @@ function delProp(pid){
 function doAddProp(){
   const nm=(document.getElementById('np-name').value||'').trim();
   if(!nm){alert('請輸入館別名稱');return;}
+  const code=(document.getElementById('np-code').value||'').trim();
   const addr=(document.getElementById('np-addr').value||'').trim();
-  const cps=loadCPs();cps.push({id:'cp_'+Date.now(),name:nm,address:addr,rooms:[],custom:true});
-  saveCPs(cps);document.getElementById('np-name').value='';document.getElementById('np-addr').value='';
+  const svc=(document.getElementById('np-svc').value||'');
+  const newId='cp_'+Date.now();
+  const cps=loadCPs();cps.push({id:newId,name:nm,code:code,address:addr,serviceType:svc,rooms:[],custom:true});
+  saveCPs(cps);
+  ['np-name','np-code','np-addr'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('np-svc').value='';
   renderPM();alert('館別「'+nm+'」已建立！');
 }
 
