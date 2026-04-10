@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>全居短租排房系統 v3</title>
+<title>短租排房系統</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -364,8 +364,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 <!-- ═══ Login Screen ═══ -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
-    <div class="login-logo">🏠 全居短租排房系統</div>
-    <div class="login-sub">Quanju Short-Term Rental · 請登入以繼續</div>
+    <div class="login-logo">🏠 短租排房系統</div>
+    <div class="login-sub">Short term rental apartment · 請登入以繼續</div>
     <div class="login-field">
       <label>帳號</label>
       <input type="text" id="login-user" placeholder="請輸入帳號" autocomplete="username"
@@ -385,7 +385,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 <!-- TopBar -->
 <div class="topbar">
   <div class="logo">
-    <div class="logo-main">全居短租排房系統</div>
+    <div class="logo-main">短租排房系統</div>
   </div>
   <div class="topbar-spacer"></div>
   <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
@@ -727,6 +727,14 @@ function loadExtras(){try{return JSON.parse(localStorage.getItem('qj_ext')||'{}'
 function saveExtras(o){localStorage.setItem('qj_ext',JSON.stringify(o));}
 function loadTasks(){try{return JSON.parse(localStorage.getItem('qj_tasks')||'[]');}catch(e){return[];}}
 function saveTasks(a){localStorage.setItem('qj_tasks',JSON.stringify(a));}
+const ROOM_TYPES=['分租套房','分租雅房','獨立套房','兩房','三房','四房'];
+function rtSel(cur,onchg,extraStyle){
+  return '<select class="pm-rtype-sel" '+(onchg?'onchange="'+onchg+'"':'')+
+    ' style="width:82px;height:22px;border:1px solid var(--border);border-radius:4px;font-size:10px;padding:0 3px;background:#fff;'+(extraStyle||'')+'">'+
+    '<option value="">— 類型 —</option>'+
+    ROOM_TYPES.map(t=>'<option value="'+t+'" '+(cur===t?'selected':'')+'>'+t+'</option>').join('')+
+  '</select>';
+}
 function loadPropInfo(){try{return JSON.parse(localStorage.getItem('qj_propinfo')||'{}')}catch(e){return{};}}
 function savePropInfo(d){localStorage.setItem('qj_propinfo',JSON.stringify(d));}
 function savePropInfoField(pid,field,val){const d=loadPropInfo();if(!d[pid])d[pid]={};d[pid][field]=val;savePropInfo(d);}
@@ -2194,9 +2202,7 @@ function renderPM(){
       const isExtra=!!(ext[pid]&&ext[pid].some(r=>r.room===origRoom));
       return '<div class="pm-room-row">'+
         '<span class="pm-rno">'+room.room+'</span>'+
-        '<input type="text" class="pm-rtype-input" value="'+escH(room.type||'')+'" placeholder="房型" '+
-          'style="width:72px;height:22px;border:1px solid var(--border);border-radius:4px;font-size:10px;padding:0 5px;text-align:center" '+
-          'onchange="setRT(\''+pid+'\',\''+origRoom+'\',this)">'+
+        rtSel(room.type||'','setRT(\''+pid+'\',\''+origRoom+'\',this)')+
         '<span class="pm-price-wrap">NT$&nbsp;'+
           '<input class="pm-price-input'+(changed?' changed':'')+'" type="number" '+
             'value="'+(curP||'')+'" placeholder="月租金" '+
@@ -2246,7 +2252,11 @@ function renderPM(){
       '<div class="pm-add-form" id="af-'+pid+'">'+
         '<div class="form-grid" style="padding-top:4px">'+
           '<div class="field"><label>房號</label><input type="text" id="ar-r-'+pid+'" placeholder="如 101"></div>'+
-          '<div class="field"><label>類型</label><input type="text" id="ar-t-'+pid+'" placeholder="整層/分套"></div>'+
+          '<div class="field"><label>類型</label>'+
+            '<select id="ar-t-'+pid+'" style="height:28px;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:0 6px;width:100%">'+
+              '<option value="">— 請選擇 —</option>'+
+              ROOM_TYPES.map(t=>'<option value="'+t+'">'+t+'</option>').join('')+
+            '</select></div>'+
           '<div class="field"><label>月租金</label><input type="number" id="ar-p-'+pid+'" placeholder="30000"></div>'+
           '<div class="field" style="align-self:flex-end;flex-direction:row;gap:5px">'+
             '<button class="btn btn-primary sm" onclick="doAR(\''+pid+'\')">新增</button>'+
