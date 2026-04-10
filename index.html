@@ -939,7 +939,9 @@ function doChangePW(){
 // ════════════════════════════════════════════════
 // ANALYTICS
 // ════════════════════════════════════════════════
+let anaViewYear=new Date().getFullYear();
 function openAna(){
+  anaViewYear=new Date().getFullYear();
   document.getElementById('ana-ov').classList.add('open');
   setAnaTab('m');
 }
@@ -960,26 +962,29 @@ function renderAna(tab){
   const curM=now.getMonth()+1;
 
   let periods=[];
+  let navLabel='',navPrev='',navNext='';
   if(tab==='m'){
-    // Last 12 months
-    for(let i=11;i>=0;i--){
-      let y=curY,m=curM-i;
-      while(m<1){m+=12;y--;}
-      periods.push({label:y+'/'+(m<10?'0':'')+m,y,m,q:null});
+    // 月報：顯示 anaViewYear 全年 1~12 月
+    for(let m=1;m<=12;m++){
+      periods.push({label:anaViewYear+'/'+(m<10?'0':'')+m,y:anaViewYear,m,q:null});
     }
+    navLabel=anaViewYear+' 年（月報）';
+    navPrev='anaViewYear--;renderAna(\'m\')';
+    navNext='anaViewYear++;renderAna(\'m\')';
   }else if(tab==='q'){
-    // Last 8 quarters
-    let y=curY,q=Math.ceil(curM/3);
-    for(let i=7;i>=0;i--){
-      let qi=q-i;let yi=y;
-      while(qi<1){qi+=4;yi--;}
-      periods.push({label:yi+'Q'+qi,y:yi,q:qi,m:null});
+    // 季報：顯示 (anaViewYear-1)Q1~Q4 + anaViewYear Q1~Q4，共兩個年度
+    for(const y of [anaViewYear-1,anaViewYear]){
+      for(let q=1;q<=4;q++) periods.push({label:y+'Q'+q,y,q,m:null});
     }
+    navLabel=(anaViewYear-1)+' ～ '+anaViewYear+' 年（季報）';
+    navPrev='anaViewYear--;renderAna(\'q\')';
+    navNext='anaViewYear++;renderAna(\'q\')';
   }else{
-    // Last 5 years
-    for(let i=4;i>=0;i--){
-      periods.push({label:String(curY-i),y:curY-i,q:null,m:null});
-    }
+    // 年報：顯示 anaViewYear-1、anaViewYear、anaViewYear+1，共三年
+    for(let i=-1;i<=1;i++) periods.push({label:String(anaViewYear+i),y:anaViewYear+i,q:null,m:null});
+    navLabel=(anaViewYear-1)+' / '+anaViewYear+' / '+(anaViewYear+1)+' 年（年報）';
+    navPrev='anaViewYear--;renderAna(\'y\')';
+    navNext='anaViewYear++;renderAna(\'y\')';
   }
 
   function inPeriod(dateStr,p){
@@ -1095,7 +1100,18 @@ function renderAna(tab){
     '</div>';
   }
 
-  const html=
+  // 導覽列
+  const navBar=
+    '<div style="display:flex;align-items:center;justify-content:space-between;'+
+      'background:#eef2fb;border-radius:8px;padding:8px 13px;margin-bottom:12px">'+
+      '<button class="btn btn-ghost sm" onclick="'+navPrev+'" '+
+        'style="font-size:11px;padding:0 10px;height:26px">◀ 上一期</button>'+
+      '<strong style="font-size:12px;color:var(--primary)">'+navLabel+'</strong>'+
+      '<button class="btn btn-ghost sm" onclick="'+navNext+'" '+
+        'style="font-size:11px;padding:0 10px;height:26px">下一期 ▶</button>'+
+    '</div>';
+
+  const html=navBar+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'+
       // Revenue chart
       '<div style="background:#f8f9fa;border-radius:8px;padding:12px">'+
