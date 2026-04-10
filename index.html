@@ -379,7 +379,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="login-btn" onclick="doLogin()">🔐 登入系統</button>
     <div class="login-err" id="login-err">⚠️ 帳號或密碼錯誤，請重新輸入</div>
   </div>
-  <div class="login-hint">預設帳號：admin　／　預設密碼：quanju888</div>
 </div>
 
 <!-- TopBar -->
@@ -427,6 +426,15 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </select>
   <select class="sel" id="f-dist" onchange="render()" title="行政區篩選">
     <option value="">全部行政區</option>
+  </select>
+  <select class="sel" id="f-rtype" onchange="render()" title="房間類型篩選">
+    <option value="">全部房間類型</option>
+    <option value="分租套房">分租套房</option>
+    <option value="分租雅房">分租雅房</option>
+    <option value="獨立套房">獨立套房</option>
+    <option value="兩房">兩房</option>
+    <option value="三房">三房</option>
+    <option value="四房">四房</option>
   </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
 </div>
@@ -739,6 +747,10 @@ function loadPropInfo(){try{return JSON.parse(localStorage.getItem('qj_propinfo'
 function savePropInfo(d){localStorage.setItem('qj_propinfo',JSON.stringify(d));}
 function savePropInfoField(pid,field,val){const d=loadPropInfo();if(!d[pid])d[pid]={};d[pid][field]=val;savePropInfo(d);}
 function genId(p){return(p||'ID')+Date.now()+Math.random().toString(36).slice(2,5).toUpperCase();}
+// 舊房型名稱 → 新標準名稱對應表
+const RTYPE_MAP={'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房',
+  '分套房':'分租套房','雅房':'分租雅房','獨立套':'獨立套房','獨套房':'獨立套房'};
+function normalizeRoomType(t){if(!t)return t;return RTYPE_MAP[t.trim()]||t.trim();}
 
 // ════════════════════════════════════════════════
 // PROPERTY HELPERS
@@ -749,7 +761,8 @@ function getAllProps(){
     const ov=ovr[String(pid)];
     const rpi=pi[String(pid)];
     const rn=rpi&&rpi.roomNames&&rpi.roomNames[r.room]?rpi.roomNames[r.room]:r.room;
-    const rt=rpi&&rpi.roomTypes&&rpi.roomTypes[r.room]!==undefined?rpi.roomTypes[r.room]:r.type;
+    const rtRaw=rpi&&rpi.roomTypes&&rpi.roomTypes[r.room]!==undefined?rpi.roomTypes[r.room]:r.type;
+    const rt=normalizeRoomType(rtRaw);
     return{...r,room:rn,_origRoom:r.room,type:rt,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
   }
   const ep=EXCEL_DATA.properties.map(p=>{
@@ -1367,9 +1380,12 @@ function render(){
   let ap=getAllProps();
   const fsvc=(document.getElementById('f-svc')||{}).value||'';
   const fdist=(document.getElementById('f-dist')||{}).value||'';
+  const frtype=(document.getElementById('f-rtype')||{}).value||'';
   if(fp)ap=ap.filter(p=>String(p.id)===fp);
   if(fsvc)ap=ap.filter(p=>(p.serviceType||'')=== fsvc);
   if(fdist)ap=ap.filter(p=>(p.district||'')=== fdist);
+  // 房間類型篩選：館別中至少有一間房符合才顯示，且只顯示符合的房間
+  if(frtype)ap=ap.map(p=>({...p,rooms:p.rooms.filter(r=>normalizeRoomType(r.type)===frtype)})).filter(p=>p.rooms.length>0);
   let tRooms=0,tRDays=0,occD=0,actualRev=0;
   // Count unique local booking IDs active this month
   const activeBkIds=new Set();
