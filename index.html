@@ -396,6 +396,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
   <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
   <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
+  <a class="btn-top" href="./public.html" target="_blank"
+    style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
+    title="開啟外部租屋官網">🌐 官網</a>
   <button class="btn-top btn-mgt-top" onclick="openCPW()" title="修改帳號密碼" style="background:rgba(255,255,255,.1)">🔑</button>
   <button class="btn-top btn-mgt-top" onclick="doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
 </div>
@@ -2215,6 +2218,13 @@ function closeOO(){
 // PROPERTY MANAGER
 // ════════════════════════════════════════════════
 function openPropMgr(){renderPM();document.getElementById('pm-ov').classList.add('open');}
+function togglePubVis(pid){
+  const vis=JSON.parse(localStorage.getItem('qj_pub_vis')||'{}');
+  const cur=vis[pid]!==false;
+  vis[pid]=!cur;
+  localStorage.setItem('qj_pub_vis',JSON.stringify(vis));
+  renderPM();
+}
 function closePM(){document.getElementById('pm-ov').classList.remove('open');populatePropFilter();render();}
 function scrollToAddProp(){document.getElementById('pm-add-section').scrollIntoView({behavior:'smooth'});}
 function renderPM(){
@@ -2252,6 +2262,14 @@ function renderPM(){
           '<span class="prop-addr">'+(prop.address||'（尚未設定地址）')+'</span>'+
         '</div>'+
         '<div class="pm-hdr-btns">'+
+          (function(){
+            const vis=JSON.parse(localStorage.getItem('qj_pub_vis')||'{}');
+            const isVisible=vis[pid]!==false;
+            return '<button class="pm-icon-btn" onclick="togglePubVis(\''+pid+'\')" '+
+              'title="'+(isVisible?'已上架官網，點擊下架':'已下架，點擊上架官網')+'" '+
+              'style="background:'+(isVisible?'#d1fae5;color:#16a34a':'#fee2e2;color:#c92a2a')+'">'+
+              (isVisible?'👁 上架中':'🙈 已下架')+'</button>';
+          })()+
           '<button class="pm-icon-btn" onclick="togglePropEdit(\''+pid+'\')">✏️ 編輯</button>'+
           (isCustom?'<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')+
         '</div>'+

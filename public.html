@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>短租公寓 — 找到你的理想居所</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a3a6b;--accent:#2563eb;--success:#16a34a;
+  --bg:#f8fafd;--card:#fff;--border:#e2e8f0;
+  --text:#1e293b;--muted:#64748b;--light:#f1f5f9;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+  --radius:12px;--radius-sm:8px;--radius-pill:999px;
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;font-size:15px}
+
+/* HEADER */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(26,58,107,.95);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 20px;
+  display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+.logo-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+.logo-text{line-height:1.1}
+.logo-name{font-size:18px;font-weight:700;letter-spacing:.5px}
+.logo-sub{font-size:10px;opacity:.7;letter-spacing:1px;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:4px}
+nav a{color:rgba(255,255,255,.85);text-decoration:none;padding:8px 16px;
+  border-radius:var(--radius-pill);font-size:14px;transition:all .2s}
+nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
+.hamburger{display:none;background:none;border:none;cursor:pointer;
+  flex-direction:column;gap:5px;padding:4px}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:.3s}
+.mobile-nav{display:none}
+
+/* HERO */
+.hero{
+  background:linear-gradient(135deg,#0f2550 0%,#1a3a6b 40%,#1d4ed8 100%);
+  padding:80px 20px 60px;text-align:center;color:#fff;
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.hero-content{position:relative;max-width:700px;margin:0 auto}
+.hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;
+  letter-spacing:-0.5px;margin-bottom:12px;line-height:1.2}
+.hero p{font-size:clamp(14px,2vw,18px);opacity:.8;margin-bottom:36px}
+.search-bar{
+  background:#fff;border-radius:var(--radius);padding:8px;
+  display:flex;flex-wrap:wrap;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+.search-bar select,.search-bar button{
+  border:none;outline:none;padding:10px 16px;border-radius:var(--radius-sm);
+  font-size:14px;font-family:inherit;cursor:pointer;
+}
+.search-bar select{
+  flex:1;min-width:140px;background:var(--light);color:var(--text);
+  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
+}
+.search-bar button{
+  background:var(--accent);color:#fff;font-weight:600;
+  padding:10px 24px;letter-spacing:.3px;transition:background .2s;
+}
+.search-bar button:hover{background:#1d4ed8}
+
+/* STATS */
+.stats{background:#fff;border-bottom:1px solid var(--border)}
+.stats-inner{max-width:1200px;margin:0 auto;padding:0 20px;
+  display:grid;grid-template-columns:repeat(4,1fr)}
+.stat-item{padding:20px;text-align:center;border-right:1px solid var(--border)}
+.stat-item:last-child{border-right:none}
+.stat-num{font-size:28px;font-weight:800;color:var(--primary);line-height:1}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* FILTERS */
+.filter-bar{background:#fff;border-bottom:1px solid var(--border);
+  position:sticky;top:64px;z-index:90;}
+.filter-inner{max-width:1200px;margin:0 auto;padding:12px 20px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.filter-inner select,.filter-inner input[type=text]{
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 12px;font-size:13px;font-family:inherit;
+  background:#fff;color:var(--text);outline:none;transition:border .2s;
+}
+.filter-inner select:focus,.filter-inner input[type=text]:focus{border-color:var(--accent)}
+.filter-inner select{
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+}
+.filter-inner input[type=text]{flex:1;min-width:160px}
+.checkbox-label{display:flex;align-items:center;gap:6px;
+  font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap}
+.checkbox-label input{accent-color:var(--accent);width:15px;height:15px}
+.filter-inner .spacer{flex:1}
+.result-count{font-size:13px;color:var(--muted);white-space:nowrap}
+
+/* GRID */
+.main{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
+.section-title{font-size:20px;font-weight:700;color:var(--primary);margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.no-results{text-align:center;padding:60px 20px;color:var(--muted)}
+.no-results .icon{font-size:48px;margin-bottom:12px}
+.no-results p{font-size:16px}
+
+/* CARD */
+.card{
+  background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;cursor:pointer;
+  transition:transform .25s,box-shadow .25s;border:1px solid var(--border);
+  display:flex;flex-direction:column;
+}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.card-head{padding:18px 18px 0}
+.card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;
+  border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
+.badge-district{background:#e0f2fe;color:#0369a1}
+.badge-service{background:#fef9c3;color:#854d0e}
+.badge-type{background:var(--light);color:var(--muted);font-size:11px}
+.badge-avail{font-size:11px;font-weight:700}
+.card-name{font-size:17px;font-weight:700;color:var(--primary);margin-bottom:6px;line-height:1.3}
+.card-addr{font-size:13px;color:var(--muted);margin-bottom:12px}
+.card-addr span{margin-right:2px}
+.card-types{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px}
+.card-price{font-size:22px;font-weight:800;color:var(--accent)}
+.card-price span{font-size:13px;font-weight:400;color:var(--muted)}
+.card-divider{height:1px;background:var(--border);margin:14px 0}
+.card-foot{padding:0 18px 16px;display:flex;align-items:center;justify-content:space-between}
+.card-meta{font-size:13px;color:var(--muted)}
+.card-meta strong{color:var(--success);font-weight:700}
+.card-btn{
+  background:var(--primary);color:#fff;border:none;
+  padding:8px 16px;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .2s;white-space:nowrap;
+}
+.card-btn:hover{background:var(--accent)}
+.card-body{padding:0 18px;flex:1}
+
+/* MODAL OVERLAY */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.overlay.open{opacity:1;pointer-events:all}
+
+/* DETAIL MODAL */
+.detail-modal{
+  position:fixed;top:0;right:0;bottom:0;width:min(600px,100%);
+  background:#fff;z-index:201;overflow-y:auto;
+  transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+.detail-modal.open{transform:translateX(0)}
+.modal-header{
+  padding:24px 24px 16px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:#fff;z-index:2;
+}
+.modal-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.modal-close{
+  background:none;border:none;cursor:pointer;font-size:22px;
+  color:var(--muted);line-height:1;padding:2px 6px;border-radius:6px;
+  transition:background .2s;flex-shrink:0;
+}
+.modal-close:hover{background:var(--light);color:var(--text)}
+.modal-prop-name{font-size:22px;font-weight:800;color:var(--primary);line-height:1.2}
+.modal-prop-addr{font-size:14px;color:var(--muted);margin-top:6px}
+.modal-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.modal-body{padding:20px 24px;flex:1}
+.modal-section-title{font-size:13px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+.room-table{width:100%;border-collapse:collapse}
+.room-table th{text-align:left;padding:8px 12px;font-size:12px;
+  color:var(--muted);font-weight:600;text-transform:uppercase;
+  border-bottom:2px solid var(--border);letter-spacing:.5px}
+.room-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
+.room-table tr:last-child td{border-bottom:none}
+.room-table tr:hover td{background:var(--light)}
+.status-badge{
+  display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);
+  font-size:11px;font-weight:700;
+}
+.modal-footer{
+  padding:16px 24px;border-top:1px solid var(--border);
+  position:sticky;bottom:0;background:#fff;
+}
+.inquiry-btn{
+  width:100%;background:var(--accent);color:#fff;border:none;
+  padding:14px;border-radius:var(--radius-sm);font-size:15px;
+  font-weight:700;cursor:pointer;transition:background .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.inquiry-btn:hover{background:#1d4ed8}
+
+/* CONTACT MODAL */
+.contact-modal{
+  position:fixed;inset:0;z-index:202;display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.contact-box{
+  background:#fff;border-radius:var(--radius);width:100%;max-width:480px;
+  box-shadow:var(--shadow-lg);transform:scale(.95);opacity:0;
+  transition:transform .3s,opacity .3s;
+}
+.contact-modal.open .contact-box{transform:scale(1);opacity:1}
+.contact-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.contact-header h2{font-size:18px;font-weight:700;color:var(--primary)}
+.contact-body{padding:20px 24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;font-weight:600;
+  color:var(--text);margin-bottom:6px}
+.form-group label .req{color:#dc2626;margin-left:2px}
+.form-group input,.form-group textarea,.form-group select{
+  width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:14px;font-family:inherit;
+  outline:none;transition:border .2s;color:var(--text);background:#fff;
+}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:80px}
+.contact-footer{padding:16px 24px;border-top:1px solid var(--border);
+  display:flex;gap:10px;justify-content:flex-end}
+.btn-cancel{background:var(--light);color:var(--text);border:none;
+  padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;
+  font-weight:600;cursor:pointer;transition:background .2s}
+.btn-cancel:hover{background:var(--border)}
+.btn-submit{background:var(--accent);color:#fff;border:none;
+  padding:10px 24px;border-radius:var(--radius-sm);font-size:14px;
+  font-weight:700;cursor:pointer;transition:background .2s}
+.btn-submit:hover{background:#1d4ed8}
+.success-msg{text-align:center;padding:32px 24px}
+.success-msg .icon{font-size:48px;margin-bottom:12px}
+.success-msg h3{font-size:18px;font-weight:700;color:var(--success);margin-bottom:8px}
+.success-msg p{font-size:14px;color:var(--muted)}
+
+/* FOOTER */
+footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
+.footer-inner{max-width:1200px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.footer-brand .logo-name{font-size:20px;color:#fff;font-weight:800}
+.footer-brand .logo-sub{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+.footer-brand p{font-size:13px;margin-top:12px;line-height:1.7;opacity:.75}
+.footer-col h4{font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;
+  text-transform:uppercase;letter-spacing:.5px}
+.footer-col ul{list-style:none}
+.footer-col li{font-size:13px;margin-bottom:8px;opacity:.75}
+.footer-col a{color:rgba(255,255,255,.75);text-decoration:none;transition:color .2s}
+.footer-col a:hover{color:#fff}
+.footer-bottom{
+  max-width:1200px;margin:32px auto 0;padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+.footer-bottom p{font-size:12px;opacity:.5}
+.mgmt-link{font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;
+  transition:color .2s;letter-spacing:.3px}
+.mgmt-link:hover{color:rgba(255,255,255,.65)}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .stats-inner{grid-template-columns:repeat(2,1fr)}
+  .stats-inner .stat-item:nth-child(2){border-right:none}
+  .stats-inner .stat-item:nth-child(3){border-top:1px solid var(--border)}
+  .footer-inner{grid-template-columns:1fr 1fr}
+}
+@media(max-width:640px){
+  .grid{grid-template-columns:1fr}
+  nav{display:none}
+  .hamburger{display:flex}
+  .mobile-nav{
+    background:rgba(26,58,107,.97);padding:12px 0;
+    border-top:1px solid rgba(255,255,255,.1);
+  }
+  .mobile-nav.open{display:block}
+  .mobile-nav a{display:block;color:rgba(255,255,255,.85);text-decoration:none;
+    padding:12px 24px;font-size:15px}
+  .mobile-nav a:hover{background:rgba(255,255,255,.1)}
+  .stats-inner{grid-template-columns:repeat(2,1fr)}
+  .footer-inner{grid-template-columns:1fr}
+  .footer-bottom{flex-direction:column;align-items:flex-start}
+  .search-bar{flex-direction:column}
+  .search-bar select,.search-bar button{width:100%}
+}
+
+/* Loading skeleton */
+.skeleton{
+  background:linear-gradient(90deg,var(--light) 25%,#e8edf2 50%,var(--light) 75%);
+  background-size:200% 100%;animation:shimmer 1.5s infinite;
+  border-radius:6px;height:16px;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="nav-inner">
+    <a class="logo" href="#">
+      <div class="logo-icon">租</div>
+      <div class="logo-text">
+        <div class="logo-name">短租公寓</div>
+        <div class="logo-sub">Short Term Rental Apartment</div>
+      </div>
+    </a>
+    <nav>
+      <a href="#listing">找房</a>
+      <a href="#services">服務項目</a>
+      <a href="#contact">聯絡我們</a>
+    </nav>
+    <button class="hamburger" id="hamburgerBtn" aria-label="選單">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="mobile-nav" id="mobileNav">
+    <a href="#listing" onclick="closeMobileNav()">找房</a>
+    <a href="#services" onclick="closeMobileNav()">服務項目</a>
+    <a href="#contact" onclick="closeMobileNav()">聯絡我們</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <h1>找到你的理想居所</h1>
+    <p>精選台北市各行政區優質短租公寓，彈性租期，即刻入住</p>
+    <div class="search-bar">
+      <select id="heroDistrict">
+        <option value="">全部行政區</option>
+      </select>
+      <select id="heroType">
+        <option value="">全部房型</option>
+        <option value="分租套房">分租套房</option>
+        <option value="分租雅房">分租雅房</option>
+        <option value="獨立套房">獨立套房</option>
+        <option value="兩房">兩房</option>
+        <option value="三房">三房</option>
+        <option value="四房">四房</option>
+      </select>
+      <select id="heroBudget">
+        <option value="">不限預算</option>
+        <option value="low">$30,000 以下</option>
+        <option value="mid">$30,000–$50,000</option>
+        <option value="high">$50,000 以上</option>
+      </select>
+      <button onclick="applyHeroSearch()">搜尋房源</button>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats" id="stats">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-num" id="statTotal">—</div>
+      <div class="stat-label">總物件數</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statAvail">—</div>
+      <div class="stat-label">可租房間數</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statMin">—</div>
+      <div class="stat-label">最低月租</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="statDistricts">—</div>
+      <div class="stat-label">涵蓋行政區數</div>
+    </div>
+  </div>
+</section>
+
+<!-- FILTERS -->
+<div class="filter-bar" id="listing">
+  <div class="filter-inner">
+    <select id="filterDistrict" onchange="applyFilters()">
+      <option value="">全部行政區</option>
+    </select>
+    <select id="filterType" onchange="applyFilters()">
+      <option value="">全部房型</option>
+      <option value="分租套房">分租套房</option>
+      <option value="分租雅房">分租雅房</option>
+      <option value="獨立套房">獨立套房</option>
+      <option value="兩房">兩房</option>
+      <option value="三房">三房</option>
+      <option value="四房">四房</option>
+    </select>
+    <select id="filterBudget" onchange="applyFilters()">
+      <option value="">全部預算</option>
+      <option value="low">$30,000 以下</option>
+      <option value="mid">$30,000–$50,000</option>
+      <option value="high">$50,000 以上</option>
+    </select>
+    <label class="checkbox-label">
+      <input type="checkbox" id="filterAvail" onchange="applyFilters()">
+      只顯示有空房
+    </label>
+    <div class="spacer"></div>
+    <input type="text" id="filterSearch" placeholder="搜尋物件名稱或地址…" oninput="applyFilters()">
+    <span class="result-count" id="resultCount"></span>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<main class="main">
+  <div class="section-title" id="sectionTitle">所有物件</div>
+  <div class="grid" id="propGrid"></div>
+  <div class="no-results" id="noResults" style="display:none">
+    <div class="icon">🏠</div>
+    <p>找不到符合條件的物件，請調整篩選條件</p>
+  </div>
+</main>
+
+<!-- SERVICES SECTION -->
+<section id="services" style="background:#fff;padding:60px 20px;border-top:1px solid var(--border)">
+  <div style="max-width:1200px;margin:0 auto">
+    <h2 style="font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px">服務項目</h2>
+    <p style="text-align:center;color:var(--muted);margin-bottom:36px">全方位租屋服務，讓您安心居住</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px">
+      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">🏢</div>
+        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">精選物件</h3>
+        <p style="font-size:13px;color:var(--muted)">嚴選台北市各區優質公寓，品質保證</p>
+      </div>
+      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">🛠️</div>
+        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">維修保固</h3>
+        <p style="font-size:13px;color:var(--muted)">專業維修團隊，設備故障快速處理</p>
+      </div>
+      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">🧹</div>
+        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">定期清潔</h3>
+        <p style="font-size:13px;color:var(--muted)">定期公共區域清潔，維持整潔環境</p>
+      </div>
+      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">📞</div>
+        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">24H客服</h3>
+        <p style="font-size:13px;color:var(--muted)">全天候客服支援，緊急問題即時回應</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="contact">
+  <div class="footer-inner">
+    <div class="footer-brand footer-col">
+      <div class="logo-name">短租公寓</div>
+      <div class="logo-sub">Short Term Rental Apartment</div>
+      <p>提供台北市各行政區優質短租公寓，讓您的居住體驗更加舒適便利。</p>
+    </div>
+    <div class="footer-col">
+      <h4>快速連結</h4>
+      <ul>
+        <li><a href="#listing">找房源</a></li>
+        <li><a href="#services">服務項目</a></li>
+        <li><a href="#contact">聯絡我們</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>聯絡資訊</h4>
+      <ul>
+        <li>📧 contact@shortrent.tw</li>
+        <li>📞 (02) 1234-5678</li>
+        <li>🕐 週一至週五 09:00–18:00</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2024 短租公寓 Short Term Rental Apartment. 版權所有</p>
+    <a class="mgmt-link" href="./index.html">管理系統</a>
+  </div>
+</footer>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- DETAIL MODAL -->
+<div class="detail-modal" id="detailModal" role="dialog" aria-modal="true">
+  <div class="modal-header">
+    <div style="flex:1">
+      <div class="modal-header-top">
+        <div class="modal-prop-name" id="modalPropName"></div>
+        <button class="modal-close" onclick="closeDetail()" aria-label="關閉">✕</button>
+      </div>
+      <div class="modal-prop-addr" id="modalPropAddr"></div>
+      <div class="modal-badges" id="modalBadges"></div>
+    </div>
+  </div>
+  <div class="modal-body">
+    <div class="modal-section-title">房間列表</div>
+    <table class="room-table">
+      <thead>
+        <tr>
+          <th>房號</th>
+          <th>類型</th>
+          <th>月租</th>
+          <th>狀態</th>
+        </tr>
+      </thead>
+      <tbody id="roomTableBody"></tbody>
+    </table>
+  </div>
+  <div class="modal-footer">
+    <button class="inquiry-btn" id="detailInquiryBtn" onclick="openContact()">
+      📞 詢問此物件
+    </button>
+  </div>
+</div>
+
+<!-- CONTACT MODAL -->
+<div class="contact-modal" id="contactModal" role="dialog" aria-modal="true">
+  <div class="contact-box">
+    <div class="contact-header">
+      <h2>詢問房源</h2>
+      <button class="modal-close" onclick="closeContact()" aria-label="關閉">✕</button>
+    </div>
+    <div id="contactFormArea">
+      <div class="contact-body">
+        <div class="form-group">
+          <label>姓名<span class="req">*</span></label>
+          <input type="text" id="fName" placeholder="請輸入姓名">
+        </div>
+        <div class="form-group">
+          <label>聯絡電話<span class="req">*</span></label>
+          <input type="tel" id="fPhone" placeholder="請輸入聯絡電話">
+        </div>
+        <div class="form-group">
+          <label>期望入住日</label>
+          <input type="date" id="fDate">
+        </div>
+        <div class="form-group">
+          <label>詢問物件</label>
+          <input type="text" id="fProp" placeholder="物件名稱">
+        </div>
+        <div class="form-group">
+          <label>備註</label>
+          <textarea id="fNote" placeholder="其他需求或問題…"></textarea>
+        </div>
+      </div>
+      <div class="contact-footer">
+        <button class="btn-cancel" onclick="closeContact()">取消</button>
+        <button class="btn-submit" onclick="submitInquiry()">送出詢問</button>
+      </div>
+    </div>
+    <div class="success-msg" id="successMsg" style="display:none">
+      <div class="icon">✅</div>
+      <h3>詢問已送出！</h3>
+      <p>我們將盡快與您聯繫，謝謝您的興趣。</p>
+      <button class="btn-submit" style="margin-top:16px" onclick="closeContact()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── BASE DATA ──────────────────────────────────────────────────────────────
+const BASE_PROPS = {"properties":[{"id":0,"code":"888001","name":"台大公館一館","address":"汀洲188","rooms":[{"room":"3A","type":"分套","price":30300},{"room":"3B","type":"分套","price":30300},{"room":"3C","type":"分套","price":27300},{"room":"3D","type":"分套","price":27300},{"room":"3E","type":"分套","price":30300},{"room":"3F單","type":"分套","price":25200},{"room":"2A1","type":"分套","price":27300},{"room":"2A2單","type":"分套","price":24000},{"room":"2A3","type":"分套","price":27300},{"room":"2A5","type":"分套","price":30300},{"room":"2A6","type":"分套","price":29700},{"room":"2A7/單雙","type":"分套","price":25200},{"room":"2A8","type":"分套","price":27300},{"room":"2A9","type":"分套","price":27300},{"room":"2A10","type":"分套","price":27900},{"room":"2A11","type":"分套","price":27300},{"room":"2B2單","type":"分套","price":24000},{"room":"2B3","type":"分套","price":27300},{"room":"2B5","type":"分套","price":24000},{"room":"2B6單","type":"分套","price":21000},{"room":"2B7","type":"分套","price":29700},{"room":"2B8單","type":"分套","price":24000},{"room":"2B9","type":"分套","price":27300},{"room":"2B11單","type":"分套","price":21900}]},{"id":1,"code":"888002","name":"台大公館三館","address":"羅斯福68","rooms":[{"room":"602","type":"獨套","price":49200}]},{"id":2,"code":"999004","name":"台大公館圓環","address":"羅斯福202","rooms":[{"room":"9F-1","type":"獨套","price":43500},{"room":"9F-2","type":"獨套","price":43500}]},{"id":3,"code":"888003","name":"師大台電一館","address":"金門11","rooms":[{"room":"4A","type":"分套","price":28200},{"room":"4B-單","type":"分套","price":22500},{"room":"4C","type":"分套","price":29700},{"room":"4D","type":"分套","price":27300},{"room":"4E-單","type":"分套","price":22800},{"room":"5A","type":"分套","price":25200},{"room":"5B-一房一廳","type":"分套","price":42000}]},{"id":4,"code":"888004","name":"師大古亭二館","address":"晉江19","rooms":[{"room":"2A","type":"分套","price":31500},{"room":"2B","type":"分套","price":28200},{"room":"2C","type":"分套","price":25200},{"room":"2D","type":"分套","price":26700},{"room":"3B","type":"分套","price":28200},{"room":"3C","type":"分套","price":25200}]},{"id":5,"code":"888005","name":"師大古亭同安一館","address":"同安93","rooms":[{"room":"301","type":"兩房","price":53400},{"room":"302","type":"兩房","price":54000}]},{"id":6,"code":"888013","name":"師大古亭同安二館","address":"同安97","rooms":[{"room":"502-單+雙","type":"兩房","price":44700}]},{"id":7,"code":"888009","name":"師大古亭一館","address":"晉江18","rooms":[{"room":"A01","type":"分套","price":35100},{"room":"B02","type":"兩房","price":55500},{"room":"C03","type":"兩房","price":55500}]},{"id":8,"code":"777018","name":"公館師大分部旗艦館","address":"羅斯福10","rooms":[{"room":"A","type":"分套","price":37500},{"room":"B","type":"分套","price":35400},{"room":"C","type":"分套","price":35400},{"room":"D","type":"分套","price":34500},{"room":"E","type":"分套","price":33300}]},{"id":9,"code":"888016","name":"師大古亭三館","address":"晉江48","rooms":[{"room":"兩房/一廳","type":"兩房","price":52500}]},{"id":10,"code":"777050","name":"景美二館","address":"景美147","rooms":[{"room":"A01","type":"分套","price":32400},{"room":"B02","type":"分套","price":32100},{"room":"C03","type":"分套","price":33600}]},{"id":11,"code":"888014","name":"公館師大分部一館","address":"羅斯福176","rooms":[{"room":"二房/二廳","type":"兩房","price":55500}]},{"id":12,"code":"888010","name":"師大古亭和平館","address":"和平東50","rooms":[{"room":"301","type":"獨套","price":54600}]},{"id":13,"code":"888012","name":"台大科技大樓館","address":"和平東175","rooms":[{"room":"301","type":"分套","price":31800},{"room":"302-單","type":"分套","price":23400},{"room":"304","type":"分雅","price":20700},{"room":"305","type":"分雅","price":21900}]},{"id":14,"code":"888015","name":"師大台電二館","address":"浦城6","rooms":[{"room":"A01","type":"兩房","price":44700},{"room":"B02","type":"兩房","price":44700},{"room":"C03雅","type":"分雅","price":27300},{"room":"D04雅","type":"分雅","price":27300}]},{"id":15,"code":"888017","name":"師大台電四館","address":"泰順50","rooms":[{"room":"301","type":"分套","price":34500},{"room":"302","type":"分套","price":35400},{"room":"303","type":"分套","price":32400},{"room":"305","type":"分套","price":29700}]},{"id":16,"code":"888018","name":"台大科技大樓二館","address":"和平東95","rooms":[{"room":"A","type":"分套","price":34500},{"room":"B","type":"分套","price":34500},{"room":"C","type":"分套","price":32700},{"room":"D-單","type":"分套","price":27600},{"room":"E","type":"分套","price":30900},{"room":"F","type":"分套","price":34500},{"room":"G","type":"分套","price":34500}]},{"id":17,"code":"888019","name":"敦化明曜一館","address":"忠孝東206","rooms":[{"room":"1001","type":"分套","price":36900},{"room":"1002","type":"分套","price":35400},{"room":"1003","type":"分套","price":33300},{"room":"1005","type":"分套","price":35400},{"room":"1006","type":"分套","price":39300},{"room":"1007","type":"分套","price":39300},{"room":"1008","type":"分套","price":39300}]},{"id":18,"code":"888021","name":"信義大安一館","address":"信義147","rooms":[{"room":"D","type":"分套","price":38400},{"room":"E","type":"分套","price":39750}]},{"id":19,"code":"888023","name":"通化一館","address":"通化168","rooms":[{"room":"A","type":"分雅","price":25000},{"room":"B","type":"分雅","price":25000},{"room":"C","type":"分雅","price":25000},{"room":"D","type":"分雅","price":25000}]},{"id":20,"code":"888022","name":"雙連寧夏館","address":"五原19","rooms":[{"room":"五原19","type":"獨套","price":52500}]},{"id":21,"code":"888011","name":"中山國小一館","address":"中山北137","rooms":[{"room":"中山北137","type":"獨套","price":49200}]},{"id":22,"code":"888020","name":"行天宮一館","address":"民生東147","rooms":[{"room":"民生東/147","type":"兩房","price":55500}]},{"id":23,"code":"999021","name":"雙連一館","address":"中山北72","rooms":[{"room":"中山北72","type":"獨套","price":57000}]},{"id":25,"code":"888007","name":"松山饒河一館","address":"松山路204","rooms":[{"room":"A","type":"分套","price":31500},{"room":"B","type":"分雅","price":25050},{"room":"C","type":"分雅","price":23100},{"room":"D","type":"分雅","price":22500}]},{"id":27,"code":"999020","name":"師大台電三館","address":"汀洲27","rooms":[{"room":"A01單","type":"分套","price":27600},{"room":"B02","type":"兩房","price":54000},{"room":"C03","type":"兩房","price":48600}]},{"id":28,"code":"999010","name":"景美一館","address":"景興195","rooms":[{"room":"8樓-單+雙","type":"兩房","price":55500}]},{"id":29,"code":"999017","name":"忠孝復興一館","address":"大安52","rooms":[{"room":"601","type":"兩房","price":60900}]},{"id":30,"code":"999001","name":"中山一館","address":"中山北83","rooms":[{"room":"中山","type":"獨套","price":53400}]},{"id":31,"code":"999002","name":"台北車站一館","address":"重慶北22","rooms":[{"room":"西門","type":"獨套","price":54000}]},{"id":34,"code":"999019","name":"市府永吉一館","address":"基隆97","rooms":[{"room":"302","type":"分套","price":27600},{"room":"312","type":"分套","price":30300}]}]};
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const TYPE_MAP = {'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房','兩房':'兩房','三房':'三房','四房':'四房'};
+function normalizeType(t){ return TYPE_MAP[t]||t||'未分類'; }
+
+// District inference map (address prefix → district)
+const ADDR_DISTRICT_MAP = [
+  {keys:['汀洲','羅斯福','金門','景興','景美','浦城','和平東','同安','晉江'],district:'大安區'},
+  {keys:['忠孝東'],district:'大安區'},
+  {keys:['信義'],district:'信義區'},
+  {keys:['通化'],district:'大安區'},
+  {keys:['五原','寧夏'],district:'大同區'},
+  {keys:['中山北','民生東','大安'],district:'中山區'},
+  {keys:['重慶北'],district:'大同區'},
+  {keys:['松山路'],district:'松山區'},
+  {keys:['基隆'],district:'信義區'},
+  {keys:['泰順'],district:'大安區'},
+];
+
+function inferDistrict(addr=''){
+  for(const e of ADDR_DISTRICT_MAP){
+    if(e.keys.some(k=>addr.includes(k))) return e.district;
+  }
+  return '';
+}
+
+// ── DATE HELPERS ──────────────────────────────────────────────────────────
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+// ── AVAILABILITY ──────────────────────────────────────────────────────────
+function getRoomStatus(propId, roomNo){
+  const tod = todayStr();
+  let tasks=[], bks=[];
+  try{ tasks=JSON.parse(localStorage.getItem('qj_tasks')||'[]'); }catch(e){}
+  try{ bks=JSON.parse(localStorage.getItem('qj_bks')||'[]'); }catch(e){}
+  const pid=String(propId);
+  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='repair'&&t.start<=tod&&t.end>tod))
+    return{status:'repair',label:'維修中',color:'#c92a2a'};
+  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='cleaning'&&t.start<=tod&&t.end>tod))
+    return{status:'cleaning',label:'打掃中',color:'#0c8599'};
+  for(const bk of bks){
+    for(const seg of (bk.segments||[])){
+      if(String(seg.prop_id)===pid&&seg.room===roomNo&&seg.status!=='checkout'&&seg.checkin<=tod&&seg.checkout>tod)
+        return{status:'occupied',label:'已出租',color:'#e67700'};
+    }
+  }
+  return{status:'available',label:'可租',color:'#16a34a'};
+}
+
+// ── GET ALL PROPERTIES ────────────────────────────────────────────────────
+function getAllProps(){
+  const base=BASE_PROPS.properties.map(p=>({...p}));
+  let cps=[],ovr={},ext={},info={},vis={};
+  try{ cps=JSON.parse(localStorage.getItem('qj_cps')||'[]'); }catch(e){}
+  try{ ovr=JSON.parse(localStorage.getItem('qj_ovr')||'{}'); }catch(e){}
+  try{ ext=JSON.parse(localStorage.getItem('qj_ext')||'{}'); }catch(e){}
+  try{ info=JSON.parse(localStorage.getItem('qj_propinfo')||'{}'); }catch(e){}
+  try{ vis=JSON.parse(localStorage.getItem('qj_pub_vis')||'{}'); }catch(e){}
+  const all=[...base,...cps];
+  return all.map(p=>{
+    const pid=String(p.id);
+    if(vis[pid]===false) return null;
+    const rooms=[...(p.rooms||[]),...(ext[pid]||[])].map(r=>({
+      ...r,
+      price:(ovr[pid]&&ovr[pid][r.room]!==undefined)?ovr[pid][r.room]:r.price
+    }));
+    const extra=info[pid]||{};
+    const addr=extra.address||p.address||'';
+    const district=extra.district||p.district||inferDistrict(addr)||'';
+    return{...p,rooms,district,address:addr,serviceType:extra.serviceType||''};
+  }).filter(Boolean);
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let allProps=[];
+let currentProp=null;
+let currentFilters={district:'',type:'',budget:'',availOnly:false,search:''};
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+function init(){
+  allProps=getAllProps();
+  populateDistrictDropdowns();
+  renderStats();
+  renderGrid(allProps);
+}
+
+function populateDistrictDropdowns(){
+  const districts=[...new Set(allProps.map(p=>p.district).filter(Boolean))].sort();
+  ['heroDistrict','filterDistrict'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    while(sel.options.length>1) sel.remove(1);
+    districts.forEach(d=>{
+      const o=document.createElement('option');
+      o.value=d; o.textContent=d;
+      sel.appendChild(o);
+    });
+    sel.value=cur;
+  });
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────
+function renderStats(){
+  const total=allProps.length;
+  let availCount=0,minPrice=Infinity;
+  const districts=new Set();
+  for(const p of allProps){
+    if(p.district) districts.add(p.district);
+    for(const r of p.rooms){
+      if(r.price&&r.price<minPrice) minPrice=r.price;
+      const st=getRoomStatus(p.id,r.room);
+      if(st.status==='available') availCount++;
+    }
+  }
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statAvail').textContent=availCount;
+  document.getElementById('statMin').textContent=minPrice===Infinity?'—':'$'+minPrice.toLocaleString();
+  document.getElementById('statDistricts').textContent=districts.size;
+}
+
+// ── FILTERS ───────────────────────────────────────────────────────────────
+function applyHeroSearch(){
+  document.getElementById('filterDistrict').value=document.getElementById('heroDistrict').value;
+  document.getElementById('filterType').value=document.getElementById('heroType').value;
+  document.getElementById('filterBudget').value=document.getElementById('heroBudget').value;
+  applyFilters();
+  document.getElementById('listing').scrollIntoView({behavior:'smooth'});
+}
+
+function applyFilters(){
+  currentFilters.district=document.getElementById('filterDistrict').value;
+  currentFilters.type=document.getElementById('filterType').value;
+  currentFilters.budget=document.getElementById('filterBudget').value;
+  currentFilters.availOnly=document.getElementById('filterAvail').checked;
+  currentFilters.search=document.getElementById('filterSearch').value.trim().toLowerCase();
+  const filtered=filterProps(allProps,currentFilters);
+  renderGrid(filtered);
+}
+
+function filterProps(props,f){
+  return props.filter(p=>{
+    if(f.district&&p.district!==f.district) return false;
+    if(f.search){
+      const hay=(p.name+' '+p.address+' '+p.district).toLowerCase();
+      if(!hay.includes(f.search)) return false;
+    }
+    // type filter: prop must have at least one room of that type
+    if(f.type){
+      if(!p.rooms.some(r=>normalizeType(r.type)===f.type)) return false;
+    }
+    // budget filter: check min price of matching rooms
+    if(f.budget){
+      const prices=p.rooms
+        .filter(r=>!f.type||normalizeType(r.type)===f.type)
+        .map(r=>r.price).filter(Boolean);
+      if(!prices.length) return false;
+      const mn=Math.min(...prices);
+      if(f.budget==='low'&&mn>=30000) return false;
+      if(f.budget==='mid'&&(mn<30000||mn>50000)) return false;
+      if(f.budget==='high'&&mn<=50000) return false;
+    }
+    // avail only
+    if(f.availOnly){
+      const hasAvail=p.rooms.some(r=>getRoomStatus(p.id,r.room).status==='available');
+      if(!hasAvail) return false;
+    }
+    return true;
+  });
+}
+
+// ── RENDER GRID ───────────────────────────────────────────────────────────
+function renderGrid(props){
+  const grid=document.getElementById('propGrid');
+  const noRes=document.getElementById('noResults');
+  const cnt=document.getElementById('resultCount');
+  cnt.textContent=props.length?`共 ${props.length} 個物件`:'';
+  if(!props.length){
+    grid.innerHTML='';
+    noRes.style.display='block';
+    return;
+  }
+  noRes.style.display='none';
+  grid.innerHTML=props.map(p=>cardHTML(p)).join('');
+}
+
+function cardHTML(p){
+  const prices=p.rooms.map(r=>r.price).filter(Boolean);
+  const minP=prices.length?Math.min(...prices):0;
+  const types=[...new Set(p.rooms.map(r=>normalizeType(r.type)))];
+  let availCnt=0;
+  for(const r of p.rooms){
+    if(getRoomStatus(p.id,r.room).status==='available') availCnt++;
+  }
+  const availColor=availCnt>0?'#16a34a':'#94a3b8';
+  const availBg=availCnt>0?'#dcfce7':'#f1f5f9';
+  const typeTags=types.map(t=>`<span class="badge badge-type">${t}</span>`).join('');
+  const districtBadge=p.district?`<span class="badge badge-district">${p.district}</span>`:'';
+  const svcBadge=p.serviceType?`<span class="badge badge-service">${p.serviceType}</span>`:'';
+
+  return `<div class="card" onclick="openDetail(${p.id})">
+  <div class="card-head">
+    <div class="card-badges">${districtBadge}${svcBadge}</div>
+    <div class="card-name">${esc(p.name)}</div>
+    <div class="card-addr"><span>📍</span>${esc(p.address)}</div>
+  </div>
+  <div class="card-body">
+    <div class="card-types">${typeTags}</div>
+    <div class="card-price">NT$${minP.toLocaleString()}<span> 起／月</span></div>
+    <div class="card-divider"></div>
+  </div>
+  <div class="card-foot">
+    <div class="card-meta">
+      共${p.rooms.length}間 │ <strong style="color:${availColor}">✓ ${availCnt}間可租</strong>
+    </div>
+    <button class="card-btn">查看詳情 →</button>
+  </div>
+</div>`;
+}
+
+// ── DETAIL MODAL ──────────────────────────────────────────────────────────
+function openDetail(propId){
+  const p=allProps.find(x=>x.id===propId);
+  if(!p) return;
+  currentProp=p;
+  document.getElementById('modalPropName').textContent=p.name;
+  document.getElementById('modalPropAddr').textContent='📍 '+p.address;
+  const badges=document.getElementById('modalBadges');
+  badges.innerHTML='';
+  if(p.district) badges.innerHTML+=`<span class="badge badge-district">${esc(p.district)}</span>`;
+  if(p.serviceType) badges.innerHTML+=`<span class="badge badge-service">${esc(p.serviceType)}</span>`;
+
+  const tbody=document.getElementById('roomTableBody');
+  tbody.innerHTML=p.rooms.map(r=>{
+    const st=getRoomStatus(p.id,r.room);
+    const typNorm=normalizeType(r.type);
+    return `<tr>
+      <td><strong>${esc(r.room)}</strong></td>
+      <td>${esc(typNorm)}</td>
+      <td>NT$${(r.price||0).toLocaleString()}</td>
+      <td><span class="status-badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  // pre-fill inquiry with prop name
+  document.getElementById('fProp').value=p.name;
+
+  document.getElementById('detailModal').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeDetail(){
+  document.getElementById('detailModal').classList.remove('open');
+  if(!document.getElementById('contactModal').classList.contains('open')){
+    document.getElementById('overlay').classList.remove('open');
+    document.body.style.overflow='';
+  }
+}
+
+// ── CONTACT MODAL ─────────────────────────────────────────────────────────
+function openContact(){
+  if(currentProp){
+    document.getElementById('fProp').value=currentProp.name;
+  }
+  document.getElementById('successMsg').style.display='none';
+  document.getElementById('contactFormArea').style.display='block';
+  document.getElementById('contactModal').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeContact(){
+  document.getElementById('contactModal').classList.remove('open');
+  if(!document.getElementById('detailModal').classList.contains('open')){
+    document.getElementById('overlay').classList.remove('open');
+    document.body.style.overflow='';
+  }
+  // reset form
+  setTimeout(()=>{
+    document.getElementById('fName').value='';
+    document.getElementById('fPhone').value='';
+    document.getElementById('fDate').value='';
+    document.getElementById('fNote').value='';
+    document.getElementById('successMsg').style.display='none';
+    document.getElementById('contactFormArea').style.display='block';
+  },400);
+}
+
+function closeAll(){
+  closeDetail();
+  closeContact();
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function submitInquiry(){
+  const name=document.getElementById('fName').value.trim();
+  const phone=document.getElementById('fPhone').value.trim();
+  if(!name){alert('請輸入姓名');document.getElementById('fName').focus();return;}
+  if(!phone){alert('請輸入聯絡電話');document.getElementById('fPhone').focus();return;}
+
+  const inquiry={
+    id:'inq_'+Date.now(),
+    name,phone,
+    date:document.getElementById('fDate').value,
+    prop:document.getElementById('fProp').value,
+    note:document.getElementById('fNote').value,
+    createdAt:new Date().toISOString()
+  };
+  let inqs=[];
+  try{ inqs=JSON.parse(localStorage.getItem('qj_inquiries')||'[]'); }catch(e){}
+  inqs.push(inquiry);
+  try{ localStorage.setItem('qj_inquiries',JSON.stringify(inqs)); }catch(e){}
+
+  document.getElementById('contactFormArea').style.display='none';
+  document.getElementById('successMsg').style.display='block';
+}
+
+// ── MOBILE NAV ────────────────────────────────────────────────────────────
+document.getElementById('hamburgerBtn').addEventListener('click',()=>{
+  document.getElementById('mobileNav').classList.toggle('open');
+});
+function closeMobileNav(){
+  document.getElementById('mobileNav').classList.remove('open');
+}
+
+// ── ESCAPE ────────────────────────────────────────────────────────────────
+function esc(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(document.getElementById('contactModal').classList.contains('open')) closeContact();
+    else if(document.getElementById('detailModal').classList.contains('open')) closeDetail();
+  }
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
