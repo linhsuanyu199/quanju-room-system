@@ -157,9 +157,9 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   z-index:1000;align-items:flex-start;justify-content:center;
   padding:20px;overflow-y:auto}
 .overlay.open{display:flex}
-.modal{background:var(--white);border-radius:14px;width:580px;max-width:100%;
+.modal{background:var(--white);border-radius:14px;width:680px;max-width:100%;
   margin:auto;box-shadow:0 24px 70px rgba(0,0,0,.22)}
-.modal-lg{width:640px}
+.modal-lg{width:700px}
 .modal-pm{width:760px}
 .modal-h{padding:13px 17px 11px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:8px}
@@ -168,7 +168,7 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   color:var(--muted);width:26px;height:26px;display:flex;align-items:center;
   justify-content:center;border-radius:5px;transition:background .12s}
 .close-btn:hover{background:var(--bg)}
-.modal-body{padding:15px 17px}
+.modal-body{padding:15px 17px;max-height:82vh;overflow-y:auto}
 .section-title{font-size:11px;font-weight:700;color:var(--primary);
   text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
 .section-sub{font-size:11px;font-weight:400;color:var(--muted);text-transform:none}
@@ -404,8 +404,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
   <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
   <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
+  <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
   <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
-  <button class="btn-top btn-mgt-top" onclick="doLogout()" title="登出系統" style="background:rgba(255,255,255,.1);margin-left:4px">🚪</button>
+  <button class="btn-top btn-mgt-top" onclick="openCPW()" title="修改帳號密碼" style="background:rgba(255,255,255,.1)">🔑</button>
+  <button class="btn-top btn-mgt-top" onclick="doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
 </div>
 
 <!-- Toolbar -->
@@ -431,6 +433,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <option value="">全部類型</option>
     <option value="包租">📦 包租</option>
     <option value="合作拆帳">🤝 合作拆帳</option>
+  </select>
+  <select class="sel" id="f-dist" onchange="render()" title="行政區篩選">
+    <option value="">全部行政區</option>
   </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
 </div>
@@ -546,6 +551,48 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 </div>
 </div>
 
+<!-- ═══ Analytics Modal ═══ -->
+<div class="overlay" id="ana-ov" onclick="if(event.target===this)closeAna()">
+<div class="modal" style="width:820px;max-width:98vw">
+  <div class="modal-h">
+    <h2>📊 營業分析報表</h2>
+    <div style="display:flex;gap:5px;margin-right:8px">
+      <button id="ana-tab-m" class="btn btn-primary sm" onclick="setAnaTab('m')">月報</button>
+      <button id="ana-tab-q" class="btn btn-ghost sm" onclick="setAnaTab('q')">季報</button>
+      <button id="ana-tab-y" class="btn btn-ghost sm" onclick="setAnaTab('y')">年報</button>
+    </div>
+    <button class="close-btn" onclick="closeAna()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:80vh;overflow-y:auto">
+    <div id="ana-content"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ Change Password Modal ═══ -->
+<div class="overlay" id="cpw-ov" onclick="if(event.target===this)closeCPW()">
+<div class="modal" style="width:400px">
+  <div class="modal-h">
+    <h2>🔑 修改帳號密碼</h2>
+    <button class="close-btn" onclick="closeCPW()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:unset">
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div class="field"><label>目前帳號</label><input id="cpw-user-show" type="text" readonly style="background:#f5f5f5"></div>
+      <div class="field"><label>新帳號（留空保持不變）</label><input id="cpw-newuser" type="text" placeholder="輸入新帳號"></div>
+      <div class="field"><label>目前密碼 <span class="req">*</span></label><input id="cpw-old" type="password" placeholder="請輸入目前密碼"></div>
+      <div class="field"><label>新密碼 <span class="req">*</span></label><input id="cpw-new1" type="password" placeholder="至少 6 個字元"></div>
+      <div class="field"><label>確認新密碼 <span class="req">*</span></label><input id="cpw-new2" type="password" placeholder="再輸入一次新密碼"></div>
+    </div>
+    <div id="cpw-err" style="display:none;color:#c92a2a;font-size:11px;margin-top:6px"></div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-ghost" onclick="closeCPW()">取消</button>
+    <button class="btn btn-primary" onclick="doChangePW()">💾 儲存修改</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ Task Modal (排程清潔/維修) ═══ -->
 <div class="overlay" id="tk-ov" onclick="if(event.target===this)closeTk()">
 <div class="modal">
@@ -622,6 +669,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <option value="包租">📦 包租</option>
             <option value="合作拆帳">🤝 合作拆帳</option>
           </select>
+        </div>
+        <div class="field"><label>行政區</label>
+          <input id="np-dist" type="text" placeholder="如 中正區、信義區">
         </div>
         <div class="field" style="grid-column:1/-1;align-items:flex-start">
           <button class="btn btn-primary" onclick="doAddProp()">建立館別</button>
@@ -700,7 +750,8 @@ function getAllProps(){
     const ov=ovr[String(pid)];
     const rpi=pi[String(pid)];
     const rn=rpi&&rpi.roomNames&&rpi.roomNames[r.room]?rpi.roomNames[r.room]:r.room;
-    return{...r,room:rn,_origRoom:r.room,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
+    const rt=rpi&&rpi.roomTypes&&rpi.roomTypes[r.room]!==undefined?rpi.roomTypes[r.room]:r.type;
+    return{...r,room:rn,_origRoom:r.room,type:rt,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
   }
   const ep=EXCEL_DATA.properties.map(p=>{
     const info=pi[String(p.id)]||{};
@@ -708,6 +759,7 @@ function getAllProps(){
       address:info.address!==undefined?info.address:p.address,
       code:info.code!==undefined?info.code:p.code,
       serviceType:info.serviceType||p.serviceType||'',
+      district:info.district||p.district||'',
       rooms:[...p.rooms.map(r=>ao(p.id,r)),...(ext[String(p.id)]||[]).map(r=>ao(p.id,r))]};
   });
   const cp=loadCPs().map(p=>{
@@ -716,6 +768,7 @@ function getAllProps(){
       address:info.address!==undefined?info.address:p.address,
       code:info.code!==undefined?info.code:p.code,
       serviceType:info.serviceType||p.serviceType||'',
+      district:info.district||p.district||'',
       rooms:p.rooms.map(r=>ao(p.id,r))};
   });
   return[...ep,...cp];
@@ -842,6 +895,269 @@ function doLogout(){
   document.getElementById('login-pass').value='';
   setTimeout(()=>document.getElementById('login-user').focus(),100);
 }
+function openCPW(){
+  const cfg=getAuthCfg();
+  document.getElementById('cpw-user-show').value=cfg.user;
+  document.getElementById('cpw-newuser').value='';
+  document.getElementById('cpw-old').value='';
+  document.getElementById('cpw-new1').value='';
+  document.getElementById('cpw-new2').value='';
+  document.getElementById('cpw-err').style.display='none';
+  document.getElementById('cpw-ov').classList.add('open');
+}
+function closeCPW(){document.getElementById('cpw-ov').classList.remove('open');}
+function doChangePW(){
+  const cfg=getAuthCfg();
+  const oldP=document.getElementById('cpw-old').value||'';
+  const newU=(document.getElementById('cpw-newuser').value||'').trim();
+  const new1=document.getElementById('cpw-new1').value||'';
+  const new2=document.getElementById('cpw-new2').value||'';
+  const err=document.getElementById('cpw-err');
+  function showErr(msg){err.textContent=msg;err.style.display='block';}
+  if(oldP!==cfg.pass){showErr('❌ 目前密碼輸入錯誤');return;}
+  if(!new1){showErr('❌ 請輸入新密碼');return;}
+  if(new1.length<6){showErr('❌ 新密碼至少 6 個字元');return;}
+  if(new1!==new2){showErr('❌ 兩次密碼輸入不一致');return;}
+  const finalUser=newU||cfg.user;
+  localStorage.setItem('qj_auth',JSON.stringify({user:finalUser,pass:new1}));
+  closeCPW();
+  alert('✅ 帳號密碼已更新！\n新帳號：'+finalUser+'\n請記得妥善保存新密碼。');
+}
+
+// ════════════════════════════════════════════════
+// ANALYTICS
+// ════════════════════════════════════════════════
+function openAna(){
+  document.getElementById('ana-ov').classList.add('open');
+  setAnaTab('m');
+}
+function closeAna(){document.getElementById('ana-ov').classList.remove('open');}
+function setAnaTab(tab){
+  ['m','q','y'].forEach(t=>{
+    document.getElementById('ana-tab-'+t).className='btn '+(t===tab?'btn-primary':'btn-ghost')+' sm';
+  });
+  renderAna(tab);
+}
+function renderAna(tab){
+  const allBks=loadBks();
+  const allTasks=loadTasks();
+  const allProps=getAllProps();
+  const totalRooms=allProps.reduce((s,p)=>s+p.rooms.length,0);
+  const now=new Date();
+  const curY=now.getFullYear();
+  const curM=now.getMonth()+1;
+
+  let periods=[];
+  if(tab==='m'){
+    // Last 12 months
+    for(let i=11;i>=0;i--){
+      let y=curY,m=curM-i;
+      while(m<1){m+=12;y--;}
+      periods.push({label:y+'/'+(m<10?'0':'')+m,y,m,q:null});
+    }
+  }else if(tab==='q'){
+    // Last 8 quarters
+    let y=curY,q=Math.ceil(curM/3);
+    for(let i=7;i>=0;i--){
+      let qi=q-i;let yi=y;
+      while(qi<1){qi+=4;yi--;}
+      periods.push({label:yi+'Q'+qi,y:yi,q:qi,m:null});
+    }
+  }else{
+    // Last 5 years
+    for(let i=4;i>=0;i--){
+      periods.push({label:String(curY-i),y:curY-i,q:null,m:null});
+    }
+  }
+
+  function inPeriod(dateStr,p){
+    if(!dateStr)return false;
+    const d=new Date(dateStr);
+    const dy=d.getFullYear(),dm=d.getMonth()+1;
+    if(tab==='y')return dy===p.y;
+    if(tab==='q')return dy===p.y&&Math.ceil(dm/3)===p.q;
+    return dy===p.y&&dm===p.m;
+  }
+
+  // Calculate stats per period
+  const stats=periods.map(p=>{
+    let rev=0,occupiedDays=0,totalAvailDays=0,maintDays=0;
+    // Revenue: sum checkin/checkout segments that overlap period
+    const pStart=tab==='y'?p.y+'-01-01':tab==='q'?p.y+'-'+([(p.q-1)*3+1].map(x=>x<10?'0'+x:x)[0])+'-01':p.y+'-'+(p.m<10?'0'+p.m:p.m)+'-01';
+    const pEndRaw=tab==='y'?new Date(p.y,11,31):tab==='q'?new Date(p.y,p.q*3,0):new Date(p.y,p.m,0);
+    const pEnd=pEndRaw.toISOString().slice(0,10);
+    const pDays=Math.round((new Date(pEnd)-new Date(pStart))/86400000)+1;
+    allBks.forEach(bk=>{
+      bk.segments.forEach(seg=>{
+        if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+        const ci=seg.checkin,co=seg.checkout;
+        if(!ci||!co||ci>=pEnd||co<=pStart)return;
+        const os=ci>pStart?ci:pStart;
+        const oe=co<pEnd?co:pEnd;
+        const days=Math.round((new Date(oe)-new Date(os))/86400000);
+        if(days>0){
+          const r=allProps.find(pr=>String(pr.id)===String(seg.prop_id));
+          const rm=r?r.rooms.find(x=>x.room===seg.room):null;
+          const mp=seg.monthlyPrice||(rm?rm.price:0)||0;
+          rev+=days*(mp/30);
+          occupiedDays+=days;
+        }
+      });
+    });
+    totalAvailDays=totalRooms*pDays;
+    allTasks.forEach(t=>{
+      if(t.type!=='repair')return;
+      const ts=t.start,te=t.end;
+      if(!ts||!te||ts>=pEnd||te<=pStart)return;
+      const os=ts>pStart?ts:pStart;
+      const oe=te<pEnd?te:pEnd;
+      const days=Math.round((new Date(oe)-new Date(os))/86400000);
+      if(days>0)maintDays+=days;
+    });
+    const occRate=totalAvailDays>0?Math.round(occupiedDays/totalAvailDays*100):0;
+    const maintRate=totalAvailDays>0?Math.round(maintDays/totalAvailDays*100):0;
+    return {label:p.label,rev:Math.round(rev),occRate,maintRate,pDays,totalAvailDays,occupiedDays};
+  });
+
+  // Property ranking (by occupancy this period / last 12 months)
+  const last12Start=new Date(curY,curM-13,1).toISOString().slice(0,10);
+  const last12End=new Date(curY,curM,0).toISOString().slice(0,10);
+  const propStats=allProps.map(prop=>{
+    let odays=0,mdays=0;
+    const totalDays=prop.rooms.length*365;
+    allBks.forEach(bk=>{
+      bk.segments.forEach(seg=>{
+        if(String(seg.prop_id)!==String(prop.id))return;
+        if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+        const ci=seg.checkin,co=seg.checkout;
+        if(!ci||!co||ci>=last12End||co<=last12Start)return;
+        const os=ci>last12Start?ci:last12Start;
+        const oe=co<last12End?co:last12End;
+        const days=Math.round((new Date(oe)-new Date(os))/86400000);
+        if(days>0)odays+=days;
+      });
+    });
+    allTasks.forEach(t=>{
+      if(t.type!=='repair'||String(t.prop_id)!==String(prop.id))return;
+      const days=Math.round((new Date(Math.min(new Date(t.end),new Date(last12End)))-new Date(Math.max(new Date(t.start),new Date(last12Start))))/86400000);
+      if(days>0)mdays+=days;
+    });
+    const avail=prop.rooms.length*365;
+    return {name:prop.name+(prop.district?' ['+prop.district+']':''),rooms:prop.rooms.length,
+      occRate:avail>0?Math.round(odays/avail*100):0,
+      maintRate:avail>0?Math.round(mdays/avail*100):0,
+      district:prop.district||'未設定'};
+  });
+  const topOcc=[...propStats].sort((a,b)=>b.occRate-a.occRate).slice(0,5);
+  const lowOcc=[...propStats].sort((a,b)=>a.occRate-b.occRate).slice(0,5);
+  const highMaint=[...propStats].sort((a,b)=>b.maintRate-a.maintRate).slice(0,5);
+
+  // District demand
+  const distMap={};
+  propStats.forEach(p=>{
+    if(!distMap[p.district])distMap[p.district]={occTotal:0,cnt:0};
+    distMap[p.district].occTotal+=p.occRate;
+    distMap[p.district].cnt++;
+  });
+  const distRank=Object.entries(distMap).map(([d,v])=>({dist:d,avg:v.cnt?Math.round(v.occTotal/v.cnt):0})).sort((a,b)=>b.avg-a.avg);
+
+  // Build chart
+  const maxRev=Math.max(...stats.map(s=>s.rev),1);
+  const maxOcc=100;
+  function bar(val,max,color,h=40){
+    const pct=Math.max(1,Math.round(val/max*100));
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'+
+      '<div style="font-size:9px;color:var(--muted);font-weight:600">'+(val>=10000?Math.round(val/1000)+'K':val)+'</div>'+
+      '<div style="width:100%;height:'+h+'px;background:#f0f2f7;border-radius:4px;display:flex;align-items:flex-end;overflow:hidden">'+
+        '<div style="width:100%;height:'+pct+'%;background:'+color+';border-radius:4px 4px 0 0;transition:height .3s"></div>'+
+      '</div></div>';
+  }
+  function rankRow(label,val,color,note){
+    return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #f0f2f7">'+
+      '<div style="width:120px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+label+'">'+label+'</div>'+
+      '<div style="flex:1;height:12px;background:#f0f2f7;border-radius:3px;overflow:hidden">'+
+        '<div style="height:100%;width:'+Math.min(100,val)+'%;background:'+color+';border-radius:3px"></div>'+
+      '</div>'+
+      '<div style="width:40px;text-align:right;font-size:10px;font-weight:700;color:'+color+'">'+val+'%</div>'+
+      (note?'<div style="font-size:9px;color:var(--muted);white-space:nowrap">'+note+'</div>':'')+
+    '</div>';
+  }
+
+  const html=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'+
+      // Revenue chart
+      '<div style="background:#f8f9fa;border-radius:8px;padding:12px">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:8px">💰 各期營業額 (NT$)</div>'+
+        '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;align-items:end">'+
+          stats.map(s=>bar(s.rev,maxRev,'#1a56a0')).join('')+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;margin-top:3px">'+
+          stats.map(s=>'<div style="font-size:7.5px;text-align:center;color:var(--muted)">'+s.label+'</div>').join('')+
+        '</div>'+
+      '</div>'+
+      // Occupancy chart
+      '<div style="background:#f8f9fa;border-radius:8px;padding:12px">'+
+        '<div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:8px">📈 入住率 / 維修率 (%)</div>'+
+        '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;align-items:end">'+
+          stats.map(s=>'<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;align-items:end">'+
+            bar(s.occRate,100,'#2f9e44',36)+bar(s.maintRate,100,'#c92a2a',36)+'</div>').join('')+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;margin-top:3px">'+
+          stats.map(s=>'<div style="font-size:7.5px;text-align:center;color:var(--muted)">'+s.label+'</div>').join('')+
+        '</div>'+
+        '<div style="display:flex;gap:10px;margin-top:5px;font-size:9px">'+
+          '<span><span style="display:inline-block;width:8px;height:8px;background:#2f9e44;border-radius:2px"></span> 入住率</span>'+
+          '<span><span style="display:inline-block;width:8px;height:8px;background:#c92a2a;border-radius:2px"></span> 維修率</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    // Summary table
+    '<div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">📋 各期數據摘要</div>'+
+      '<div style="overflow-x:auto">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:10px">'+
+        '<thead><tr style="background:var(--primary);color:#fff">'+
+          '<th style="padding:5px 7px;text-align:left">期間</th>'+
+          '<th style="padding:5px 7px;text-align:right">營業額</th>'+
+          '<th style="padding:5px 7px;text-align:right">入住率</th>'+
+          '<th style="padding:5px 7px;text-align:right">空房率</th>'+
+          '<th style="padding:5px 7px;text-align:right">維修率</th>'+
+        '</tr></thead>'+
+        '<tbody>'+
+          stats.map((s,i)=>'<tr style="background:'+(i%2?'#fff':'#f8f9fa')+'">'+
+            '<td style="padding:4px 7px">'+s.label+'</td>'+
+            '<td style="padding:4px 7px;text-align:right;font-weight:700">$'+(s.rev>=1000?s.rev.toLocaleString():s.rev)+'</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#2f9e44">'+s.occRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#e67700">'+(100-s.occRate-s.maintRate)+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#c92a2a">'+s.maintRate+'%</td>'+
+          '</tr>').join('')+
+        '</tbody>'+
+      '</table></div>'+
+    '</div>'+
+    // Property ranking
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'+
+      '<div style="background:#ebfbee;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:6px">🏆 入住率最高 TOP 5</div>'+
+        topOcc.map(p=>rankRow(p.name,p.occRate,'#2f9e44',p.rooms+'間')).join('')+
+      '</div>'+
+      '<div style="background:#fff5f5;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#e67700;margin-bottom:6px">⚠️ 入住率最低 TOP 5</div>'+
+        lowOcc.map(p=>rankRow(p.name,p.occRate,'#e67700',p.rooms+'間')).join('')+
+      '</div>'+
+      '<div style="background:#fff5f5;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#c92a2a;margin-bottom:6px">🔧 維修率最高 TOP 5</div>'+
+        highMaint.map(p=>rankRow(p.name,p.maintRate,'#c92a2a',p.rooms+'間')).join('')+
+      '</div>'+
+    '</div>'+
+    // District demand
+    '<div style="background:#f0f4ff;border-radius:8px;padding:10px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">📍 各行政區平均入住率（近12個月）</div>'+
+      (distRank.length===0?'<div style="font-size:11px;color:var(--muted)">尚無行政區資料，請至「管理房源」→「✏️ 編輯」設定各館別的行政區</div>':
+        distRank.map(d=>rankRow(d.dist,d.avg,'#1a56a0','')).join(''))+
+    '</div>';
+
+  document.getElementById('ana-content').innerHTML=html;
+}
 
 // ════════════════════════════════════════════════
 // INIT & NAVIGATION
@@ -859,15 +1175,29 @@ function init(){
 }
 function populatePropFilter(){
   const pf=document.getElementById('f-prop');
-  const cur=pf.value;
+  const df=document.getElementById('f-dist');
+  const curP=pf.value;
+  const curD=df?df.value:'';
   pf.innerHTML='<option value="">全部館別</option>';
-  getAllProps().forEach(p=>{
+  const allP=getAllProps();
+  allP.forEach(p=>{
     const o=document.createElement('option');
     const svcLabel=p.serviceType?' ['+p.serviceType+']':'';
-    o.value=String(p.id);o.textContent=p.name+svcLabel+(p.address?' ('+p.address+')':'');
-    if(String(p.id)===cur)o.selected=true;
+    const distLabel=p.district?' ('+p.district+')':'';
+    o.value=String(p.id);o.textContent=p.name+svcLabel+distLabel;
+    if(String(p.id)===curP)o.selected=true;
     pf.appendChild(o);
   });
+  if(df){
+    df.innerHTML='<option value="">全部行政區</option>';
+    const dists=[...new Set(allP.map(p=>p.district||'').filter(Boolean))].sort();
+    dists.forEach(d=>{
+      const o=document.createElement('option');
+      o.value=d;o.textContent=d;
+      if(d===curD)o.selected=true;
+      df.appendChild(o);
+    });
+  }
 }
 function changeMonth(d){curM+=d;if(curM>12){curM=1;curY++;}if(curM<1){curM=12;curY--;}render();}
 function goToday(){const n=new Date();curY=n.getFullYear();curM=n.getMonth()+1;render();}
@@ -1037,8 +1367,10 @@ function render(){
 
   let ap=getAllProps();
   const fsvc=(document.getElementById('f-svc')||{}).value||'';
+  const fdist=(document.getElementById('f-dist')||{}).value||'';
   if(fp)ap=ap.filter(p=>String(p.id)===fp);
   if(fsvc)ap=ap.filter(p=>(p.serviceType||'')=== fsvc);
+  if(fdist)ap=ap.filter(p=>(p.district||'')=== fdist);
   let tRooms=0,tRDays=0,occD=0,actualRev=0;
   // Count unique local booking IDs active this month
   const activeBkIds=new Set();
@@ -1052,7 +1384,7 @@ function render(){
     const ph=document.createElement('div');
     ph.className='prop-hdr';ph.dataset.pid=pid;
     ph.innerHTML='<span class="prop-toggle '+(isColl?'closed':'open')+'">▾</span>'+
-      '<span class="prop-name">'+prop.name+(prop.serviceType?'<span style="font-size:9px;background:rgba(255,255,255,.25);border-radius:3px;padding:1px 4px;margin-left:4px">'+prop.serviceType+'</span>':'')+' '+(prop.code?'<span style="font-size:9px;opacity:.7">('+prop.code+')</span>':'')+'</span>'+
+      '<span class="prop-name">'+(prop.district?'<span style="font-size:9px;opacity:.8">['+prop.district+']</span> ':'')+prop.name+(prop.serviceType?'<span style="font-size:9px;background:rgba(255,255,255,.25);border-radius:3px;padding:1px 4px;margin-left:4px">'+prop.serviceType+'</span>':'')+' '+(prop.code?'<span style="font-size:9px;opacity:.7">('+prop.code+')</span>':'')+'</span>'+
       (prop.custom?'<span class="custom-badge">自訂</span>':'')+
       '<span class="prop-cnt">'+prop.rooms.length+'間</span>';
     ph.addEventListener('click',()=>toggleProp(pid));
@@ -1871,7 +2203,9 @@ function renderPM(){
       const isExtra=!!(ext[pid]&&ext[pid].some(r=>r.room===origRoom));
       return '<div class="pm-room-row">'+
         '<span class="pm-rno">'+room.room+'</span>'+
-        (room.type?'<span class="pm-rtype">'+room.type+'</span>':'')+
+        '<input type="text" class="pm-rtype-input" value="'+escH(room.type||'')+'" placeholder="房型" '+
+          'style="width:72px;height:22px;border:1px solid var(--border);border-radius:4px;font-size:10px;padding:0 5px;text-align:center" '+
+          'onchange="setRT(\''+pid+'\',\''+origRoom+'\',this)">'+
         '<span class="pm-price-wrap">NT$&nbsp;'+
           '<input class="pm-price-input'+(changed?' changed':'')+'" type="number" '+
             'value="'+(curP||'')+'" placeholder="月租金" '+
@@ -1908,6 +2242,8 @@ function renderPM(){
               '<option value="包租" '+(prop.serviceType==='包租'?'selected':'')+'>📦 包租</option>'+
               '<option value="合作拆帳" '+(prop.serviceType==='合作拆帳'?'selected':'')+'>🤝 合作拆帳</option>'+
             '</select></div>'+
+          '<div class="field"><label style="font-size:10px">行政區</label>'+
+            '<input type="text" id="pe-dist-'+pid+'" value="'+escH(prop.district||'')+'" placeholder="如 中正區" style="height:28px;font-size:11px"></div>'+
           '<div class="field" style="align-self:flex-end;flex-direction:row;gap:5px">'+
             '<button class="btn btn-primary sm" onclick="savePropEdit(\''+pid+'\')">💾 儲存</button>'+
             '<button class="btn btn-ghost sm" onclick="togglePropEdit(\''+pid+'\')">取消</button>'+
@@ -1935,6 +2271,12 @@ function setRP(pid,rno,input){
   const orig=EXCEL_DATA.properties.find(p=>String(p.id)===pid);
   const or=orig?orig.rooms.find(r=>r.room===rno):null;
   input.classList.toggle('changed',!!(or&&or.price!==val));
+}
+function setRT(pid,rno,input){
+  const val=(input.value||'').trim();
+  const pi=loadPropInfo();if(!pi[pid])pi[pid]={};
+  if(!pi[pid].roomTypes)pi[pid].roomTypes={};
+  pi[pid].roomTypes[rno]=val;savePropInfo(pi);
 }
 function showAF(pid){document.querySelectorAll('.pm-add-form').forEach(e=>e.style.display='none');document.getElementById('af-'+pid).style.display='block';}
 function hideAF(pid){document.getElementById('af-'+pid).style.display='none';}
@@ -1972,20 +2314,16 @@ function savePropEdit(pid){
   const code=(document.getElementById('pe-code-'+pid).value||'').trim();
   const addr=(document.getElementById('pe-addr-'+pid).value||'').trim();
   const svc=(document.getElementById('pe-svc-'+pid).value||'');
+  const dist=(document.getElementById('pe-dist-'+pid).value||'').trim();
   if(!nm){alert('館別名稱不可空白');return;}
-  // Check if it's a custom prop or EXCEL prop
   const cps=loadCPs();const cp=cps.find(x=>String(x.id)===pid);
   if(cp){
-    // Custom prop: save directly
-    cp.name=nm;cp.code=code;cp.address=addr;cp.serviceType=svc;saveCPs(cps);
+    cp.name=nm;cp.code=code;cp.address=addr;cp.serviceType=svc;cp.district=dist;saveCPs(cps);
   } else {
-    // EXCEL prop: save overrides in propinfo
     const pi=loadPropInfo();if(!pi[pid])pi[pid]={};
-    pi[pid].code=code;pi[pid].address=addr;pi[pid].serviceType=svc;
-    // Also update name override for EXCEL props
+    pi[pid].code=code;pi[pid].address=addr;pi[pid].serviceType=svc;pi[pid].district=dist;
     pi[pid].name=nm;
     savePropInfo(pi);
-    // Update EXCEL_DATA in-memory name (for this session)
     const ep=EXCEL_DATA.properties.find(p=>String(p.id)===pid);
     if(ep)ep.name=nm;
   }
@@ -2003,10 +2341,11 @@ function doAddProp(){
   const code=(document.getElementById('np-code').value||'').trim();
   const addr=(document.getElementById('np-addr').value||'').trim();
   const svc=(document.getElementById('np-svc').value||'');
+  const dist=(document.getElementById('np-dist').value||'').trim();
   const newId='cp_'+Date.now();
-  const cps=loadCPs();cps.push({id:newId,name:nm,code:code,address:addr,serviceType:svc,rooms:[],custom:true});
+  const cps=loadCPs();cps.push({id:newId,name:nm,code:code,address:addr,serviceType:svc,district:dist,rooms:[],custom:true});
   saveCPs(cps);
-  ['np-name','np-code','np-addr'].forEach(id=>{document.getElementById(id).value='';});
+  ['np-name','np-code','np-addr','np-dist'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('np-svc').value='';
   renderPM();alert('館別「'+nm+'」已建立！');
 }
