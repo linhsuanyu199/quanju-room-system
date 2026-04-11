@@ -122,8 +122,8 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.14);
   transition:filter .12s,box-shadow .12s}
 .bk:hover{filter:brightness(1.1);box-shadow:0 3px 10px rgba(0,0,0,.24);z-index:20}
-.bk.task-block{border-style:dashed;opacity:.92;cursor:pointer}
-.bk.task-block:hover{opacity:1}
+.bk.task-block{border-style:solid;opacity:.95;cursor:pointer;border-radius:3px 3px 2px 2px;font-size:9px;padding:0 4px}
+.bk.task-block:hover{opacity:1;filter:brightness(1.08)}
 
 .today-line{position:absolute;top:0;bottom:0;width:2px;
   background:#f97316;z-index:15;pointer-events:none}
@@ -835,9 +835,13 @@ function checkConflicts(segs,excludeBkId){
   const out=[];
   segs.forEach((seg,i)=>{
     if(!seg.prop_id||!seg.room||!seg.checkin||!seg.checkout)return;
-    const ct=tasks.filter(t=>
-      String(t.prop_id)===String(seg.prop_id)&&t.room===seg.room&&
-      t.start<seg.checkout&&t.end>seg.checkin);
+    const ct=tasks.filter(t=>{
+      if(String(t.prop_id)!==String(seg.prop_id)||t.room!==seg.room)return false;
+      if(!t.start||!t.end||t.start>=seg.checkout||t.end<=seg.checkin)return false;
+      // 打掃：退房當日=入住當日允許（11點退/打掃/16點入住），只有維修才硬擋
+      if(t.type==='cleaning'&&t.start===seg.checkin)return false;
+      return true;
+    });
     if(ct.length>0)out.push({segIdx:i,tasks:ct});
   });
   return out;
@@ -1607,13 +1611,19 @@ function render(){
         dc.addEventListener('click',e=>{e.stopPropagation();showCellMenu(e,prop.id,room.room,dstr);});
         cr.appendChild(dc);
       }
-      blocks.forEach(b=>{
+      // 非 task 先渲染，task 後渲染（DOM 後方 = 自然在上層）
+      const sortedBlocks=[...blocks].sort((a,b2)=>a.isTask&&!b2.isTask?1:!a.isTask&&b2.isTask?-1:0);
+      sortedBlocks.forEach(b=>{
         const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
         if(e<=s)return;
         const blk=document.createElement('div');
         blk.className='bk'+(b.isTask?' task-block':'');
+        // task 塊：頂端小條 + 高 z-index；booking 塊：全高
+        const topPx=b.isTask?2:4;
+        const htPx=b.isTask?14:(CH-8);
         blk.style.cssText='left:'+((s-1)*DW+2)+'px;width:'+((e-s)*DW-4)+'px;'+
-          'background:'+b.color+';top:4px;height:'+(CH-8)+'px;';
+          'background:'+b.color+';top:'+topPx+'px;height:'+htPx+'px;'+
+          'z-index:'+(b.isTask?3:1)+';';
         blk.textContent=b.lbl;
         blk.addEventListener('click',b.onClick);
         blk.addEventListener('mouseenter',b.onHover);
