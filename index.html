@@ -1266,49 +1266,43 @@ function renderAna(tab){
       (!hasAgentData?
         '<div style="font-size:11px;color:var(--muted)">目前無業務績效資料，新增預定時請填寫「負責業務」欄位。</div>':
         '<div style="overflow-x:auto">'+
-        '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px">'+
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
           '<thead>'+
             '<tr style="background:#ede9fe">'+
-              '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">期間</th>'+
-              AGENTS.map((ag,ai)=>
-                '<th style="padding:6px 8px;text-align:center;color:'+AGENT_COLORS[ai]+';font-weight:700">'+ag+'</th>'
+              '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap;min-width:60px">業務</th>'+
+              periods.map(p=>
+                '<th style="padding:6px 8px;text-align:center;font-weight:600;color:#495057;white-space:nowrap">'+p.label+'</th>'
               ).join('')+
+              '<th style="padding:6px 8px;text-align:center;font-weight:700;color:#6741d9;white-space:nowrap">合計</th>'+
             '</tr>'+
           '</thead>'+
           '<tbody>'+
-            periods.map((p,pi)=>
-              '<tr style="border-bottom:1px solid #ede9fe;'+(pi%2?'background:#faf8ff;':'')+'">' +
-                '<td style="padding:5px 8px;font-weight:600;white-space:nowrap;color:#495057">'+p.label+'</td>'+
-                agentData.map((a,ai)=>{
-                  const s=a.pStats[pi];
-                  return '<td style="padding:5px 8px;text-align:center;vertical-align:top">'+
+            agentData.map((a,ai)=>{
+              const totOrd=new Set();
+              const totRev=a.pStats.reduce((s,p)=>s+p.rev,0);
+              allBks.filter(b=>b.agent===a.agent).forEach(b=>b.segments.forEach(seg=>{
+                if(seg.status==='checkin'||seg.status==='checkout'){
+                  periods.forEach(p2=>{
+                    const {pStart,pEnd}=getPeriodBounds(p2);
+                    if(seg.checkin<pEnd&&seg.checkout>pStart)totOrd.add(b.id);
+                  });
+                }
+              }));
+              return '<tr style="border-bottom:1px solid #ede9fe;'+(ai%2?'background:#faf8ff;':'')+'">' +
+                '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai]+'">'+a.agent+'</td>'+
+                a.pStats.map(s=>
+                  '<td style="padding:5px 8px;text-align:center;vertical-align:middle">'+
                     (s.orders>0?
                       '<div style="font-weight:700;color:'+AGENT_COLORS[ai]+'">'+s.orders+' 筆</div>'+
-                      '<div style="color:#495057">$'+(s.rev>0?Math.round(s.rev).toLocaleString():'0')+'</div>'+
-                      (s.districts?'<div style="font-size:9px;color:var(--muted)">📍'+s.districts+'</div>':'')+
-                      (s.rtypes?'<div style="font-size:9px;color:var(--muted)">🏠'+s.rtypes+'</div>':''):
+                      '<div style="color:#495057;font-size:10.5px">$'+Math.round(s.rev).toLocaleString()+'</div>':
                       '<span style="color:#ccc">—</span>')+
-                  '</td>';
-                }).join('')+
-              '</tr>'
-            ).join('')+
-            // 合計行
-            '<tr style="background:#ede9fe;font-weight:700">'+
-              '<td style="padding:6px 8px">合計</td>'+
-              agentData.map((a,ai)=>{
-                const totOrd=new Set();
-                const totRev=a.pStats.reduce((s,p)=>s+p.rev,0);
-                allBks.filter(b=>b.agent===a.agent).forEach(b=>b.segments.forEach(seg=>{
-                  if(seg.status==='checkin'||seg.status==='checkout'){
-                    periods.forEach((p,pi)=>{
-                      const {pStart,pEnd}=getPeriodBounds(p);
-                      if(seg.checkin<pEnd&&seg.checkout>pStart)totOrd.add(b.id);
-                    });
-                  }
-                }));
-                return '<td style="padding:6px 8px;text-align:center;color:'+AGENT_COLORS[ai]+'">'+(totOrd.size>0?totOrd.size+' 筆<br>$'+Math.round(totRev).toLocaleString():'—')+'</td>';
-              }).join('')+
-            '</tr>'+
+                  '</td>'
+                ).join('')+
+                '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+AGENT_COLORS[ai]+';background:#f3f0ff">'+
+                  (totOrd.size>0?totOrd.size+' 筆<br><span style="font-weight:400;font-size:10.5px">$'+Math.round(totRev).toLocaleString()+'</span>':'—')+
+                '</td>'+
+              '</tr>';
+            }).join('')+
           '</tbody>'+
         '</table></div>'
       )+
