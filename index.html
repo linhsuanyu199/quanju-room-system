@@ -871,12 +871,12 @@ function syncAutoTasks(bk){
     if(nextSeg&&nextSeg.segType==='switch'){
       // 換房中間：在本段退房日排清潔（客人換去另一間，此間需打掃）
       tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-        start:seg.checkout,end:addDays(seg.checkout,2),
+        start:seg.checkout,end:addDays(seg.checkout,1),
         note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
     } else {
-      // 所有其他情況：退房當天起排 2 天打掃（最後一段、並行房間、單間）
+      // 所有其他情況：退房當天起排 1 天打掃
       tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-        start:seg.checkout,end:addDays(seg.checkout,2),
+        start:seg.checkout,end:addDays(seg.checkout,1),
         note:'退房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
     }
   });
@@ -885,7 +885,7 @@ function syncAutoTasks(bk){
 // Schedule 2-day cleaning for a segment after checkout
 function scheduleCheckoutCleaning(seg,bkGuest){
   const start=seg.checkout||todayStr();
-  const end=addDays(start,2);
+  const end=addDays(start,1);
   const tasks=loadTasks();
   tasks.push({id:genId('CL'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
     start,end,note:'退房清潔 — '+bkGuest,isAuto:false,bookingId:null});
@@ -1028,7 +1028,7 @@ function renderAna(tab){
     const pDays=Math.round((new Date(pEnd)-new Date(pStart))/86400000)+1;
     allBks.forEach(bk=>{
       bk.segments.forEach(seg=>{
-        if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+        if(seg.status!=='checkin'&&seg.status!=='checkout'&&seg.status!=='pending')return;
         const ci=seg.checkin,co=seg.checkout;
         if(!ci||!co||ci>=pEnd||co<=pStart)return;
         const os=ci>pStart?ci:pStart;
@@ -1067,7 +1067,7 @@ function renderAna(tab){
     allBks.forEach(bk=>{
       bk.segments.forEach(seg=>{
         if(String(seg.prop_id)!==String(prop.id))return;
-        if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+        if(seg.status!=='checkin'&&seg.status!=='checkout'&&seg.status!=='pending')return;
         const ci=seg.checkin,co=seg.checkout;
         if(!ci||!co||ci>=last12End||co<=last12Start)return;
         const os=ci>last12Start?ci:last12Start;
@@ -1223,7 +1223,7 @@ function renderAna(tab){
       agentBks.forEach(bk=>{
         let hasOverlap=false;
         bk.segments.forEach(seg=>{
-          if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+          if(seg.status!=='checkin'&&seg.status!=='checkout'&&seg.status!=='pending')return;
           const ci=seg.checkin,co=seg.checkout;
           if(!ci||!co||ci>=pEnd||co<=pStart)return;
           hasOverlap=true;
@@ -1251,7 +1251,7 @@ function renderAna(tab){
       const {pStart,pEnd}=getPeriodBounds(periods[0]);
       const pStartAll=getPeriodBounds(periods[0]).pStart;
       const pEndAll=getPeriodBounds(periods[periods.length-1]).pEnd;
-      return seg.status==='checkin'||seg.status==='checkout';
+      return seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending';
     })).map(b=>b.id)).size;
     return {agent,pStats,totRev};
   });
@@ -1281,7 +1281,7 @@ function renderAna(tab){
               const totOrd=new Set();
               const totRev=a.pStats.reduce((s,p)=>s+p.rev,0);
               allBks.filter(b=>b.agent===a.agent).forEach(b=>b.segments.forEach(seg=>{
-                if(seg.status==='checkin'||seg.status==='checkout'){
+                if(seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending'){
                   periods.forEach(p2=>{
                     const {pStart,pEnd}=getPeriodBounds(p2);
                     if(seg.checkin<pEnd&&seg.checkout>pStart)totOrd.add(b.id);
@@ -1575,7 +1575,7 @@ function render(){
       lbs.forEach(bk=>{
         bk.segments.forEach(seg=>{
           if(String(seg.prop_id)===pid&&seg.room===room.room&&
-             (seg.status==='checkin'||seg.status==='checkout')&&ov(seg.checkin,seg.checkout)){
+             (seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending')&&ov(seg.checkin,seg.checkout)){
             const sd=Math.max(1,domF(seg.checkin,curY,curM));
             const ed=Math.min(td+1,domF(seg.checkout,curY,curM));
             if(ed>sd&&room.price>0)actualRev+=(ed-sd)*(room.price/30);
@@ -1754,7 +1754,9 @@ function saveTk(){
   const start=document.getElementById('tk-start').value;
   const end=document.getElementById('tk-end').value;
   if(!pid||!rno||!start||!end){alert('請填寫完整：館別、房號、開始/結束日期');return;}
-  if(start>=end){alert('結束日期必須晚於開始日期');return;}
+  if(start>end){alert('結束日期不能早於開始日期');return;}
+  // 若開始=結束（同一天），自動延伸為 1 天
+  const endAdj=start===end?addDays(start,1):end;
   const note=document.getElementById('tk-note').value.trim();
   const tasks=loadTasks();
   if(editingTkId){
@@ -1765,11 +1767,11 @@ function saveTk(){
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
         start,   // 開始日期現在允許修改（含自動排程）
-        end,note};
+        end:endAdj,note};
     }
   }else{
     tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
-      start,end,note,isAuto:false,bookingId:null});
+      start,end:endAdj,note,isAuto:false,bookingId:null});
   }
   saveTasks(tasks);closeTk();render();
 }
