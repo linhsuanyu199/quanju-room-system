@@ -439,6 +439,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <option value="三房">三房</option>
     <option value="四房">四房</option>
   </select>
+  <select class="sel" id="f-agent" onchange="render()" title="業務篩選">
+    <option value="">全部業務</option>
+    <option value="業務1">業務 1</option>
+    <option value="業務2">業務 2</option>
+    <option value="業務3">業務 3</option>
+    <option value="業務4">業務 4</option>
+  </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
 </div>
 
@@ -520,7 +527,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <div class="field"><label>押金 (NT$) <span class="req">*</span></label>
         <input id="g-deposit" type="number" min="0" placeholder="自動帶入月租金額" required
           oninput="updateTotal()"></div>
-      <div class="field"><label>負責業務</label>
+      <div class="field"><label>負責業務 <span class="req">*</span></label>
         <select id="g-agent">
           <option value="">— 請選擇 —</option>
           <option value="業務1">業務 1</option>
@@ -548,8 +555,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       💡 取消單一房間：點該房間右上角「✕ 取消此房間」→ 再按「儲存預定」，其他房間不受影響。<br>
       取消整筆訂單：按底部「🗑 取消整筆訂單」（會刪除此客戶的所有房間預定）。
     </div>
-    <div class="total-bar">
-      <span>訂單總計</span>
+    <div class="total-bar" style="flex-direction:column;align-items:flex-start;gap:2px">
+      <span style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.5px">訂單總計</span>
+      <div id="tot-formula" style="font-size:10.5px;color:#666;display:none"></div>
       <div style="display:flex;align-items:baseline;gap:8px">
         <span id="tot-days" style="font-size:12px;opacity:.85">— 天</span>
         <span class="total-big" id="tot-rent">$0</span>
@@ -1198,7 +1206,115 @@ function renderAna(tab){
         distRank.map(d=>rankRow(d.dist,d.avg,'#1a56a0','')).join(''))+
     '</div>';
 
-  document.getElementById('ana-content').innerHTML=html;
+  // ──────── 業務績效分析 ────────
+  const propInfo=loadPropInfo();
+  const AGENTS=['業務1','業務2','業務3','業務4'];
+  // 計算各業務在當前期間的績效
+  function getPeriodBounds(p){
+    const pStart=tab==='y'?p.y+'-01-01':tab==='q'?p.y+'-'+(String((p.q-1)*3+1).padStart(2,'0'))+'-01':p.y+'-'+(String(p.m).padStart(2,'0'))+'-01';
+    const pEndRaw=tab==='y'?new Date(p.y,11,31):tab==='q'?new Date(p.y,p.q*3,0):new Date(p.y,p.m,0);
+    return {pStart,pEnd:pEndRaw.toISOString().slice(0,10)};
+  }
+  const agentData=AGENTS.map(agent=>{
+    const agentBks=allBks.filter(b=>b.agent===agent);
+    const pStats=periods.map(p=>{
+      const {pStart,pEnd}=getPeriodBounds(p);
+      let rev=0;const orderSet=new Set();const distSet=new Set();const rtSet=new Set();
+      agentBks.forEach(bk=>{
+        let hasOverlap=false;
+        bk.segments.forEach(seg=>{
+          if(seg.status!=='checkin'&&seg.status!=='checkout')return;
+          const ci=seg.checkin,co=seg.checkout;
+          if(!ci||!co||ci>=pEnd||co<=pStart)return;
+          hasOverlap=true;
+          const os=ci>pStart?ci:pStart,oe=co<pEnd?co:pEnd;
+          const days=Math.round((new Date(oe)-new Date(os))/86400000);
+          if(days>0){
+            const pr=allProps.find(x=>String(x.id)===String(seg.prop_id));
+            const rm=pr?pr.rooms.find(x=>x.room===seg.room):null;
+            const mp=seg.monthlyPrice||(rm?rm.price:0)||0;
+            rev+=days*(mp/30);
+            const pi=propInfo[String(seg.prop_id)]||{};
+            const dist=pi.district||pr?.district||'';
+            if(dist)distSet.add(dist);
+            const rt=normalizeRoomType(rm?.type||'');
+            if(rt)rtSet.add(rt);
+          }
+        });
+        if(hasOverlap)orderSet.add(bk.id);
+      });
+      return {rev:Math.round(rev),orders:orderSet.size,
+        districts:[...distSet].join('/'),rtypes:[...rtSet].join('/')};
+    });
+    const totRev=pStats.reduce((s,p)=>s+p.rev,0);
+    const totOrders=new Set(agentBks.filter(b=>b.segments.some(seg=>{
+      const {pStart,pEnd}=getPeriodBounds(periods[0]);
+      const pStartAll=getPeriodBounds(periods[0]).pStart;
+      const pEndAll=getPeriodBounds(periods[periods.length-1]).pEnd;
+      return seg.status==='checkin'||seg.status==='checkout';
+    })).map(b=>b.id)).size;
+    return {agent,pStats,totRev};
+  });
+
+  // 計算合計行
+  const hasAgentData=agentData.some(a=>a.pStats.some(p=>p.orders>0));
+  const AGENT_COLORS=['#1a56a0','#2f9e44','#e67700','#c92a2a'];
+
+  const agentHtml=
+    '<div style="background:#f5f0ff;border-radius:8px;padding:12px;margin-top:12px">'+
+      '<div style="font-size:12px;font-weight:700;color:#6741d9;margin-bottom:10px">👤 業務績效分析（'+navLabel+'）</div>'+
+      (!hasAgentData?
+        '<div style="font-size:11px;color:var(--muted)">目前無業務績效資料，新增預定時請填寫「負責業務」欄位。</div>':
+        '<div style="overflow-x:auto">'+
+        '<table style="width:100%;border-collapse:collapse;font-size:11px;min-width:480px">'+
+          '<thead>'+
+            '<tr style="background:#ede9fe">'+
+              '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">期間</th>'+
+              AGENTS.map((ag,ai)=>
+                '<th style="padding:6px 8px;text-align:center;color:'+AGENT_COLORS[ai]+';font-weight:700">'+ag+'</th>'
+              ).join('')+
+            '</tr>'+
+          '</thead>'+
+          '<tbody>'+
+            periods.map((p,pi)=>
+              '<tr style="border-bottom:1px solid #ede9fe;'+(pi%2?'background:#faf8ff;':'')+'">' +
+                '<td style="padding:5px 8px;font-weight:600;white-space:nowrap;color:#495057">'+p.label+'</td>'+
+                agentData.map((a,ai)=>{
+                  const s=a.pStats[pi];
+                  return '<td style="padding:5px 8px;text-align:center;vertical-align:top">'+
+                    (s.orders>0?
+                      '<div style="font-weight:700;color:'+AGENT_COLORS[ai]+'">'+s.orders+' 筆</div>'+
+                      '<div style="color:#495057">$'+(s.rev>0?Math.round(s.rev).toLocaleString():'0')+'</div>'+
+                      (s.districts?'<div style="font-size:9px;color:var(--muted)">📍'+s.districts+'</div>':'')+
+                      (s.rtypes?'<div style="font-size:9px;color:var(--muted)">🏠'+s.rtypes+'</div>':''):
+                      '<span style="color:#ccc">—</span>')+
+                  '</td>';
+                }).join('')+
+              '</tr>'
+            ).join('')+
+            // 合計行
+            '<tr style="background:#ede9fe;font-weight:700">'+
+              '<td style="padding:6px 8px">合計</td>'+
+              agentData.map((a,ai)=>{
+                const totOrd=new Set();
+                const totRev=a.pStats.reduce((s,p)=>s+p.rev,0);
+                allBks.filter(b=>b.agent===a.agent).forEach(b=>b.segments.forEach(seg=>{
+                  if(seg.status==='checkin'||seg.status==='checkout'){
+                    periods.forEach((p,pi)=>{
+                      const {pStart,pEnd}=getPeriodBounds(p);
+                      if(seg.checkin<pEnd&&seg.checkout>pStart)totOrd.add(b.id);
+                    });
+                  }
+                }));
+                return '<td style="padding:6px 8px;text-align:center;color:'+AGENT_COLORS[ai]+'">'+(totOrd.size>0?totOrd.size+' 筆<br>$'+Math.round(totRev).toLocaleString():'—')+'</td>';
+              }).join('')+
+            '</tr>'+
+          '</tbody>'+
+        '</table></div>'
+      )+
+    '</div>';
+
+  document.getElementById('ana-content').innerHTML=html+agentHtml;
 }
 
 // ════════════════════════════════════════════════
@@ -1356,17 +1472,21 @@ function render(){
   else if(fs&&!newSts.includes(fs))lbs=[];
   if(fq)lbs=lbs.filter(b=>(b.guest||'').toLowerCase().includes(fq)||(b.id||'').toLowerCase().includes(fq));
   if(fp)lbs=lbs.filter(b=>b.segments.some(s=>String(s.prop_id)===fp));
+  if(fagent)lbs=lbs.filter(b=>b.agent===fagent);
   lbs.forEach(bk=>{
     bk.segments.forEach((seg,i)=>{
       if(!ov(seg.checkin,seg.checkout))return;
       const st=STATUS[seg.status]||STATUS.reserved;
       const multi=bk.segments.length>1;
       addB(seg.prop_id,seg.room,{
-        ci:seg.checkin,co:seg.checkout,lbl:bk.guest||bk.id,color:st.color,isTask:false,
+        ci:seg.checkin,co:seg.checkout,
+        lbl:(bk.guest||bk.id)+(bk.agent?' ['+bk.agent+']':''),
+        color:st.color,isTask:false,
         onClick:e=>{e.stopPropagation();openEditBk(bk);},
         onHover:e=>showTT(e,
           '<div class="tt-title">'+(bk.guest||'(未命名)')+(multi?' [第'+(i+1)+'/'+bk.segments.length+'段]':'')+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">狀態</span><span style="color:'+st.color+';font-weight:700">'+st.emoji+' '+st.label+'</span></div>'+
+          (bk.agent?'<div class="tt-row"><span class="tt-lbl">負責業務</span><strong>'+bk.agent+'</strong></div>':'')+
           '<div class="tt-row"><span class="tt-lbl">入住</span>'+seg.checkin+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">退房</span>'+seg.checkout+'</div>'+
           (seg.guestName?'<div class="tt-row"><span class="tt-lbl">入住人</span>'+seg.guestName+(seg.guestPhone?' · '+seg.guestPhone:'')+'</div>':'')+
@@ -1411,6 +1531,7 @@ function render(){
   const fsvc=(document.getElementById('f-svc')||{}).value||'';
   const fdist=(document.getElementById('f-dist')||{}).value||'';
   const frtype=(document.getElementById('f-rtype')||{}).value||'';
+  const fagent=(document.getElementById('f-agent')||{}).value||'';
   if(fp)ap=ap.filter(p=>String(p.id)===fp);
   if(fsvc)ap=ap.filter(p=>(p.serviceType||'')=== fsvc);
   if(fdist)ap=ap.filter(p=>(p.district||'')=== fdist);
@@ -2036,16 +2157,20 @@ function updateTotal(){
   }
   const dep=parseFloat(depEl.value)||0;
   const total=dep+rent;
-  // 訂單總計公式顯示
   const daysEl=document.getElementById('tot-days');
   const rentEl=document.getElementById('tot-rent');
+  const formulaEl=document.getElementById('tot-formula');
   if(days>0||dep>0){
     daysEl.style.display='none';
-    rentEl.innerHTML=
-      '<span style="font-size:11px;color:#888;font-weight:400">押金 $'+dep.toLocaleString()+
-      ' ＋ 租金 $'+rent.toLocaleString()+'（'+days+'天）</span>'+
-      '<span style="font-size:15px;color:var(--primary);font-weight:700;margin-left:6px">＝ $'+total.toLocaleString()+'</span>';
+    // 公式行
+    if(formulaEl){
+      formulaEl.textContent='押金 $'+dep.toLocaleString()+' ＋ 租金 $'+rent.toLocaleString()+'（'+days+'天）';
+      formulaEl.style.display='';
+    }
+    // 總額行
+    rentEl.innerHTML='<span style="color:#c92a2a">＝ 總額</span> $'+total.toLocaleString();
   }else{
+    if(formulaEl)formulaEl.style.display='none';
     daysEl.style.display='';
     daysEl.textContent='— 天';
     rentEl.textContent='$0';
@@ -2147,6 +2272,8 @@ function saveBk(){
   if(!guest){alert('請填寫客戶姓名');return;}
   const gPhone=(document.getElementById('g-phone').value||'').trim();
   if(!gPhone){alert('請填寫聯絡電話');return;}
+  const agentVal=(document.getElementById('g-agent').value||'').trim();
+  if(!agentVal){alert('請選擇負責業務');return;}
   const depVal=parseFloat(document.getElementById('g-deposit').value);
   if(isNaN(depVal)||depVal<0){alert('請填寫押金金額（可填 0）');return;}
   for(let i=0;i<curSegs.length;i++){
