@@ -517,26 +517,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     </div>
     <div class="section-title">客戶資訊</div>
     <div class="form-grid">
-      <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
-      <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required></div>
-      <div class="field"><label>Email</label><input id="g-email" type="email"></div>
-      <div class="field"><label>付款方式</label>
-        <select id="g-payment"><option>國泰(全居)</option><option>Paypal(全居)</option>
-          <option>藍新</option><option>綠界</option><option>現金</option><option>其他</option></select>
-      </div>
-      <div class="field"><label>押金 (NT$) <span class="req">*</span></label>
-        <input id="g-deposit" type="number" min="0" placeholder="自動帶入月租金額" required
-          oninput="updateTotal()"></div>
-      <div class="field"><label>負責業務 <span class="req">*</span></label>
-        <select id="g-agent">
-          <option value="">— 請選擇 —</option>
-          <option value="業務1">業務 1</option>
-          <option value="業務2">業務 2</option>
-          <option value="業務3">業務 3</option>
-          <option value="業務4">業務 4</option>
-        </select>
-      </div>
-      <div class="field"><label>客戶來源</label>
+      <!-- 1. 客戶來源（必填） -->
+      <div class="field"><label>客戶來源 <span class="req">*</span></label>
         <select id="g-source">
           <option value="">— 請選擇 —</option>
           <option value="老客戶">老客戶</option>
@@ -547,17 +529,51 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <option value="粉絲團">粉絲團</option>
         </select>
       </div>
-      <div class="field"><label>客戶類型</label>
+      <!-- 2. 客戶姓名（必填） -->
+      <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
+      <!-- 3. 聯絡電話（必填） -->
+      <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required></div>
+      <!-- 4. 客戶類型（必填） -->
+      <div class="field"><label>客戶類型 <span class="req">*</span></label>
         <select id="g-ctype" onchange="toggleTaxId()">
+          <option value="">— 請選擇 —</option>
           <option value="自然人">自然人</option>
           <option value="法人">法人</option>
         </select>
       </div>
-      <div class="field" id="taxid-field" style="display:none">
-        <label>統一編號 <span class="req">*</span></label>
+      <!-- 5. 統一編號（常駐顯示；法人時必填） -->
+      <div class="field" id="taxid-field">
+        <label>統一編號 <span class="req" id="taxid-req" style="display:none">*</span>
+          <span id="taxid-hint" style="font-size:10px;color:var(--muted);font-weight:400">（法人必填）</span>
+        </label>
         <input id="g-taxid" type="text" placeholder="8 位數字" maxlength="8"
           style="letter-spacing:2px;font-family:monospace">
       </div>
+      <!-- 6. Email -->
+      <div class="field"><label>Email</label><input id="g-email" type="email"></div>
+      <!-- 7. 負責業務（必填） -->
+      <div class="field"><label>負責業務 <span class="req">*</span></label>
+        <select id="g-agent">
+          <option value="">— 請選擇 —</option>
+          <option value="業務1">業務 1</option>
+          <option value="業務2">業務 2</option>
+          <option value="業務3">業務 3</option>
+          <option value="業務4">業務 4</option>
+        </select>
+      </div>
+      <!-- 8. 付款方式（必填） -->
+      <div class="field"><label>付款方式 <span class="req">*</span></label>
+        <select id="g-payment">
+          <option value="">— 請選擇 —</option>
+          <option>國泰(全居)</option><option>Paypal(全居)</option>
+          <option>藍新</option><option>綠界</option><option>現金</option><option>其他</option>
+        </select>
+      </div>
+      <!-- 9. 押金（必填） -->
+      <div class="field"><label>押金 (NT$) <span class="req">*</span></label>
+        <input id="g-deposit" type="number" min="0" placeholder="自動帶入月租金額" required
+          oninput="updateTotal()"></div>
+      <!-- 10. 備註 -->
       <div class="field span2"><label>備註</label><textarea id="g-note" placeholder="特殊需求、寵物…"></textarea></div>
     </div>
     <div class="section-title" style="margin-top:12px">
@@ -578,8 +594,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       取消整筆訂單：按底部「🗑 取消整筆訂單」（會刪除此客戶的所有房間預定）。
     </div>
     <div class="total-bar" style="flex-direction:column;align-items:flex-start;gap:2px">
-      <span style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.5px">訂單總計</span>
-      <div id="tot-formula" style="font-size:10.5px;color:#666;display:none"></div>
+      <span style="font-size:10px;font-weight:600;color:rgba(255,255,255,.75);letter-spacing:.5px">訂單總計</span>
+      <div id="tot-formula" style="font-size:10.5px;color:rgba(255,255,255,.9);display:none"></div>
       <div style="display:flex;align-items:baseline;gap:8px">
         <span id="tot-days" style="font-size:12px;opacity:.85">— 天</span>
         <span class="total-big" id="tot-rent">$0</span>
@@ -1953,8 +1969,9 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('g-payment').value='國泰(全居)';
   document.getElementById('g-agent').value='';
   document.getElementById('g-source').value='';
-  document.getElementById('g-ctype').value='自然人';
-  document.getElementById('taxid-field').style.display='none';
+  document.getElementById('g-ctype').value='';
+  document.getElementById('g-payment').value='';
+  toggleTaxId();
   curSegs=[{seg_id:genId('S'),prop_id:propId||'',room:roomNo||'',
     checkin:dateS||'',checkout:'',monthlyPrice:0,totalRent:0,status:'reserved'}];
   renderSegs();updateTotal();
@@ -1985,9 +2002,9 @@ function openEditBk(bk){
   document.getElementById('g-payment').value=bk.payment||'國泰(全居)';
   document.getElementById('g-agent').value=bk.agent||'';
   document.getElementById('g-source').value=bk.source||'';
-  document.getElementById('g-ctype').value=bk.ctype||'自然人';
+  document.getElementById('g-ctype').value=bk.ctype||'';
   document.getElementById('g-taxid').value=bk.taxid||'';
-  document.getElementById('taxid-field').style.display=(bk.ctype==='法人')?'':'none';
+  toggleTaxId();
   document.getElementById('g-note').value=bk.note||'';
   renderQA(bk);
   curSegs=bk.segments.map(s=>({...s}));
@@ -2333,8 +2350,13 @@ function updSegCalc(i){
 }
 function toggleTaxId(){
   const v=document.getElementById('g-ctype').value;
-  const field=document.getElementById('taxid-field');
-  if(field)field.style.display=v==='法人'?'':'none';
+  const reqMark=document.getElementById('taxid-req');
+  const hint=document.getElementById('taxid-hint');
+  const inp=document.getElementById('g-taxid');
+  const isLegal=v==='法人';
+  if(reqMark)reqMark.style.display=isLegal?'':'none';
+  if(hint)hint.style.display=isLegal?'none':'';
+  if(inp){inp.required=isLegal;inp.style.borderColor=isLegal?'#e67700':'';}
 }
 function updateTotal(){
   let days=0,rent=0;
@@ -2357,7 +2379,7 @@ function updateTotal(){
       formulaEl.style.display='';
     }
     // 總額行
-    rentEl.innerHTML='<span style="color:#c92a2a">＝ 總額</span> $'+total.toLocaleString();
+    rentEl.innerHTML='<span style="color:rgba(255,255,255,.8);font-size:14px">＝ 總額</span> $'+total.toLocaleString();
   }else{
     if(formulaEl)formulaEl.style.display='none';
     daysEl.style.display='';
@@ -2457,17 +2479,22 @@ function rePopSegs(){
 // SAVE / DELETE BOOKING
 // ════════════════════════════════════════════════
 function saveBk(){
+  const sourceVal=(document.getElementById('g-source').value||'').trim();
+  if(!sourceVal){alert('請選擇客戶來源');return;}
   const guest=document.getElementById('g-name').value.trim();
   if(!guest){alert('請填寫客戶姓名');return;}
   const gPhone=(document.getElementById('g-phone').value||'').trim();
   if(!gPhone){alert('請填寫聯絡電話');return;}
-  const agentVal=(document.getElementById('g-agent').value||'').trim();
-  if(!agentVal){alert('請選擇負責業務');return;}
-  const ctypeVal=document.getElementById('g-ctype').value;
+  const ctypeVal=(document.getElementById('g-ctype').value||'').trim();
+  if(!ctypeVal){alert('請選擇客戶類型');return;}
   if(ctypeVal==='法人'){
     const tid=(document.getElementById('g-taxid').value||'').trim();
     if(!/^\d{8}$/.test(tid)){alert('客戶類型為「法人」，請填寫正確的統一編號（8位數字）');return;}
   }
+  const agentVal=(document.getElementById('g-agent').value||'').trim();
+  if(!agentVal){alert('請選擇負責業務');return;}
+  const payVal=(document.getElementById('g-payment').value||'').trim();
+  if(!payVal){alert('請選擇付款方式');return;}
   const depVal=parseFloat(document.getElementById('g-deposit').value);
   if(isNaN(depVal)||depVal<0){alert('請填寫押金金額（可填 0）');return;}
   for(let i=0;i<curSegs.length;i++){
