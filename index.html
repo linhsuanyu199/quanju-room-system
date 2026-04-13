@@ -2313,7 +2313,7 @@ function renderSegs(){
             '</div></div>'+
         '</div>'+
       '</div>'+
-      '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong></div>'+
+      '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(days>0&&sub>0?' <span style="color:#888;font-size:10px;margin-left:6px">一晚 $'+Math.round(sub/days).toLocaleString()+'</span>':'')+'</div>'+
     '</div>';
   }).join('');
   // Bind events via JS (more reliable than inline handlers)
@@ -2377,7 +2377,8 @@ function updSegCalc(i){
   const sub=days>0&&s.monthlyPrice>0?calcRent(s.checkin,s.checkout,s.monthlyPrice):0;
   s.totalRent=sub;
   const el=document.getElementById('sc-'+i);
-  if(el)el.innerHTML='此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>';
+  const nightly=days>0&&sub>0?Math.round(sub/days):0;
+  if(el)el.innerHTML='此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(nightly>0?' <span style="color:#888;font-size:10px;margin-left:6px">一晚 $'+nightly.toLocaleString()+'</span>':'');
 }
 function toggleTaxId(){
   const v=document.getElementById('g-ctype').value;
