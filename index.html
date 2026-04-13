@@ -1674,6 +1674,7 @@ function render(){
         onHover:e=>showTT(e,
           '<div class="tt-title">'+(bk.guest||'(未命名)')+(multi?' [第'+(i+1)+'/'+bk.segments.length+'段]':'')+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">狀態</span><span style="color:'+st.color+';font-weight:700">'+st.emoji+' '+st.label+'</span></div>'+
+          (bk.source?'<div class="tt-row"><span class="tt-lbl">客戶來源</span>'+bk.source+'</div>':'')+
           (bk.agent?'<div class="tt-row"><span class="tt-lbl">負責業務</span><strong>'+bk.agent+'</strong></div>':'')+
           '<div class="tt-row"><span class="tt-lbl">入住</span>'+seg.checkin+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">退房</span>'+seg.checkout+'</div>'+
