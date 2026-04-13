@@ -1335,7 +1335,124 @@ function renderAna(tab){
       )+
     '</div>';
 
-  document.getElementById('ana-content').innerHTML=html+agentHtml;
+  // ──────── 客戶來源分析 ────────
+  const fullStart=getPeriodBounds(periods[0]).pStart;
+  const fullEnd=getPeriodBounds(periods[periods.length-1]).pEnd;
+  const SOURCE_ORDER=['老客戶','MRA','官網','客戶轉借','房東','粉絲團','(未填寫)'];
+  const srcMap={};
+  allBks.forEach(bk=>{
+    if(bk.segments.every(s=>s.status==='cancelled'))return;
+    const overlap=bk.segments.some(s=>s.checkin<fullEnd&&s.checkout>fullStart);
+    if(!overlap)return;
+    const src=bk.source||(bk.source===''?'(未填寫)':'(未填寫)');
+    const key=src||'(未填寫)';
+    if(!srcMap[key])srcMap[key]={count:0,rev:0};
+    srcMap[key].count++;
+    srcMap[key].rev+=bk.totalRent||0;
+  });
+  const srcEntries=SOURCE_ORDER.filter(k=>srcMap[k]).concat(
+    Object.keys(srcMap).filter(k=>!SOURCE_ORDER.includes(k))
+  ).map(k=>({label:k,...srcMap[k]}));
+  const srcTotal=srcEntries.reduce((s,e)=>s+e.count,0);
+  const SRC_COLORS={'老客戶':'#1a56a0','MRA':'#7048e8','官網':'#2f9e44',
+    '客戶轉借':'#e67700','房東':'#0c8599','粉絲團':'#c92a2a','(未填寫)':'#868e96'};
+
+  const sourceHtml=
+    '<div style="background:#f0f8ff;border-radius:8px;padding:12px;margin-top:12px">'+
+      '<div style="font-size:12px;font-weight:700;color:#1a56a0;margin-bottom:10px">📣 客戶來源分析（'+navLabel+'）</div>'+
+      (srcEntries.length===0?
+        '<div style="font-size:11px;color:var(--muted)">目前無資料，新增預定時請填寫「客戶來源」欄位。</div>':
+        '<div style="overflow-x:auto">'+
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
+          '<thead><tr style="background:#dbeafe">'+
+            '<th style="padding:6px 10px;text-align:left;font-weight:700">來源</th>'+
+            '<th style="padding:6px 10px;text-align:center;font-weight:700">筆數</th>'+
+            '<th style="padding:6px 10px;text-align:center;font-weight:700">佔比</th>'+
+            '<th style="padding:6px 10px;text-align:left;font-weight:700;min-width:120px">比例圖</th>'+
+            '<th style="padding:6px 10px;text-align:right;font-weight:700">累計金額</th>'+
+          '</tr></thead>'+
+          '<tbody>'+
+            srcEntries.map((e,i)=>{
+              const pct=srcTotal>0?Math.round(e.count/srcTotal*100):0;
+              const col=SRC_COLORS[e.label]||'#868e96';
+              return '<tr style="border-bottom:1px solid #dbeafe;'+(i%2?'background:#f8fbff;':'')+'">' +
+                '<td style="padding:5px 10px;font-weight:600;color:'+col+'">'+e.label+'</td>'+
+                '<td style="padding:5px 10px;text-align:center;font-weight:700">'+e.count+' 筆</td>'+
+                '<td style="padding:5px 10px;text-align:center;color:var(--muted)">'+pct+'%</td>'+
+                '<td style="padding:5px 10px">'+
+                  '<div style="background:#e2e8f0;border-radius:4px;height:10px;overflow:hidden">'+
+                    '<div style="background:'+col+';height:100%;width:'+pct+'%;border-radius:4px;transition:width .3s"></div>'+
+                  '</div>'+
+                '</td>'+
+                '<td style="padding:5px 10px;text-align:right;color:#1a56a0">$'+e.rev.toLocaleString()+'</td>'+
+              '</tr>';
+            }).join('')+
+            '<tr style="background:#dbeafe;font-weight:700">'+
+              '<td style="padding:6px 10px">合計</td>'+
+              '<td style="padding:6px 10px;text-align:center">'+srcTotal+' 筆</td>'+
+              '<td style="padding:6px 10px;text-align:center">100%</td>'+
+              '<td></td>'+
+              '<td style="padding:6px 10px;text-align:right">$'+srcEntries.reduce((s,e)=>s+e.rev,0).toLocaleString()+'</td>'+
+            '</tr>'+
+          '</tbody>'+
+        '</table></div>'
+      )+
+    '</div>';
+
+  // ──────── 取消訂單分析 ────────
+  const cancelledBks=allBks.filter(b=>b.segments.every(s=>s.status==='cancelled'));
+  const cancelledInPeriod=cancelledBks.filter(bk=>
+    bk.segments.some(s=>s.checkin<fullEnd&&s.checkout>fullStart)
+  );
+
+  const cancelHtml=
+    '<div style="background:#fff5f5;border-radius:8px;padding:12px;margin-top:12px">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+        '<span style="font-size:12px;font-weight:700;color:#c92a2a">🚫 取消訂單分析（'+navLabel+'）</span>'+
+        '<span style="background:#ffd6d6;color:#c92a2a;font-size:11px;font-weight:700;'+
+          'padding:2px 8px;border-radius:10px">共 '+cancelledInPeriod.length+' 筆取消</span>'+
+      '</div>'+
+      (cancelledInPeriod.length===0?
+        '<div style="font-size:11px;color:var(--muted)">本期間無取消訂單。</div>':
+        '<div style="overflow-x:auto">'+
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
+          '<thead><tr style="background:#ffd6d6">'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">客戶姓名</th>'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700">房間</th>'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">入住日</th>'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">退房日</th>'+
+            '<th style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">訂單金額</th>'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700">取消原因</th>'+
+            '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">取消時間</th>'+
+          '</tr></thead>'+
+          '<tbody>'+
+            cancelledInPeriod.map((bk,i)=>{
+              const seg=bk.segments[0]||{};
+              const prop=allProps.find(p=>String(p.id)===String(seg.prop_id));
+              const propName=prop?prop.name:'—';
+              const rooms=bk.segments.map(s=>s.room).filter(Boolean).join('、');
+              const cis=bk.segments.map(s=>s.checkin).filter(Boolean).sort();
+              const cos=bk.segments.map(s=>s.checkout).filter(Boolean).sort();
+              const cancelDate=bk.cancelledAt?bk.cancelledAt.slice(0,10):'—';
+              return '<tr style="border-bottom:1px solid #ffd6d6;'+(i%2?'background:#fff8f8;':'')+'">' +
+                '<td style="padding:5px 8px;font-weight:600">'+bk.guest+'</td>'+
+                '<td style="padding:5px 8px;color:var(--primary)">'+propName+'<br>'+
+                  '<span style="font-size:10px;font-weight:700">'+rooms+'</span></td>'+
+                '<td style="padding:5px 8px;font-size:10.5px">'+( cis[0]||'—')+'</td>'+
+                '<td style="padding:5px 8px;font-size:10.5px">'+(cos[cos.length-1]||'—')+'</td>'+
+                '<td style="padding:5px 8px;text-align:right;text-decoration:line-through;color:#aaa">'+
+                  '$'+(bk.totalRent||0).toLocaleString()+'</td>'+
+                '<td style="padding:5px 8px;color:#c92a2a;font-size:11px">'+
+                  (bk.cancelReason||'—')+'</td>'+
+                '<td style="padding:5px 8px;font-size:10px;color:var(--muted);white-space:nowrap">'+cancelDate+'</td>'+
+              '</tr>';
+            }).join('')+
+          '</tbody>'+
+        '</table></div>'
+      )+
+    '</div>';
+
+  document.getElementById('ana-content').innerHTML=html+agentHtml+sourceHtml+cancelHtml;
 }
 
 // ════════════════════════════════════════════════
