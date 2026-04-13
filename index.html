@@ -527,6 +527,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <option value="客戶轉借">客戶轉借</option>
           <option value="房東">房東</option>
           <option value="粉絲團">粉絲團</option>
+          <option value="合作廠商">合作廠商</option>
         </select>
       </div>
       <!-- 2. 客戶姓名（必填） -->
@@ -1354,7 +1355,7 @@ function renderAna(tab){
   // ──────── 客戶來源分析 ────────
   const fullStart=getPeriodBounds(periods[0]).pStart;
   const fullEnd=getPeriodBounds(periods[periods.length-1]).pEnd;
-  const SOURCE_ORDER=['老客戶','MRA','官網','客戶轉借','房東','粉絲團','(未填寫)'];
+  const SOURCE_ORDER=['老客戶','MRA','官網','客戶轉借','房東','粉絲團','合作廠商','(未填寫)'];
   const srcMap={};
   allBks.forEach(bk=>{
     if(bk.segments.every(s=>s.status==='cancelled'))return;
@@ -1371,7 +1372,7 @@ function renderAna(tab){
   ).map(k=>({label:k,...srcMap[k]}));
   const srcTotal=srcEntries.reduce((s,e)=>s+e.count,0);
   const SRC_COLORS={'老客戶':'#1a56a0','MRA':'#7048e8','官網':'#2f9e44',
-    '客戶轉借':'#e67700','房東':'#0c8599','粉絲團':'#c92a2a','(未填寫)':'#868e96'};
+    '客戶轉借':'#e67700','房東':'#0c8599','粉絲團':'#c92a2a','合作廠商':'#6741d9','(未填寫)':'#868e96'};
 
   const sourceHtml=
     '<div style="background:#f0f8ff;border-radius:8px;padding:12px;margin-top:12px">'+
