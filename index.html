@@ -969,9 +969,16 @@ function scheduleCheckoutCleaning(seg,bkGuest){
 // ════════════════════════════════════════════════
 // AUTH / LOGIN
 // ════════════════════════════════════════════════
+// 額外帳號（測試用），可在此新增多組
+const EXTRA_ACCOUNTS=[
+  {user:'test123',pass:'test888'},
+];
 function getAuthCfg(){
   try{const d=localStorage.getItem('qj_auth');return d?JSON.parse(d):{user:'admin',pass:'quanju888'};}
   catch(e){return{user:'admin',pass:'quanju888'};}
+}
+function getAllAccounts(){
+  return[getAuthCfg(),...EXTRA_ACCOUNTS];
 }
 function checkLogin(){
   const ok=sessionStorage.getItem('qj_sess')==='1';
@@ -982,9 +989,9 @@ function checkLogin(){
 function doLogin(){
   const u=(document.getElementById('login-user').value||'').trim();
   const p=document.getElementById('login-pass').value||'';
-  const cfg=getAuthCfg();
   const err=document.getElementById('login-err');
-  if(u===cfg.user&&p===cfg.pass){
+  const matched=getAllAccounts().some(a=>a.user===u&&a.pass===p);
+  if(matched){
     sessionStorage.setItem('qj_sess','1');
     document.getElementById('login-screen').classList.add('hidden');
     err.style.display='none';
