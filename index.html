@@ -378,6 +378,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     </div>
     <button class="login-btn" onclick="doLogin()">🔐 登入系統</button>
     <div class="login-err" id="login-err">⚠️ 帳號或密碼錯誤，請重新輸入</div>
+    <div style="text-align:center;margin-top:12px">
+      <a href="#" onclick="resetLoginToDefault();return false;"
+        style="font-size:11px;color:#aaa;text-decoration:none;border-bottom:1px dashed #ccc"
+        >忘記主帳號密碼？點此重設為預設值</a>
+    </div>
   </div>
 </div>
 
@@ -985,6 +990,14 @@ function checkLogin(){
   const scr=document.getElementById('login-screen');
   if(scr)scr.classList.toggle('hidden',ok);
   return ok;
+}
+function resetLoginToDefault(){
+  if(!confirm('確定要重設主帳號密碼為預設值嗎？\n\n預設帳號：admin\n預設密碼：quanju888'))return;
+  localStorage.removeItem('qj_auth');
+  document.getElementById('login-user').value='admin';
+  document.getElementById('login-pass').value='';
+  document.getElementById('login-err').style.display='none';
+  alert('✅ 已重設完成！\n\n請用以下帳密登入，登入後再用 🔑 修改密碼：\n帳號：admin\n密碼：quanju888');
 }
 function doLogin(){
   const u=(document.getElementById('login-user').value||'').trim();
