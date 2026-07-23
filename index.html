@@ -398,8 +398,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <input type="email" id="reg-email" placeholder="you@company.com" autocomplete="username">
       </div>
       <div class="login-field">
-        <label>密碼（至少 6 個字元）</label>
+        <label>密碼</label>
         <input type="password" id="reg-pass" placeholder="設定密碼" autocomplete="new-password">
+        <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.5">
+          建議至少 8 碼，並混合大寫、小寫、數字與符號（如 !@#$%）以提高安全性
+        </div>
       </div>
       <button class="login-btn" onclick="Cloud.doRegister()">✅ 建立帳號</button>
     </div>

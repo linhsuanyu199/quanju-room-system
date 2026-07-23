@@ -108,7 +108,8 @@ const Cloud = {
     const err = document.getElementById('login-err');
     err.style.display = 'none';
     if (!email || !pass) { err.textContent = '⚠️ 請輸入 Email 與密碼'; err.style.display = 'block'; return; }
-    if (pass.length < 6) { err.textContent = '⚠️ 密碼至少需 6 個字元'; err.style.display = 'block'; return; }
+    const pwErr = this._checkPasswordStrength(pass);
+    if (pwErr) { err.textContent = '⚠️ ' + pwErr; err.style.display = 'block'; return; }
     const { data, error } = await _sb.auth.signUp({ email, password: pass });
     if (error) {
       err.textContent = '⚠️ ' + this._translateError(error.message);
@@ -134,6 +135,17 @@ const Cloud = {
   async doLogout() {
     if (!confirm('確定要登出系統？')) return;
     await _sb.auth.signOut();
+  },
+
+  _checkPasswordStrength(pass) {
+    if (pass.length < 8) return '密碼至少需 8 個字元';
+    const hasUpper = /[A-Z]/.test(pass);
+    const hasLower = /[a-z]/.test(pass);
+    const hasDigit = /[0-9]/.test(pass);
+    const hasSymbol = /[^A-Za-z0-9]/.test(pass);
+    const kinds = [hasUpper, hasLower, hasDigit, hasSymbol].filter(Boolean).length;
+    if (kinds < 3) return '密碼需混合大寫、小寫、數字、符號中至少 3 種';
+    return null;
   },
 
   _translateError(msg) {
