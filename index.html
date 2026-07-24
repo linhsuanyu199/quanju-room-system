@@ -22,9 +22,13 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 /* ─── TopBar ─── */
 .topbar{height:52px;background:var(--primary);color:#fff;display:flex;
   align-items:center;padding:0 12px;gap:8px;
-  box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:200;flex-shrink:0;flex-wrap:nowrap;
-  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+  box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:200;flex-shrink:0;flex-wrap:nowrap}
 #cloud-user-box{flex-shrink:0;white-space:nowrap}
+/* 中段（統計數字＋功能按鈕）可橫向捲動；帳號相關按鈕(🔑登出等)固定在最右側，
+   避免視窗較窄時登出按鈕被推出畫面外、使用者找不到 */
+.topbar-scroll{flex:1;min-width:0;display:flex;align-items:center;gap:8px;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.topbar-fixed{flex-shrink:0;display:flex;align-items:center;gap:6px}
 .logo{flex-shrink:0}
 .logo-main{font-size:15px;font-weight:700;letter-spacing:.3px}
 .logo-sub{font-size:9px;opacity:.65}
@@ -467,22 +471,26 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="logo-main">短租排房系統</div>
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px"></div>
-  <div class="topbar-spacer"></div>
-  <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
-  <div class="stat-box" title="年度可銷售天數＝房間數×365，扣除打掃/維修日數"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
-  <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
-  <div class="stat-box" onclick="openOrderOverview()" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單 👆</div></div>
-  <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
-  <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
-  <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
-  <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
-  <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
-  <a class="btn-top" href="./public.html" target="_blank"
-    style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
-    title="開啟外部租屋官網">🌐 官網</a>
-  <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
-  <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
-  <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
+  <div class="topbar-scroll">
+    <div class="topbar-spacer"></div>
+    <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
+    <div class="stat-box" title="年度可銷售天數＝房間數×365，扣除打掃/維修日數"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
+    <div class="stat-box" onclick="openOrderOverview()" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單 👆</div></div>
+    <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
+    <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
+    <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
+    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
+    <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
+    <a class="btn-top" href="./public.html" target="_blank"
+      style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
+      title="開啟外部租屋官網">🌐 官網</a>
+    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
+  </div>
+  <div class="topbar-fixed">
+    <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
+    <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
+  </div>
 </div>
 
 <!-- Toolbar -->
