@@ -22,7 +22,9 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 /* ─── TopBar ─── */
 .topbar{height:52px;background:var(--primary);color:#fff;display:flex;
   align-items:center;padding:0 12px;gap:8px;
-  box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:200;flex-shrink:0;flex-wrap:nowrap}
+  box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:200;flex-shrink:0;flex-wrap:nowrap;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+#cloud-user-box{flex-shrink:0;white-space:nowrap}
 .logo{flex-shrink:0}
 .logo-main{font-size:15px;font-weight:700;letter-spacing:.3px}
 .logo-sub{font-size:9px;opacity:.65}
@@ -394,6 +396,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 
     <div id="auth-panel-register" style="display:none">
       <div class="login-field">
+        <label>顯示名稱</label>
+        <input type="text" id="reg-display-name" placeholder="例如：王小明（同企業內不可重複）">
+      </div>
+      <div class="login-field">
         <label>Email</label>
         <input type="email" id="reg-email" placeholder="you@company.com" autocomplete="username">
       </div>
@@ -508,10 +514,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </select>
   <select class="sel" id="f-agent" onchange="render()" title="業務篩選">
     <option value="">全部業務</option>
-    <option value="業務1">業務 1</option>
-    <option value="業務2">業務 2</option>
-    <option value="業務3">業務 3</option>
-    <option value="業務4">業務 4</option>
   </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
 </div>
@@ -623,10 +625,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <div class="field"><label>負責業務 <span class="req">*</span></label>
         <select id="g-agent">
           <option value="">— 請選擇 —</option>
-          <option value="業務1">業務 1</option>
-          <option value="業務2">業務 2</option>
-          <option value="業務3">業務 3</option>
-          <option value="業務4">業務 4</option>
         </select>
       </div>
       <!-- 8. 付款方式（必填） -->
@@ -1315,7 +1313,7 @@ function renderAna(tab){
 
   // ──────── 業務績效分析 ────────
   const propInfo=loadPropInfo();
-  const AGENTS=['業務1','業務2','業務3','業務4'];
+  const AGENTS=(Cloud.companyMembers&&Cloud.companyMembers.length)?Cloud.companyMembers:[];
   // 計算各業務在當前期間的績效
   function getPeriodBounds(p){
     const pStart=tab==='y'?p.y+'-01-01':tab==='q'?p.y+'-'+(String((p.q-1)*3+1).padStart(2,'0'))+'-01':p.y+'-'+(String(p.m).padStart(2,'0'))+'-01';
@@ -1365,7 +1363,7 @@ function renderAna(tab){
 
   // 計算合計行
   const hasAgentData=agentData.some(a=>a.pStats.some(p=>p.orders>0));
-  const AGENT_COLORS=['#1a56a0','#2f9e44','#e67700','#c92a2a'];
+  const AGENT_COLORS=['#1a56a0','#2f9e44','#e67700','#c92a2a','#6741d9','#0c8599','#e64980','#495057'];
 
   const agentHtml=
     '<div style="background:#f5f0ff;border-radius:8px;padding:12px;margin-top:12px">'+
@@ -1396,16 +1394,16 @@ function renderAna(tab){
                 }
               }));
               return '<tr style="border-bottom:1px solid #ede9fe;'+(ai%2?'background:#faf8ff;':'')+'">' +
-                '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai]+'">'+a.agent+'</td>'+
+                '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+a.agent+'</td>'+
                 a.pStats.map(s=>
                   '<td style="padding:5px 8px;text-align:center;vertical-align:middle">'+
                     (s.orders>0?
-                      '<div style="font-weight:700;color:'+AGENT_COLORS[ai]+'">'+s.orders+' 筆</div>'+
+                      '<div style="font-weight:700;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+s.orders+' 筆</div>'+
                       '<div style="color:#495057;font-size:10.5px">$'+Math.round(s.rev).toLocaleString()+'</div>':
                       '<span style="color:#ccc">—</span>')+
                   '</td>'
                 ).join('')+
-                '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+AGENT_COLORS[ai]+';background:#f3f0ff">'+
+                '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+';background:#f3f0ff">'+
                   (totOrd.size>0?totOrd.size+' 筆<br><span style="font-weight:400;font-size:10.5px">$'+Math.round(totRev).toLocaleString()+'</span>':'—')+
                 '</td>'+
               '</tr>';
@@ -1542,12 +1540,32 @@ function init(){
   if(!checkLogin())return; // Stop if not logged in
   const n=new Date();curY=n.getFullYear();curM=n.getMonth()+1;
   populatePropFilter();
+  populateAgentOptions();
   const ca=document.getElementById('ca');
   const hds=document.getElementById('hds');
   const rc=document.getElementById('rc');
   ca.addEventListener('scroll',()=>{hds.scrollLeft=ca.scrollLeft;rc.scrollTop=ca.scrollTop;});
   document.addEventListener('click',()=>hideCellMenu());
   render();
+}
+function populateAgentOptions(){
+  const members=Cloud.companyMembers||[];
+  const fa=document.getElementById('f-agent');
+  const curF=fa.value;
+  fa.innerHTML='<option value="">全部業務</option>';
+  members.forEach(name=>{
+    const o=document.createElement('option');o.value=name;o.textContent=name;
+    if(name===curF)o.selected=true;
+    fa.appendChild(o);
+  });
+  const ga=document.getElementById('g-agent');
+  const curG=ga.value;
+  ga.innerHTML='<option value="">— 請選擇 —</option>';
+  members.forEach(name=>{
+    const o=document.createElement('option');o.value=name;o.textContent=name;
+    if(name===curG)o.selected=true;
+    ga.appendChild(o);
+  });
 }
 function populatePropFilter(){
   const pf=document.getElementById('f-prop');
@@ -2032,7 +2050,8 @@ function openNewBk(propId,roomNo,dateS){
   ['g-name','g-phone','g-email','g-note','g-taxid'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('g-deposit').value='';
   document.getElementById('g-payment').value='國泰(全居)';
-  document.getElementById('g-agent').value='';
+  populateAgentOptions();
+  document.getElementById('g-agent').value=Cloud.myDisplayName||'';
   document.getElementById('g-source').value='';
   document.getElementById('g-ctype').value='';
   document.getElementById('g-payment').value='';

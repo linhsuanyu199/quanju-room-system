@@ -14,6 +14,9 @@ const Cloud = {
   inviteCode: '',
   myRole: 'member',
   myEmail: '',
+  myDisplayName: '',
+  companyMembers: [],
+  _pendingDisplayName: '',
 
   async init() {
     const { data: { session } } = await _sb.auth.getSession();
@@ -59,10 +62,12 @@ const Cloud = {
     }
     this.companyId = profile.company_id;
     this.myRole = profile.role;
+    this.myDisplayName = profile.display_name || '';
     const { data: comp } = await _sb.from('companies').select('name, invite_code').eq('id', this.companyId).maybeSingle();
     this.companyName = comp ? comp.name : '';
     this.inviteCode = comp ? comp.invite_code : '';
     await this._loadKV();
+    await this._loadCompanyMembers();
     this.ready = true;
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('company-screen').classList.add('hidden');
@@ -73,9 +78,15 @@ const Cloud = {
   _renderUserBox() {
     const box = document.getElementById('cloud-user-box');
     if (!box) return;
-    box.textContent = this.companyName + ' · ' + this.myEmail;
+    box.textContent = this.companyName + ' · ' + (this.myDisplayName || '未設定名稱');
     const inviteBtn = document.getElementById('btn-invite');
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+  },
+
+  async _loadCompanyMembers() {
+    const { data, error } = await _sb.from('profiles').select('display_name').eq('company_id', this.companyId);
+    if (error) { console.error('讀取企業成員清單失敗：', error.message); this.companyMembers = []; return; }
+    this.companyMembers = data.map(m => m.display_name).filter(Boolean).sort();
   },
 
   // ── 登入 / 註冊 分頁 ──────────────────────────
@@ -105,9 +116,10 @@ const Cloud = {
   async doRegister() {
     const email = (document.getElementById('reg-email').value || '').trim();
     const pass = document.getElementById('reg-pass').value || '';
+    const displayName = (document.getElementById('reg-display-name').value || '').trim();
     const err = document.getElementById('login-err');
     err.style.display = 'none';
-    if (!email || !pass) { err.textContent = '⚠️ 請輸入 Email 與密碼'; err.style.display = 'block'; return; }
+    if (!email || !pass || !displayName) { err.textContent = '⚠️ 請輸入 Email、密碼與顯示名稱'; err.style.display = 'block'; return; }
     const pwErr = this._checkPasswordStrength(pass);
     if (pwErr) { err.textContent = '⚠️ ' + pwErr; err.style.display = 'block'; return; }
     const { data, error } = await _sb.auth.signUp({ email, password: pass });
@@ -116,6 +128,7 @@ const Cloud = {
       err.style.display = 'block';
       return;
     }
+    this._pendingDisplayName = displayName;
     if (data.session) {
       await this._afterLogin();
     } else {
@@ -155,6 +168,13 @@ const Cloud = {
     return msg;
   },
 
+  _translateDbError(msg) {
+    if (/profiles_company_display_name_uniq/.test(msg) || /duplicate key value violates unique constraint/i.test(msg)) {
+      return '此顯示名稱在企業內已被使用，請更換一個名稱（例如加上姓氏區分）';
+    }
+    return msg;
+  },
+
   // ── 企業設定（首次登入 / 尚未加入企業）──────────
   _showCompanyScreen() {
     document.getElementById('login-screen').classList.add('hidden');
@@ -172,8 +192,9 @@ const Cloud = {
     const err = document.getElementById('co-err');
     err.style.display = 'none';
     if (!name) { err.textContent = '⚠️ 請輸入企業名稱'; err.style.display = 'block'; return; }
-    const { data, error } = await _sb.rpc('create_company', { company_name: name });
-    if (error) { err.textContent = '⚠️ ' + error.message; err.style.display = 'block'; return; }
+    if (!this._pendingDisplayName) { err.textContent = '⚠️ 尚未設定顯示名稱，請重新註冊'; err.style.display = 'block'; return; }
+    const { data, error } = await _sb.rpc('create_company', { company_name: name, p_display_name: this._pendingDisplayName });
+    if (error) { err.textContent = '⚠️ ' + this._translateDbError(error.message); err.style.display = 'block'; return; }
     const row = data && data[0];
     alert('✅ 企業建立成功！\n\n您的邀請碼：' + (row ? row.invite_code : '') +
       '\n\n請將此邀請碼提供給同企業的其他員工，供他們註冊帳號時加入同一企業（之後也可以在系統內「👥 邀請成員」查看）。');
@@ -184,8 +205,9 @@ const Cloud = {
     const err = document.getElementById('co-err');
     err.style.display = 'none';
     if (!code) { err.textContent = '⚠️ 請輸入邀請碼'; err.style.display = 'block'; return; }
-    const { data, error } = await _sb.rpc('join_company', { code });
-    if (error) { err.textContent = '⚠️ ' + (/invite code invalid/.test(error.message) ? '邀請碼無效，請確認後重新輸入' : error.message); err.style.display = 'block'; return; }
+    if (!this._pendingDisplayName) { err.textContent = '⚠️ 尚未設定顯示名稱，請重新註冊'; err.style.display = 'block'; return; }
+    const { data, error } = await _sb.rpc('join_company', { code, p_display_name: this._pendingDisplayName });
+    if (error) { err.textContent = '⚠️ ' + (/invite code invalid/.test(error.message) ? '邀請碼無效，請確認後重新輸入' : this._translateDbError(error.message)); err.style.display = 'block'; return; }
     await this._afterLogin();
   },
 
