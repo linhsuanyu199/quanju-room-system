@@ -51,7 +51,9 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 
 /* ─── Toolbar ─── */
 .toolbar{height:44px;background:var(--white);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;z-index:190}
+  display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;z-index:190;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.toolbar>*{flex-shrink:0}
 .month-nav{display:flex;align-items:center;gap:3px}
 .nav-btn{width:24px;height:24px;border:1px solid var(--border);border-radius:5px;
   background:var(--white);cursor:pointer;font-size:13px;display:flex;
@@ -410,7 +412,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div id="auth-panel-register" style="display:none">
       <div class="login-field">
         <label>顯示名稱</label>
-        <input type="text" id="reg-display-name" placeholder="例如：王小明（同企業內不可重複）">
+        <input type="text" id="reg-display-name" maxlength="6" placeholder="例如：王小明（同企業內不可重複）">
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">中文最多 4 個字，英文最多 6 個字母（避免頂部版面被撐爆）</div>
       </div>
       <div class="login-field">
         <label>Email</label>
@@ -470,7 +473,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="logo">
     <div class="logo-main">短租排房系統</div>
   </div>
-  <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px"></div>
+  <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
@@ -481,13 +484,12 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
     <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
-    <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
     <a class="btn-top" href="./public.html" target="_blank"
       style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
       title="開啟外部租屋官網">🌐 官網</a>
-    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
   </div>
   <div class="topbar-fixed">
+    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
   </div>
@@ -531,6 +533,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <option value="">全部業務</option>
   </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
+  <button class="btn-top btn-add-top" style="margin-left:auto;flex-shrink:0" onclick="openNewBk()">＋ 新增預定</button>
 </div>
 
 <!-- Grid -->

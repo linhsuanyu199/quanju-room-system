@@ -78,7 +78,9 @@ const Cloud = {
   _renderUserBox() {
     const box = document.getElementById('cloud-user-box');
     if (!box) return;
-    box.textContent = this.companyName + ' · ' + (this.myDisplayName || '未設定名稱');
+    const boxText = this.companyName + ' · ' + (this.myDisplayName || '未顯示');
+    box.textContent = boxText;
+    box.title = boxText;
     const inviteBtn = document.getElementById('btn-invite');
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
   },
@@ -120,6 +122,8 @@ const Cloud = {
     const err = document.getElementById('login-err');
     err.style.display = 'none';
     if (!email || !pass || !displayName) { err.textContent = '⚠️ 請輸入 Email、密碼與顯示名稱'; err.style.display = 'block'; return; }
+    const nameErr = this._checkDisplayNameLength(displayName);
+    if (nameErr) { err.textContent = '⚠️ ' + nameErr; err.style.display = 'block'; return; }
     const pwErr = this._checkPasswordStrength(pass);
     if (pwErr) { err.textContent = '⚠️ ' + pwErr; err.style.display = 'block'; return; }
     const { data, error } = await _sb.auth.signUp({ email, password: pass });
@@ -148,6 +152,14 @@ const Cloud = {
   async doLogout() {
     if (!confirm('確定要登出系統？')) return;
     await _sb.auth.signOut();
+  },
+
+  // 顯示名稱長度限制：中文最多4個字，英文（純字母）最多6個字母，避免頂部工具列被撐爆
+  _checkDisplayNameLength(name) {
+    const hasCJK = /[\u4e00-\u9fff]/.test(name);
+    if (hasCJK && name.length > 4) return '顯示名稱過長，中文最多 4 個字';
+    if (!hasCJK && name.length > 6) return '顯示名稱過長，英文最多 6 個字母';
+    return null;
   },
 
   _checkPasswordStrength(pass) {
@@ -213,7 +225,7 @@ const Cloud = {
 
   // ── 邀請成員（僅企業管理者可見）──────────────
   openInvite() {
-    document.getElementById('invite-code-show').textContent = this.inviteCode;
+    document.getElementById('invite-code-show').value = this.inviteCode;
     document.getElementById('invite-ov').classList.add('open');
   },
   closeInvite() { document.getElementById('invite-ov').classList.remove('open'); },
