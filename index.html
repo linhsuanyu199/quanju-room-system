@@ -80,6 +80,15 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .dh .dw{font-size:8px;color:var(--muted)}
 .dh.today-col{background:#fff3e0}.dh.today-col .dn{color:#e67700;font-weight:800}
 .dh.weekend .dn{color:#c92a2a}
+.dh.month-start{border-left:2px solid var(--primary)}
+.day-cell.month-start{border-left:2px solid #aebbd4}
+
+.head-months{display:flex}
+.hm-seg{height:18px;display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:700;color:#fff;background:var(--primary);
+  border-right:2px solid rgba(255,255,255,.3);flex-shrink:0;letter-spacing:.3px;
+  overflow:hidden;white-space:nowrap}
+.hm-seg.alt{background:var(--primary-d)}
 
 .grid-body{flex:1;overflow:auto;display:flex}
 .room-col-list{min-width:var(--room-w);max-width:var(--room-w);flex-shrink:0;
@@ -479,11 +488,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 <!-- Toolbar -->
 <div class="toolbar">
   <div class="month-nav">
-    <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
     <div class="month-lbl" id="month-lbl"></div>
-    <button class="nav-btn" onclick="changeMonth(1)">›</button>
   </div>
-  <button class="today-btn" onclick="goToday()">今天</button>
+  <button class="today-btn" onclick="goToday()">📍 回到今天</button>
   <div class="vsep"></div>
   <select class="sel" id="f-prop" onchange="render()"><option value="">全部館別</option></select>
   <select class="sel" id="f-status" onchange="render()">
@@ -522,7 +529,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 <div class="grid-wrap">
   <div class="grid-head">
     <div class="head-room">館別 / 房號</div>
-    <div class="head-dates-scroll" id="hds"><div class="head-dates" id="hd"></div></div>
+    <div class="head-dates-scroll" id="hds"><div class="head-months" id="hm"></div><div class="head-dates" id="hd"></div></div>
   </div>
   <div class="grid-body">
     <div class="room-col-list" id="rc"></div>
@@ -881,6 +888,10 @@ const WD=['日','一','二','三','四','五','六'];
 // ════════════════════════════════════════════════
 let curY,curM,collapsed=new Set(),editingBkId=null,editingTkId=null,curSegs=[];
 let cmPropId=null,cmRoom=null,cmDate=null,curTkType='cleaning';
+// 月曆連續時間軸：DW=每日欄寬 CH=房間列高，mStart/mEnd=目前已掛載渲染的日期範圍
+// RANGE_START/RANGE_END=可捲動的年度上下限（前一年~次一年，隨系統年份自動更新）
+const DW=34,CH=38;
+let RANGE_START,RANGE_END,mStart,mEnd;
 
 // ════════════════════════════════════════════════
 // 資料存取（透過 Cloud 物件同步至 Supabase）
@@ -980,6 +991,21 @@ function dow(y,m,d){return new Date(y,m-1,d).getDay();}
 function addDays(s,n){const d=new Date(s);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function diffDays(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
 function domF(s,y,m){return Math.round((new Date(s)-new Date(y,m-1,1))/86400000)+1;}
+// 已掛載時間軸(mStart~mEnd)內，日期s對應的1-based欄位索引
+function colF(s){return diffDays(mStart,s)+1;}
+// 依mStart~mEnd切分出每個月份的天數，供月份分隔列使用
+function buildMonthSegments(){
+  const segs=[];
+  let y=+mStart.slice(0,4),m=+mStart.slice(5,7),cursor=mStart;
+  while(cursor<=mEnd){
+    const monEnd=ds(y,m,dim(y,m));
+    const segEnd=monEnd<mEnd?monEnd:mEnd;
+    segs.push({y,m,days:diffDays(cursor,segEnd)+1});
+    m++;if(m>12){m=1;y++;}
+    cursor=ds(y,m,1);
+  }
+  return segs;
+}
 function calcRent(ci,co,mp){if(!ci||!co||!mp)return 0;return Math.round(diffDays(ci,co)*(mp/30));}
 function todayStr(){const n=new Date();return ds(n.getFullYear(),n.getMonth()+1,n.getDate());}
 
@@ -1538,15 +1564,14 @@ function renderAna(tab){
 // ════════════════════════════════════════════════
 function init(){
   if(!checkLogin())return; // Stop if not logged in
-  const n=new Date();curY=n.getFullYear();curM=n.getMonth()+1;
+  initRange();
   populatePropFilter();
   populateAgentOptions();
   const ca=document.getElementById('ca');
-  const hds=document.getElementById('hds');
-  const rc=document.getElementById('rc');
-  ca.addEventListener('scroll',()=>{hds.scrollLeft=ca.scrollLeft;rc.scrollTop=ca.scrollTop;});
+  ca.addEventListener('scroll',onCalScroll);
   document.addEventListener('click',()=>hideCellMenu());
   render();
+  ca.scrollLeft=Math.max(0,(colF(ds(curY,curM,1))-1)*DW);
 }
 function populateAgentOptions(){
   const members=Cloud.companyMembers||[];
@@ -1593,8 +1618,71 @@ function populatePropFilter(){
     });
   }
 }
-function changeMonth(d){curM+=d;if(curM>12){curM=1;curY++;}if(curM<1){curM=12;curY--;}render();}
-function goToday(){const n=new Date();curY=n.getFullYear();curM=n.getMonth()+1;render();}
+// ════════════════════════════════════════════════
+// 連續時間軸：捲動範圍初始化 / 動態擴充 / 回到今天
+// ════════════════════════════════════════════════
+function initRange(){
+  const n=new Date();
+  curY=n.getFullYear();curM=n.getMonth()+1;
+  RANGE_START=(curY-1)+'-01-01';
+  RANGE_END=(curY+1)+'-12-31';
+  let sy=curY,sm=curM-1;if(sm<1){sm=12;sy--;}
+  let ey=curY,em=curM+1;if(em>12){em=1;ey++;}
+  mStart=ds(sy,sm,1);if(mStart<RANGE_START)mStart=RANGE_START;
+  mEnd=ds(ey,em,dim(ey,em));if(mEnd>RANGE_END)mEnd=RANGE_END;
+}
+function goToday(){
+  const n=new Date();
+  curY=n.getFullYear();curM=n.getMonth()+1;
+  const ca=document.getElementById('ca');
+  ca.scrollTo({left:Math.max(0,(colF(ds(curY,curM,1))-1)*DW),behavior:'smooth'});
+  updateStats();
+}
+let scrollDebTimer=null;
+function onCalScroll(){
+  const ca=document.getElementById('ca');
+  document.getElementById('hds').scrollLeft=ca.scrollLeft;
+  document.getElementById('rc').scrollTop=ca.scrollTop;
+  maybeExpandRange(ca);
+  clearTimeout(scrollDebTimer);
+  scrollDebTimer=setTimeout(updateViewedMonth,150);
+}
+const EXPAND_PX=900,EXPAND_MONTHS=2;
+function maybeExpandRange(ca){
+  const totalW=(diffDays(mStart,mEnd)+1)*DW;
+  if(ca.scrollLeft<EXPAND_PX&&mStart>RANGE_START){
+    let y=+mStart.slice(0,4),m=+mStart.slice(5,7);
+    m-=EXPAND_MONTHS;while(m<1){m+=12;y--;}
+    let newStart=ds(y,m,1);
+    if(newStart<RANGE_START)newStart=RANGE_START;
+    if(newStart<mStart){
+      const added=diffDays(newStart,mStart);
+      mStart=newStart;
+      render();
+      ca.scrollLeft+=added*DW;
+    }
+  }
+  if(ca.scrollLeft+ca.clientWidth>totalW-EXPAND_PX&&mEnd<RANGE_END){
+    let y=+mEnd.slice(0,4),m=+mEnd.slice(5,7);
+    m+=EXPAND_MONTHS;while(m>12){m-=12;y++;}
+    let newEnd=ds(y,m,dim(y,m));
+    if(newEnd>RANGE_END)newEnd=RANGE_END;
+    if(newEnd>mEnd){
+      mEnd=newEnd;
+      render();
+    }
+  }
+}
+function updateViewedMonth(){
+  const ca=document.getElementById('ca');
+  const centerCol=Math.floor((ca.scrollLeft+ca.clientWidth/2)/DW)+1;
+  const centerDate=addDays(mStart,Math.max(0,centerCol-1));
+  const y=+centerDate.slice(0,4),m=+centerDate.slice(5,7);
+  if(y!==curY||m!==curM){
+    curY=y;curM=m;
+    updateStats();
+  }
+}
 
 
 // ════════════════════════════════════════════════
@@ -1655,22 +1743,43 @@ function getRoomCurrentStatus(propId,roomNo){
 // RENDER
 // ════════════════════════════════════════════════
 function render(){
-  const td=dim(curY,curM),DW=34,CH=38;
+  const mountedDays=diffDays(mStart,mEnd)+1;
   const now=new Date();
   const tod=ds(now.getFullYear(),now.getMonth()+1,now.getDate());
-  document.getElementById('month-lbl').textContent=curY+'年 '+pad(curM)+'月';
 
-  const hdEl=document.getElementById('hd');hdEl.innerHTML='';
-  for(let d=1;d<=td;d++){
-    const w=dow(curY,curM,d),dstr=ds(curY,curM,d);
-    const el=document.createElement('div');
-    el.className='dh'+(dstr===tod?' today-col':'')+(w===0||w===6?' weekend':'');
-    el.style.minWidth=el.style.maxWidth=DW+'px';
-    el.innerHTML='<span class="dn">'+d+'</span><span class="dw">'+WD[w]+'</span>';
-    hdEl.appendChild(el);
+  // 預先計算掛載範圍內每一天的中繼資料，避免每個房間列都重複做日期運算
+  const dayMeta=[];
+  {
+    let day=mStart;
+    for(let i=0;i<mountedDays;i++){
+      const yy=+day.slice(0,4),mm=+day.slice(5,7),dd=+day.slice(8,10);
+      const w=dow(yy,mm,dd);
+      dayMeta.push({date:day,dd,w,isWeekend:(w===0||w===6),isMonthStart:dd===1,isToday:day===tod});
+      day=addDays(day,1);
+    }
   }
 
-  const ms=ds(curY,curM,1),me=ds(curY,curM,td);
+  // 月份分隔列
+  const hmEl=document.getElementById('hm');hmEl.innerHTML='';
+  buildMonthSegments().forEach((seg,idx)=>{
+    const el=document.createElement('div');
+    el.className='hm-seg'+(idx%2?' alt':'');
+    el.style.width=(seg.days*DW)+'px';
+    el.textContent=seg.y+'年'+seg.m+'月';
+    hmEl.appendChild(el);
+  });
+
+  // 日期列
+  const hdEl=document.getElementById('hd');hdEl.innerHTML='';
+  dayMeta.forEach(dm=>{
+    const el=document.createElement('div');
+    el.className='dh'+(dm.isToday?' today-col':'')+(dm.isWeekend?' weekend':'')+(dm.isMonthStart?' month-start':'');
+    el.style.minWidth=el.style.maxWidth=DW+'px';
+    el.innerHTML='<span class="dn">'+dm.dd+'</span><span class="dw">'+WD[dm.w]+'</span>';
+    hdEl.appendChild(el);
+  });
+
+  const ms=mStart,me=mEnd;
   function ov(ci,co){return ci<=me&&co>ms;}
   const fs=document.getElementById('f-status').value;
   const fp=document.getElementById('f-prop').value;
@@ -1760,11 +1869,11 @@ function render(){
 
   const rc=document.getElementById('rc'),ci=document.getElementById('ci');
   rc.innerHTML='';ci.innerHTML='';
-  ci.style.width=(td*DW)+'px';
+  ci.style.width=(mountedDays*DW)+'px';
 
-  if(now.getFullYear()===curY&&now.getMonth()+1===curM){
+  if(tod>=mStart&&tod<=mEnd){
     const tl=document.createElement('div');tl.className='today-line';
-    tl.style.left=((now.getDate()-1)*DW+DW/2)+'px';ci.appendChild(tl);
+    tl.style.left=((colF(tod)-1)*DW+DW/2)+'px';ci.appendChild(tl);
   }
 
   let ap=getAllProps();
@@ -1776,11 +1885,6 @@ function render(){
   if(fdist)ap=ap.filter(p=>(p.district||'')=== fdist);
   // 房間類型篩選：館別中至少有一間房符合才顯示，且只顯示符合的房間
   if(frtype)ap=ap.map(p=>({...p,rooms:p.rooms.filter(r=>normalizeRoomType(r.type)===frtype)})).filter(p=>p.rooms.length>0);
-  let tRooms=0,tRDays=0,occD=0,actualRev=0;
-  // Count unique local booking IDs active this month
-  const activeBkIds=new Set();
-  lbs.forEach(bk=>{if(bk.segments.some(s=>ov(s.checkin,s.checkout)))activeBkIds.add(bk.id);});
-  const bkCnt=activeBkIds.size;
 
   ap.forEach(prop=>{
     const pid=String(prop.id);
@@ -1803,30 +1907,12 @@ function render(){
     rc.appendChild(ph);
 
     const cph=document.createElement('div');
-    cph.className='cal-prop-hdr';cph.style.width=(td*DW)+'px';
+    cph.className='cal-prop-hdr';cph.style.width=(mountedDays*DW)+'px';
     ci.appendChild(cph);
 
     prop.rooms.forEach(room=>{
-      tRooms++;
       const k=pid+'|'+room.room;
       const blocks=BM[k]||[];
-      const bkBlks=blocks.filter(b=>!b.isTask);
-      tRDays+=td;
-      bkBlks.forEach(b=>{
-        const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
-        if(e>s){occD+=(e-s);}
-      });
-      // Actual revenue: only checkin/checkout segments
-      lbs.forEach(bk=>{
-        bk.segments.forEach(seg=>{
-          if(String(seg.prop_id)===pid&&seg.room===room.room&&
-             (seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending')&&ov(seg.checkin,seg.checkout)){
-            const sd=Math.max(1,domF(seg.checkin,curY,curM));
-            const ed=Math.min(td+1,domF(seg.checkout,curY,curM));
-            if(ed>sd&&room.price>0)actualRev+=(ed-sd)*(room.price/30);
-          }
-        });
-      });
       const rr=document.createElement('div');
       rr.className='room-row';rr.dataset.pid=pid;
       if(isColl)rr.style.display='none';
@@ -1844,18 +1930,17 @@ function render(){
       cr.className='cal-room-row';cr.dataset.pid=pid;
       if(isColl)cr.style.display='none';
       cr.style.height=CH+'px';
-      for(let d=1;d<=td;d++){
-        const dstr=ds(curY,curM,d),w=dow(curY,curM,d);
+      dayMeta.forEach(dm=>{
         const dc=document.createElement('div');
-        dc.className='day-cell'+(dstr===tod?' today-col':'')+(w===0||w===6?' weekend':'');
+        dc.className='day-cell'+(dm.isToday?' today-col':'')+(dm.isWeekend?' weekend':'')+(dm.isMonthStart?' month-start':'');
         dc.style.minWidth=dc.style.maxWidth=DW+'px';
-        dc.addEventListener('click',e=>{e.stopPropagation();showCellMenu(e,prop.id,room.room,dstr);});
+        dc.addEventListener('click',e=>{e.stopPropagation();showCellMenu(e,prop.id,room.room,dm.date);});
         cr.appendChild(dc);
-      }
+      });
       // 非 task 先渲染，task 後渲染（DOM 後方 = 自然在上層）
       const sortedBlocks=[...blocks].sort((a,b2)=>a.isTask&&!b2.isTask?1:!a.isTask&&b2.isTask?-1:0);
       sortedBlocks.forEach(b=>{
-        const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
+        const s=Math.max(1,colF(b.ci)),e=Math.min(mountedDays+1,colF(b.co));
         if(e<=s)return;
         const blk=document.createElement('div');
         blk.className='bk'+(b.isTask?' task-block':'');
@@ -1876,12 +1961,84 @@ function render(){
     });
   });
 
+  updateStats();
+}
+
+// ════════════════════════════════════════════════
+// 統計數據（僅重新計算，不重繪日曆 DOM）：依目前檢視中的月份(curY/curM)
+// 統計房間數/入住率/訂單數/實收營收/可售天數，捲動跨月時debounce觸發
+// ════════════════════════════════════════════════
+function updateStats(){
+  const vms=ds(curY,curM,1),vme=ds(curY,curM,dim(curY,curM)),td=dim(curY,curM);
+  function ov(ci,co){return ci<=vme&&co>vms;}
+  const fs=document.getElementById('f-status').value;
+  const fp=document.getElementById('f-prop').value;
+  const fq=document.getElementById('f-search').value.toLowerCase().trim();
+  const fagent=(document.getElementById('f-agent')||{}).value||'';
+  const newSts=Object.keys(STATUS);
+
+  const BM={};
+  function addB(pid,rno,ciD,coD){const k=String(pid)+'|'+rno;(BM[k]=BM[k]||[]).push({ci:ciD,co:coD});}
+
+  if(!fs||!newSts.includes(fs)){
+    EXCEL_DATA.orders.filter(o=>
+      o.prop_id!=null&&ov(o.checkin,o.checkout)&&
+      (!fs||o.type===fs)&&
+      (!fq||(o.guest||'').toLowerCase().includes(fq)||o.order.toLowerCase().includes(fq))
+    ).forEach(o=>addB(o.prop_id,o.room,o.checkin,o.checkout));
+  }
+
+  let lbs=loadBks().filter(b=>b.segments.some(s=>ov(s.checkin,s.checkout)));
+  if(fs&&newSts.includes(fs))lbs=lbs.filter(b=>b.segments.some(s=>s.status===fs));
+  else if(fs&&!newSts.includes(fs))lbs=[];
+  if(fq)lbs=lbs.filter(b=>(b.guest||'').toLowerCase().includes(fq)||(b.id||'').toLowerCase().includes(fq));
+  if(fp)lbs=lbs.filter(b=>b.segments.some(s=>String(s.prop_id)===fp));
+  if(fagent)lbs=lbs.filter(b=>b.agent===fagent);
+  lbs=lbs.filter(b=>!b.segments.every(s=>s.status==='cancelled'));
+  lbs.forEach(bk=>bk.segments.forEach(seg=>{ if(ov(seg.checkin,seg.checkout))addB(seg.prop_id,seg.room,seg.checkin,seg.checkout); }));
+
+  let ap=getAllProps();
+  const fsvc=(document.getElementById('f-svc')||{}).value||'';
+  const fdist=(document.getElementById('f-dist')||{}).value||'';
+  const frtype=(document.getElementById('f-rtype')||{}).value||'';
+  if(fp)ap=ap.filter(p=>String(p.id)===fp);
+  if(fsvc)ap=ap.filter(p=>(p.serviceType||'')===fsvc);
+  if(fdist)ap=ap.filter(p=>(p.district||'')===fdist);
+  if(frtype)ap=ap.map(p=>({...p,rooms:p.rooms.filter(r=>normalizeRoomType(r.type)===frtype)})).filter(p=>p.rooms.length>0);
+
+  let tRooms=0,tRDays=0,occD=0,actualRev=0;
+  const activeBkIds=new Set();
+  lbs.forEach(bk=>{if(bk.segments.some(s=>ov(s.checkin,s.checkout)))activeBkIds.add(bk.id);});
+  const bkCnt=activeBkIds.size;
+
+  ap.forEach(prop=>{
+    const pid=String(prop.id);
+    prop.rooms.forEach(room=>{
+      tRooms++;tRDays+=td;
+      const k=pid+'|'+room.room;
+      (BM[k]||[]).forEach(b=>{
+        const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
+        if(e>s)occD+=(e-s);
+      });
+      lbs.forEach(bk=>{
+        bk.segments.forEach(seg=>{
+          if(String(seg.prop_id)===pid&&seg.room===room.room&&
+             (seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending')&&ov(seg.checkin,seg.checkout)){
+            const sd=Math.max(1,domF(seg.checkin,curY,curM));
+            const ed=Math.min(td+1,domF(seg.checkout,curY,curM));
+            if(ed>sd&&room.price>0)actualRev+=(ed-sd)*(room.price/30);
+          }
+        });
+      });
+    });
+  });
+
   const occR=tRDays>0?Math.round(occD/tRDays*100):0;
+  document.getElementById('month-lbl').textContent=curY+'年 '+pad(curM)+'月';
   document.getElementById('s-rooms').textContent=tRooms;
   document.getElementById('s-occ').textContent=occR+'%';
   document.getElementById('s-bk').textContent=bkCnt;
   document.getElementById('s-rev').textContent='$'+Math.round(actualRev).toLocaleString();
-  // Sellable days
   document.getElementById('s-sell').textContent=calcSellableDays(tRooms).toLocaleString();
 }
 
