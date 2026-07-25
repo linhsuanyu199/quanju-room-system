@@ -51,9 +51,12 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 
 /* ─── Toolbar ─── */
 .toolbar{height:44px;background:var(--white);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;z-index:190;
+  display:flex;align-items:center;padding:0 10px;gap:7px;flex-shrink:0;z-index:190}
+/* 篩選區可橫向捲動；新增預定等操作按鈕固定在最右側，避免視窗較窄時被推出畫面外 */
+.toolbar-scroll{flex:1;min-width:0;display:flex;align-items:center;gap:7px;
   overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
-.toolbar>*{flex-shrink:0}
+.toolbar-scroll>*{flex-shrink:0}
+.toolbar-fixed{flex-shrink:0;display:flex;align-items:center;gap:7px}
 .month-nav{display:flex;align-items:center;gap:3px}
 .nav-btn{width:24px;height:24px;border:1px solid var(--border);border-radius:5px;
   background:var(--white);cursor:pointer;font-size:13px;display:flex;
@@ -490,7 +493,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
     <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
-      style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
+      style="display:none;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;align-items:center;gap:4px"
       title="開啟外部租屋官網">🌐 官網</a>
     <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">🔗 複製連結</button>
   </div>
@@ -505,44 +508,48 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 
 <!-- Toolbar -->
 <div class="toolbar">
-  <div class="month-nav">
-    <div class="month-lbl" id="month-lbl"></div>
+  <div class="toolbar-scroll">
+    <div class="month-nav">
+      <div class="month-lbl" id="month-lbl"></div>
+    </div>
+    <button class="today-btn" onclick="goToday()">📍 回到今天</button>
+    <div class="vsep"></div>
+    <select class="sel" id="f-prop" onchange="render()"><option value="">全部館別</option></select>
+    <select class="sel" id="f-status" onchange="render()">
+      <option value="">全部狀態</option>
+      <option value="reserved">🟣 預定中</option>
+      <option value="pending">🟠 已付款待入住</option>
+      <option value="checkin">🟢 入住中</option>
+      <option value="checkout">⚫ 已退房</option>
+      <option value="cleaning">🔵 打掃中</option>
+      <option value="repair">🔴 維修中</option>
+    </select>
+    <select class="sel" id="f-svc" onchange="render()" title="服務類型篩選">
+      <option value="">全部類型</option>
+      <option value="包租">📦 包租</option>
+      <option value="合作拆帳">🤝 合作拆帳</option>
+    </select>
+    <select class="sel" id="f-dist" onchange="render()" title="行政區篩選">
+      <option value="">全部行政區</option>
+    </select>
+    <select class="sel" id="f-rtype" onchange="render()" title="房間類型篩選">
+      <option value="">全部房間類型</option>
+      <option value="分租套房">分租套房</option>
+      <option value="分租雅房">分租雅房</option>
+      <option value="獨立套房">獨立套房</option>
+      <option value="兩房">兩房</option>
+      <option value="三房">三房</option>
+      <option value="四房">四房</option>
+    </select>
+    <select class="sel" id="f-agent" onchange="render()" title="業務篩選">
+      <option value="">全部業務</option>
+    </select>
+    <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
   </div>
-  <button class="today-btn" onclick="goToday()">📍 回到今天</button>
-  <div class="vsep"></div>
-  <select class="sel" id="f-prop" onchange="render()"><option value="">全部館別</option></select>
-  <select class="sel" id="f-status" onchange="render()">
-    <option value="">全部狀態</option>
-    <option value="reserved">🟣 預定中</option>
-    <option value="pending">🟠 已付款待入住</option>
-    <option value="checkin">🟢 入住中</option>
-    <option value="checkout">⚫ 已退房</option>
-    <option value="cleaning">🔵 打掃中</option>
-    <option value="repair">🔴 維修中</option>
-  </select>
-  <select class="sel" id="f-svc" onchange="render()" title="服務類型篩選">
-    <option value="">全部類型</option>
-    <option value="包租">📦 包租</option>
-    <option value="合作拆帳">🤝 合作拆帳</option>
-  </select>
-  <select class="sel" id="f-dist" onchange="render()" title="行政區篩選">
-    <option value="">全部行政區</option>
-  </select>
-  <select class="sel" id="f-rtype" onchange="render()" title="房間類型篩選">
-    <option value="">全部房間類型</option>
-    <option value="分租套房">分租套房</option>
-    <option value="分租雅房">分租雅房</option>
-    <option value="獨立套房">獨立套房</option>
-    <option value="兩房">兩房</option>
-    <option value="三房">三房</option>
-    <option value="四房">四房</option>
-  </select>
-  <select class="sel" id="f-agent" onchange="render()" title="業務篩選">
-    <option value="">全部業務</option>
-  </select>
-  <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
-  <button class="btn-top btn-task-top" style="margin-left:auto;flex-shrink:0" onclick="openTaskModal()">🛠 清潔/維修</button>
-  <button class="btn-top btn-add-top" style="flex-shrink:0" onclick="openNewBk()">＋ 新增預定</button>
+  <div class="toolbar-fixed">
+    <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 清潔/維修</button>
+    <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
+  </div>
 </div>
 
 <!-- Grid -->
