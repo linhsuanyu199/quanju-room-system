@@ -111,7 +111,18 @@ const Cloud = {
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const adminBtn = document.getElementById('btn-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
+    const siteLink = document.getElementById('btn-public-site');
+    if (siteLink && this.companyId) siteLink.href = this.getPublicUrl();
     this._renderTrialBadge();
+  },
+
+  // ── 對外公開房源頁連結（可分享給房客）──────────
+  getPublicUrl() {
+    return location.origin + location.pathname.replace(/index\.html$/, '') + 'public.html?co=' + this.companyId;
+  },
+  copyPublicLink() {
+    if (!this.companyId) return;
+    navigator.clipboard.writeText(this.getPublicUrl()).then(() => alert('✅ 公開房源連結已複製，可直接分享給房客：\n' + this.getPublicUrl()));
   },
 
   // 試用期倒數提示（僅顯示，不鎖任何功能）
@@ -300,7 +311,8 @@ const Cloud = {
     const err = document.getElementById('cpw-err');
     function showErr(msg) { err.textContent = msg; err.style.display = 'block'; }
     if (!new1) { showErr('❌ 請輸入新密碼'); return; }
-    if (new1.length < 6) { showErr('❌ 新密碼至少 6 個字元'); return; }
+    const pwErr = this._checkPasswordStrength(new1);
+    if (pwErr) { showErr('❌ ' + pwErr); return; }
     if (new1 !== new2) { showErr('❌ 兩次密碼輸入不一致'); return; }
     const { error } = await _sb.auth.updateUser({ password: new1 });
     if (error) { showErr('❌ ' + error.message); return; }

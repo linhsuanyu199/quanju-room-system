@@ -488,11 +488,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box" onclick="openOrderOverview()" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單 👆</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
-    <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 排程清潔/維修</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
-    <a class="btn-top" href="./public.html" target="_blank"
+    <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
       style="background:rgba(255,255,255,.15);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px"
       title="開啟外部租屋官網">🌐 官網</a>
+    <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">🔗 複製連結</button>
   </div>
   <div class="topbar-fixed">
     <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
@@ -541,7 +541,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <option value="">全部業務</option>
   </select>
   <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
-  <button class="btn-top btn-add-top" style="margin-left:auto;flex-shrink:0" onclick="openNewBk()">＋ 新增預定</button>
+  <button class="btn-top btn-task-top" style="margin-left:auto;flex-shrink:0" onclick="openTaskModal()">🛠 清潔/維修</button>
+  <button class="btn-top btn-add-top" style="flex-shrink:0" onclick="openNewBk()">＋ 新增預定</button>
 </div>
 
 <!-- Grid -->
@@ -730,7 +731,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="modal-body" style="max-height:unset">
     <div class="form-grid" style="grid-template-columns:1fr">
       <div class="field"><label>目前帳號 Email</label><input id="cpw-email-show" type="text" readonly style="background:#f5f5f5"></div>
-      <div class="field"><label>新密碼 <span class="req">*</span></label><input id="cpw-new1" type="password" placeholder="至少 6 個字元"></div>
+      <div class="field"><label>新密碼 <span class="req">*</span></label><input id="cpw-new1" type="password" placeholder="至少8碼，混合大小寫/數字/符號中至少3種"></div>
       <div class="field"><label>確認新密碼 <span class="req">*</span></label><input id="cpw-new2" type="password" placeholder="再輸入一次新密碼"></div>
     </div>
     <div id="cpw-err" style="display:none;color:#c92a2a;font-size:11px;margin-top:6px"></div>
@@ -1691,7 +1692,7 @@ function goToday(){
   const n=new Date();
   curY=n.getFullYear();curM=n.getMonth()+1;
   const ca=document.getElementById('ca');
-  ca.scrollTo({left:Math.max(0,(colF(ds(curY,curM,1))-1)*DW),behavior:'smooth'});
+  ca.scrollTo({left:Math.max(0,(colF(ds(curY,curM,n.getDate()))-1)*DW),behavior:'smooth'});
   updateStats();
 }
 let scrollDebTimer=null;

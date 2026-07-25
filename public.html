@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>短租公寓 — 找到你的理想居所</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/cloud-config.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -570,8 +572,31 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 <script>
 'use strict';
 
-// ── BASE DATA ──────────────────────────────────────────────────────────────
-const BASE_PROPS = {"properties":[{"id":0,"code":"888001","name":"台大公館一館","address":"汀洲188","rooms":[{"room":"3A","type":"分套","price":30300},{"room":"3B","type":"分套","price":30300},{"room":"3C","type":"分套","price":27300},{"room":"3D","type":"分套","price":27300},{"room":"3E","type":"分套","price":30300},{"room":"3F單","type":"分套","price":25200},{"room":"2A1","type":"分套","price":27300},{"room":"2A2單","type":"分套","price":24000},{"room":"2A3","type":"分套","price":27300},{"room":"2A5","type":"分套","price":30300},{"room":"2A6","type":"分套","price":29700},{"room":"2A7/單雙","type":"分套","price":25200},{"room":"2A8","type":"分套","price":27300},{"room":"2A9","type":"分套","price":27300},{"room":"2A10","type":"分套","price":27900},{"room":"2A11","type":"分套","price":27300},{"room":"2B2單","type":"分套","price":24000},{"room":"2B3","type":"分套","price":27300},{"room":"2B5","type":"分套","price":24000},{"room":"2B6單","type":"分套","price":21000},{"room":"2B7","type":"分套","price":29700},{"room":"2B8單","type":"分套","price":24000},{"room":"2B9","type":"分套","price":27300},{"room":"2B11單","type":"分套","price":21900}]},{"id":1,"code":"888002","name":"台大公館三館","address":"羅斯福68","rooms":[{"room":"602","type":"獨套","price":49200}]},{"id":2,"code":"999004","name":"台大公館圓環","address":"羅斯福202","rooms":[{"room":"9F-1","type":"獨套","price":43500},{"room":"9F-2","type":"獨套","price":43500}]},{"id":3,"code":"888003","name":"師大台電一館","address":"金門11","rooms":[{"room":"4A","type":"分套","price":28200},{"room":"4B-單","type":"分套","price":22500},{"room":"4C","type":"分套","price":29700},{"room":"4D","type":"分套","price":27300},{"room":"4E-單","type":"分套","price":22800},{"room":"5A","type":"分套","price":25200},{"room":"5B-一房一廳","type":"分套","price":42000}]},{"id":4,"code":"888004","name":"師大古亭二館","address":"晉江19","rooms":[{"room":"2A","type":"分套","price":31500},{"room":"2B","type":"分套","price":28200},{"room":"2C","type":"分套","price":25200},{"room":"2D","type":"分套","price":26700},{"room":"3B","type":"分套","price":28200},{"room":"3C","type":"分套","price":25200}]},{"id":5,"code":"888005","name":"師大古亭同安一館","address":"同安93","rooms":[{"room":"301","type":"兩房","price":53400},{"room":"302","type":"兩房","price":54000}]},{"id":6,"code":"888013","name":"師大古亭同安二館","address":"同安97","rooms":[{"room":"502-單+雙","type":"兩房","price":44700}]},{"id":7,"code":"888009","name":"師大古亭一館","address":"晉江18","rooms":[{"room":"A01","type":"分套","price":35100},{"room":"B02","type":"兩房","price":55500},{"room":"C03","type":"兩房","price":55500}]},{"id":8,"code":"777018","name":"公館師大分部旗艦館","address":"羅斯福10","rooms":[{"room":"A","type":"分套","price":37500},{"room":"B","type":"分套","price":35400},{"room":"C","type":"分套","price":35400},{"room":"D","type":"分套","price":34500},{"room":"E","type":"分套","price":33300}]},{"id":9,"code":"888016","name":"師大古亭三館","address":"晉江48","rooms":[{"room":"兩房/一廳","type":"兩房","price":52500}]},{"id":10,"code":"777050","name":"景美二館","address":"景美147","rooms":[{"room":"A01","type":"分套","price":32400},{"room":"B02","type":"分套","price":32100},{"room":"C03","type":"分套","price":33600}]},{"id":11,"code":"888014","name":"公館師大分部一館","address":"羅斯福176","rooms":[{"room":"二房/二廳","type":"兩房","price":55500}]},{"id":12,"code":"888010","name":"師大古亭和平館","address":"和平東50","rooms":[{"room":"301","type":"獨套","price":54600}]},{"id":13,"code":"888012","name":"台大科技大樓館","address":"和平東175","rooms":[{"room":"301","type":"分套","price":31800},{"room":"302-單","type":"分套","price":23400},{"room":"304","type":"分雅","price":20700},{"room":"305","type":"分雅","price":21900}]},{"id":14,"code":"888015","name":"師大台電二館","address":"浦城6","rooms":[{"room":"A01","type":"兩房","price":44700},{"room":"B02","type":"兩房","price":44700},{"room":"C03雅","type":"分雅","price":27300},{"room":"D04雅","type":"分雅","price":27300}]},{"id":15,"code":"888017","name":"師大台電四館","address":"泰順50","rooms":[{"room":"301","type":"分套","price":34500},{"room":"302","type":"分套","price":35400},{"room":"303","type":"分套","price":32400},{"room":"305","type":"分套","price":29700}]},{"id":16,"code":"888018","name":"台大科技大樓二館","address":"和平東95","rooms":[{"room":"A","type":"分套","price":34500},{"room":"B","type":"分套","price":34500},{"room":"C","type":"分套","price":32700},{"room":"D-單","type":"分套","price":27600},{"room":"E","type":"分套","price":30900},{"room":"F","type":"分套","price":34500},{"room":"G","type":"分套","price":34500}]},{"id":17,"code":"888019","name":"敦化明曜一館","address":"忠孝東206","rooms":[{"room":"1001","type":"分套","price":36900},{"room":"1002","type":"分套","price":35400},{"room":"1003","type":"分套","price":33300},{"room":"1005","type":"分套","price":35400},{"room":"1006","type":"分套","price":39300},{"room":"1007","type":"分套","price":39300},{"room":"1008","type":"分套","price":39300}]},{"id":18,"code":"888021","name":"信義大安一館","address":"信義147","rooms":[{"room":"D","type":"分套","price":38400},{"room":"E","type":"分套","price":39750}]},{"id":19,"code":"888023","name":"通化一館","address":"通化168","rooms":[{"room":"A","type":"分雅","price":25000},{"room":"B","type":"分雅","price":25000},{"room":"C","type":"分雅","price":25000},{"room":"D","type":"分雅","price":25000}]},{"id":20,"code":"888022","name":"雙連寧夏館","address":"五原19","rooms":[{"room":"五原19","type":"獨套","price":52500}]},{"id":21,"code":"888011","name":"中山國小一館","address":"中山北137","rooms":[{"room":"中山北137","type":"獨套","price":49200}]},{"id":22,"code":"888020","name":"行天宮一館","address":"民生東147","rooms":[{"room":"民生東/147","type":"兩房","price":55500}]},{"id":23,"code":"999021","name":"雙連一館","address":"中山北72","rooms":[{"room":"中山北72","type":"獨套","price":57000}]},{"id":25,"code":"888007","name":"松山饒河一館","address":"松山路204","rooms":[{"room":"A","type":"分套","price":31500},{"room":"B","type":"分雅","price":25050},{"room":"C","type":"分雅","price":23100},{"room":"D","type":"分雅","price":22500}]},{"id":27,"code":"999020","name":"師大台電三館","address":"汀洲27","rooms":[{"room":"A01單","type":"分套","price":27600},{"room":"B02","type":"兩房","price":54000},{"room":"C03","type":"兩房","price":48600}]},{"id":28,"code":"999010","name":"景美一館","address":"景興195","rooms":[{"room":"8樓-單+雙","type":"兩房","price":55500}]},{"id":29,"code":"999017","name":"忠孝復興一館","address":"大安52","rooms":[{"room":"601","type":"兩房","price":60900}]},{"id":30,"code":"999001","name":"中山一館","address":"中山北83","rooms":[{"room":"中山","type":"獨套","price":53400}]},{"id":31,"code":"999002","name":"台北車站一館","address":"重慶北22","rooms":[{"room":"西門","type":"獨套","price":54000}]},{"id":34,"code":"999019","name":"市府永吉一館","address":"基隆97","rooms":[{"room":"302","type":"分套","price":27600},{"room":"312","type":"分套","price":30300}]}]};
+// ── CLOUD DATA（改為向 Supabase RPC 讀取指定企業的公開房源資料）──────────────
+let _pub = null; // { company_name, cps, ovr, ext, propinfo, vis, tasks, segs }
+
+async function loadPublicData(){
+  const params = new URLSearchParams(location.search);
+  const companyId = params.get('co');
+  if(!companyId){
+    document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">此連結缺少企業識別碼，請向物業管理方索取正確的公開房源連結。</div>';
+    return false;
+  }
+  try{
+    const sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
+    const { data, error } = await sb.rpc('public_company_listings', { p_company_id: companyId });
+    if(error || !data){
+      document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">找不到此企業的公開房源資料，請確認連結是否正確。</div>';
+      return false;
+    }
+    _pub=data;
+    window._pubCompanyId=companyId;
+    return true;
+  }catch(e){
+    document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">房源資料載入失敗，請稍後再試。</div>';
+    return false;
+  }
+}
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const TYPE_MAP = {'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房','兩房':'兩房','三房':'三房','四房':'四房'};
@@ -604,34 +629,22 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // ── AVAILABILITY ──────────────────────────────────────────────────────────
 function getRoomStatus(propId, roomNo){
   const tod = todayStr();
-  let tasks=[], bks=[];
-  try{ tasks=JSON.parse(localStorage.getItem('qj_tasks')||'[]'); }catch(e){}
-  try{ bks=JSON.parse(localStorage.getItem('qj_bks')||'[]'); }catch(e){}
+  const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
   const pid=String(propId);
   if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='repair'&&t.start<=tod&&t.end>tod))
     return{status:'repair',label:'維修中',color:'#c92a2a'};
   if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='cleaning'&&t.start<=tod&&t.end>tod))
     return{status:'cleaning',label:'打掃中',color:'#0c8599'};
-  for(const bk of bks){
-    for(const seg of (bk.segments||[])){
-      if(String(seg.prop_id)===pid&&seg.room===roomNo&&seg.status!=='checkout'&&seg.checkin<=tod&&seg.checkout>tod)
-        return{status:'occupied',label:'已出租',color:'#e67700'};
-    }
-  }
+  if(segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod))
+    return{status:'occupied',label:'已出租',color:'#e67700'};
   return{status:'available',label:'可租',color:'#16a34a'};
 }
 
 // ── GET ALL PROPERTIES ────────────────────────────────────────────────────
 function getAllProps(){
-  const base=BASE_PROPS.properties.map(p=>({...p}));
-  let cps=[],ovr={},ext={},info={},vis={};
-  try{ cps=JSON.parse(localStorage.getItem('qj_cps')||'[]'); }catch(e){}
-  try{ ovr=JSON.parse(localStorage.getItem('qj_ovr')||'{}'); }catch(e){}
-  try{ ext=JSON.parse(localStorage.getItem('qj_ext')||'{}'); }catch(e){}
-  try{ info=JSON.parse(localStorage.getItem('qj_propinfo')||'{}'); }catch(e){}
-  try{ vis=JSON.parse(localStorage.getItem('qj_pub_vis')||'{}'); }catch(e){}
-  const all=[...base,...cps];
-  return all.map(p=>{
+  if(!_pub) return [];
+  const cps=_pub.cps||[], ovr=_pub.ovr||{}, ext=_pub.ext||{}, info=_pub.propinfo||{}, vis=_pub.vis||{};
+  return cps.map(p=>{
     const pid=String(p.id);
     if(vis[pid]===false) return null;
     const rooms=[...(p.rooms||[]),...(ext[pid]||[])].map(r=>({
@@ -651,7 +664,9 @@ let currentProp=null;
 let currentFilters={district:'',type:'',budget:'',availOnly:false,search:''};
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-function init(){
+async function init(){
+  const ok=await loadPublicData();
+  if(!ok) return;
   allProps=getAllProps();
   populateDistrictDropdowns();
   renderStats();
@@ -867,24 +882,30 @@ function closeAll(){
   document.body.style.overflow='';
 }
 
-function submitInquiry(){
+async function submitInquiry(){
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
   if(!name){alert('請輸入姓名');document.getElementById('fName').focus();return;}
   if(!phone){alert('請輸入聯絡電話');document.getElementById('fPhone').focus();return;}
+  if(!window._pubCompanyId){alert('系統錯誤，請重新整理頁面後再試');return;}
 
-  const inquiry={
-    id:'inq_'+Date.now(),
-    name,phone,
-    date:document.getElementById('fDate').value,
-    prop:document.getElementById('fProp').value,
-    note:document.getElementById('fNote').value,
-    createdAt:new Date().toISOString()
-  };
-  let inqs=[];
-  try{ inqs=JSON.parse(localStorage.getItem('qj_inquiries')||'[]'); }catch(e){}
-  inqs.push(inquiry);
-  try{ localStorage.setItem('qj_inquiries',JSON.stringify(inqs)); }catch(e){}
+  const btn=document.querySelector('#contactFormArea .btn-submit');
+  if(btn){btn.disabled=true;btn.textContent='送出中…';}
+
+  const sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
+  const { data, error } = await sb.rpc('public_submit_inquiry', {
+    p_company_id: window._pubCompanyId,
+    p_name: name, p_phone: phone,
+    p_date: document.getElementById('fDate').value,
+    p_prop: document.getElementById('fProp').value,
+    p_note: document.getElementById('fNote').value
+  });
+
+  if(error || data!==true){
+    if(btn){btn.disabled=false;btn.textContent='送出詢問';}
+    alert('送出失敗，請稍後再試');
+    return;
+  }
 
   document.getElementById('contactFormArea').style.display='none';
   document.getElementById('successMsg').style.display='block';
