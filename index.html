@@ -482,25 +482,25 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="logo-main">短租排房系統</div>
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
-  <div id="trial-badge" style="font-size:11px;margin-left:8px;white-space:nowrap;display:none"></div>
+  <div id="trial-badge" class="tleg" style="margin-left:8px;display:none" title=""></div>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
     <div class="stat-box" title="年度可銷售天數＝房間數×365，扣除打掃/維修日數"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
     <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
-    <div class="stat-box" onclick="openOrderOverview()" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單 👆</div></div>
+    <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
-    <button class="btn-top btn-mgt-top" onclick="openPropMgr()">🏠 管理房源</button>
-    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">📊 分析</button>
+    <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
+    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
     <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
       style="display:none;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;align-items:center;gap:4px"
       title="開啟外部租屋官網">🌐 官網</a>
     <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">🔗 複製連結</button>
   </div>
   <div class="topbar-fixed">
-    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
-    <button class="btn-top btn-mgt-top" id="btn-platform-admin" onclick="Cloud.openPlatformAdmin()" title="平台管理後台" style="background:rgba(255,255,255,.1);display:none">🛡 後台</button>
-    <button class="btn-top btn-mgt-top" onclick="exportCompanyData()" title="匯出資料（Excel）" style="background:rgba(255,255,255,.1)">📤 匯出</button>
+    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">邀請成員</button>
+    <button class="btn-top btn-mgt-top" id="btn-platform-admin" onclick="Cloud.openPlatformAdmin()" title="平台管理後台" style="background:rgba(255,255,255,.1);display:none">後台</button>
+    <button class="btn-top btn-mgt-top" onclick="exportCompanyData()" title="匯出資料（Excel）" style="background:rgba(255,255,255,.1)">匯出</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
   </div>
@@ -512,7 +512,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="month-nav">
       <div class="month-lbl" id="month-lbl"></div>
     </div>
-    <button class="today-btn" onclick="goToday()">📍 回到今天</button>
+    <button class="today-btn" onclick="goToday()">回到今天</button>
     <div class="vsep"></div>
     <select class="sel" id="f-prop" onchange="render()"><option value="">全部館別</option></select>
     <select class="sel" id="f-status" onchange="render()">
@@ -547,7 +547,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
   </div>
   <div class="toolbar-fixed">
-    <button class="btn-top btn-task-top" onclick="openTaskModal()">🛠 清潔/維修</button>
+    <button class="btn-top btn-task-top" onclick="openTaskModal()">清潔/維修</button>
     <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
   </div>
 </div>

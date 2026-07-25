@@ -125,7 +125,8 @@ const Cloud = {
     navigator.clipboard.writeText(this.getPublicUrl()).then(() => alert('✅ 公開房源連結已複製，可直接分享給房客：\n' + this.getPublicUrl()));
   },
 
-  // 試用期倒數提示（僅顯示，不鎖任何功能）
+  // 試用期倒數提示：只顯示一個小徽章「試用」，滑鼠移上去才用 title 顯示剩餘天數，
+  // 避免長文字佔用版面。未來如串接付費訂閱狀態，可將 textContent 改為「專業」等文字。
   _renderTrialBadge() {
     const el = document.getElementById('trial-badge');
     if (!el) return;
@@ -133,18 +134,22 @@ const Cloud = {
     const createdMs = new Date(this.companyCreatedAt).getTime();
     const daysUsed = Math.floor((Date.now() - createdMs) / 86400000);
     const daysLeft = TRIAL_DAYS - daysUsed;
+    el.style.display = '';
     if (daysLeft > 3) {
-      el.textContent = '🎁 試用期剩 ' + daysLeft + ' 天';
-      el.style.display = '';
-      el.style.color = 'rgba(255,255,255,.75)';
+      el.textContent = '試用';
+      el.title = '試用期剩 ' + daysLeft + ' 天';
+      el.style.background = 'rgba(255,255,255,.15)';
+      el.style.color = '#fff';
     } else if (daysLeft > 0) {
-      el.textContent = '⏰ 試用期剩 ' + daysLeft + ' 天，即將到期';
-      el.style.display = '';
-      el.style.color = '#ffcf5c';
+      el.textContent = '試用';
+      el.title = '試用期剩 ' + daysLeft + ' 天，即將到期，請盡快聯繫我們續約';
+      el.style.background = '#ffcf5c';
+      el.style.color = '#7a4b00';
     } else {
-      el.textContent = '⚠️ 試用期已到期，請聯繫我們續約';
-      el.style.display = '';
-      el.style.color = '#ff8a8a';
+      el.textContent = '已到期';
+      el.title = '試用期已到期，請聯繫我們續約';
+      el.style.background = '#ff8a8a';
+      el.style.color = '#5c0000';
     }
   },
 
