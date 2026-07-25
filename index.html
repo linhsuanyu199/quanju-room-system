@@ -818,6 +818,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="modal-body" style="max-height:76vh;overflow-y:auto">
     <div class="pm-toolbar">
       <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
+      <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
       <button class="btn btn-primary sm" onclick="scrollToAddProp()">＋ 新增館別</button>
     </div>
     <div id="pm-content"></div>
@@ -859,6 +860,15 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         </div>
       </div>
     </div>
+    <div class="pm-add-prop-section" id="pm-import-section" style="margin-top:14px">
+      <div class="section-title">📥 批次匯入房源（Excel / CSV）</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7">
+        每一列代表一個房間，同一館別名稱的多列會自動合併成同一館別；若館別名稱與現有館別相同，會把房間加進該館別。<br>
+        <a href="#" onclick="downloadImportTemplate();return false;" style="color:var(--primary);text-decoration:underline">📄 下載範本檔（CSV）</a>
+      </div>
+      <input type="file" id="import-file" accept=".csv,.xlsx,.xls" onchange="handleImportFile(this)">
+      <div id="import-preview" style="margin-top:10px"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -874,6 +884,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="js/cloud-config.js"></script>
 <script src="js/cloud.js"></script>
 <script>
@@ -3102,6 +3113,140 @@ function doAddProp(){
   document.getElementById('np-city').value='';
   document.getElementById('np-dist').innerHTML='<option value="">— 請先選擇縣市 —</option>';
   renderPM();alert('館別「'+nm+'」已建立！');
+}
+
+// ════════════════════════════════════════════════
+// BULK IMPORT（Excel / CSV 批次匯入房源）
+// ════════════════════════════════════════════════
+function downloadImportTemplate(){
+  const header=['館別名稱','服務類型','縣市','行政區','地址','房號','房型','月租金'];
+  const example=[
+    ['範例館別','包租','台北市','大安區','和平東路100號','101','分租套房','15000'],
+    ['範例館別','包租','台北市','大安區','和平東路100號','102','分租雅房','10000'],
+  ];
+  const rows=[header,...example];
+  const csv=rows.map(r=>r.map(c=>{
+    const s=String(c);
+    return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(',')).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='房源匯入範本.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+let importParsed=null;
+function handleImportFile(input){
+  const file=input.files&&input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      processImportRows(rows);
+    }catch(err){
+      document.getElementById('import-preview').innerHTML='<div style="color:#c92a2a;font-size:12px">檔案解析失敗：'+escH(err.message)+'</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function processImportRows(rows){
+  const errors=[];
+  const groups={};
+  rows.forEach((row,i)=>{
+    const rn=i+2;
+    const name=String(row['館別名稱']||'').trim();
+    const svc=String(row['服務類型']||'').trim();
+    const city=String(row['縣市']||'').trim();
+    const dist=String(row['行政區']||'').trim();
+    const addr=String(row['地址']||'').trim();
+    const rno=String(row['房號']||'').trim();
+    const rtypeRaw=String(row['房型']||'').trim();
+    const priceRaw=row['月租金'];
+    if(!name||!svc||!city||!dist||!addr||!rno||!rtypeRaw||priceRaw===''||priceRaw===undefined){
+      errors.push('第'+rn+'列：欄位不可空白');return;
+    }
+    if(svc!=='包租'&&svc!=='合作拆帳'){errors.push('第'+rn+'列：服務類型須為「包租」或「合作拆帳」');return;}
+    if(!CITY_DISTRICTS[city]){errors.push('第'+rn+'列：縣市「'+city+'」不支援（僅支援台北市/新北市）');return;}
+    if(!CITY_DISTRICTS[city].includes(dist)){errors.push('第'+rn+'列：行政區「'+dist+'」不屬於'+city);return;}
+    const rtype=normalizeRoomType(rtypeRaw);
+    if(!ROOM_TYPES.includes(rtype)){errors.push('第'+rn+'列：房型「'+rtypeRaw+'」無法辨識（可用：'+ROOM_TYPES.join('、')+'）');return;}
+    const price=Number(priceRaw);
+    if(!isFinite(price)||price<0){errors.push('第'+rn+'列：月租金必須是數字');return;}
+    const key=name+'|'+addr;
+    if(!groups[key])groups[key]={name,serviceType:svc,city,district:dist,address:addr,rooms:[]};
+    if(groups[key].rooms.some(r=>r.room===rno)){errors.push('第'+rn+'列：房號「'+rno+'」在同一館別中重複');return;}
+    groups[key].rooms.push({room:rno,type:rtype,price});
+  });
+  renderImportPreview(Object.values(groups),errors);
+}
+function renderImportPreview(properties,errors){
+  importParsed=errors.length===0?properties:null;
+  const existing=loadCPs();
+  let html='';
+  if(errors.length){
+    html+='<div style="background:#fee2e2;border:1px solid #f5c2c7;border-radius:6px;padding:10px;font-size:12px;color:#c92a2a;margin-bottom:10px">'+
+      '⚠️ 發現 '+errors.length+' 個錯誤，請修正後重新上傳：<br>'+errors.slice(0,20).map(escH).join('<br>')+
+      (errors.length>20?'<br>...還有'+(errors.length-20)+'個錯誤':'')+'</div>';
+  }
+  if(properties.length){
+    const totalRooms=properties.reduce((s,p)=>s+p.rooms.length,0);
+    html+='<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:10px;font-size:12px;margin-bottom:10px">'+
+      '✅ 解析成功：共 '+properties.length+' 個館別、'+totalRooms+' 個房間'+
+      (errors.length?'（僅預覽，需先修正上方錯誤才能匯入）':'')+
+      '</div>';
+    html+='<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;margin-bottom:10px">'+
+      properties.map(p=>{
+        const isMerge=existing.some(e=>e.name===p.name);
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">'+
+          '<b>'+escH(p.name)+'</b>'+(isMerge?' <span style="color:#e67700">（將併入現有同名館別）</span>':' <span style="color:#2f9e44">（新建館別）</span>')+
+          ' — '+escH(p.city+p.district)+' '+escH(p.address)+'，'+p.rooms.length+'間房'+
+        '</div>';
+      }).join('')+
+    '</div>';
+    if(!errors.length){
+      html+='<div style="display:flex;gap:8px">'+
+        '<button class="btn btn-primary sm" onclick="confirmImport()">✅ 確認匯入</button>'+
+        '<button class="btn btn-ghost sm" onclick="cancelImport()">取消</button>'+
+      '</div>';
+    }
+  } else if(!errors.length){
+    html='<div style="font-size:12px;color:var(--muted)">未解析到任何資料列</div>';
+  }
+  document.getElementById('import-preview').innerHTML=html;
+}
+function confirmImport(){
+  if(!importParsed||!importParsed.length)return;
+  const cps=loadCPs();
+  let newCount=0,mergedCount=0,addedRooms=0;
+  importParsed.forEach(p=>{
+    const exist=cps.find(c=>c.name===p.name);
+    if(exist){
+      p.rooms.forEach(r=>{
+        if(!exist.rooms.some(er=>er.room===r.room)){exist.rooms.push(r);addedRooms++;}
+      });
+      mergedCount++;
+    }else{
+      cps.push({id:'cp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+        name:p.name,address:p.address,serviceType:p.serviceType,district:p.district,city:p.city,
+        rooms:p.rooms,custom:true});
+      newCount++;addedRooms+=p.rooms.length;
+    }
+  });
+  saveCPs(cps);
+  importParsed=null;
+  document.getElementById('import-file').value='';
+  document.getElementById('import-preview').innerHTML='';
+  renderPM();
+  alert('匯入完成！新建 '+newCount+' 個館別、併入 '+mergedCount+' 個現有館別，共新增 '+addedRooms+' 個房間。');
+}
+function cancelImport(){
+  importParsed=null;
+  document.getElementById('import-file').value='';
+  document.getElementById('import-preview').innerHTML='';
 }
 
 // ════════════════════════════════════════════════
