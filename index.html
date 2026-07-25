@@ -387,7 +387,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 <!-- ═══ Login Screen ═══ -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
-    <div class="login-logo">🏠 短租排房系統</div>
+    <div class="login-logo">短租排房系統</div>
     <div class="login-sub">Short term rental apartment · 請登入以繼續</div>
 
     <div style="display:flex;gap:8px;margin-bottom:18px">
@@ -737,7 +737,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="modal-body" style="max-height:unset">
     <div class="form-grid" style="grid-template-columns:1fr">
       <div class="field"><label>目前帳號 Email</label><input id="cpw-email-show" type="text" readonly style="background:#f5f5f5"></div>
-      <div class="field"><label>顯示名稱</label><input id="cpw-dname" type="text" maxlength="6" placeholder="同企業內不可重複"></div>
+      <div class="field">
+        <label>修改新名稱</label>
+        <input id="cpw-dname" type="text" maxlength="6" placeholder="同企業內不可重複">
+        <div id="cpw-dname-hint" style="font-size:10.5px;color:var(--muted);margin-top:3px"></div>
+      </div>
       <div class="field"><label>新密碼 <span style="color:#999;font-weight:400">（不修改請留空）</span></label><input id="cpw-new1" type="password" placeholder="至少8碼，混合大小寫/數字/符號中至少3種"></div>
       <div class="field"><label>確認新密碼</label><input id="cpw-new2" type="password" placeholder="再輸入一次新密碼"></div>
       <div class="field"><label>目前密碼 <span class="req">*</span></label><input id="cpw-current" type="password" placeholder="請輸入目前密碼以確認為本人操作" autocomplete="current-password"></div>

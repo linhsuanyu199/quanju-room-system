@@ -7,6 +7,7 @@
 const _sb = supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
 
 const TRIAL_DAYS = 14;
+const NAME_CHANGE_LIMIT = 2; // 顯示名稱最多可修改次數
 // 平台管理者白名單（僅供企業管理後台存取判斷用，實際安全檢查同時在資料庫 RPC 內做一次）
 const PLATFORM_ADMIN_EMAILS = ['linhsuanyu199@gmail.com'];
 
@@ -21,6 +22,7 @@ const Cloud = {
   myEmail: '',
   myUserId: null,
   myDisplayName: '',
+  myNameChangeCount: 0,
   companyMembers: [],
   _pendingDisplayName: '',
 
@@ -81,7 +83,7 @@ const Cloud = {
     this.myEmail = user.email || '';
     this.myUserId = user.id;
     const { data: profile, error: pErr } = await _sb.from('profiles')
-      .select('company_id, role, display_name').eq('id', user.id).maybeSingle();
+      .select('company_id, role, display_name, name_change_count').eq('id', user.id).maybeSingle();
     if (pErr) { alert('讀取帳號資料失敗：' + pErr.message); return; }
     if (!profile || !profile.company_id) {
       this._showCompanyScreen();
@@ -90,6 +92,7 @@ const Cloud = {
     this.companyId = profile.company_id;
     this.myRole = profile.role;
     this.myDisplayName = profile.display_name || '';
+    this.myNameChangeCount = profile.name_change_count || 0;
     const { data: comp } = await _sb.from('companies').select('name, invite_code, created_at').eq('id', this.companyId).maybeSingle();
     this.companyName = comp ? comp.name : '';
     this.inviteCode = comp ? comp.invite_code : '';
@@ -303,7 +306,7 @@ const Cloud = {
     navigator.clipboard.writeText(this.inviteCode).then(() => alert('✅ 邀請碼已複製'));
   },
 
-  // ── 修改密碼 ──────────────────────────────
+  // ── 修改密碼／顯示名稱 ──────────────────────
   openCPW() {
     document.getElementById('cpw-email-show').value = this.myEmail;
     document.getElementById('cpw-dname').value = this.myDisplayName || '';
@@ -311,6 +314,16 @@ const Cloud = {
     document.getElementById('cpw-new2').value = '';
     document.getElementById('cpw-current').value = '';
     document.getElementById('cpw-err').style.display = 'none';
+    const remain = NAME_CHANGE_LIMIT - this.myNameChangeCount;
+    const dnameInput = document.getElementById('cpw-dname');
+    const hint = document.getElementById('cpw-dname-hint');
+    if (remain > 0) {
+      dnameInput.disabled = false;
+      hint.textContent = '顯示名稱最多可修改 ' + NAME_CHANGE_LIMIT + ' 次，目前還剩 ' + remain + ' 次';
+    } else {
+      dnameInput.disabled = true;
+      hint.textContent = '顯示名稱已達修改次數上限（' + NAME_CHANGE_LIMIT + ' 次），如需再次修改請聯繫我們協助處理';
+    }
     document.getElementById('cpw-ov').classList.add('open');
   },
   closeCPW() { document.getElementById('cpw-ov').classList.remove('open'); },
@@ -327,6 +340,7 @@ const Cloud = {
     const wantsPwChange = !!new1;
     if (!wantsNameChange && !wantsPwChange) { showErr('❌ 請修改顯示名稱或新密碼其中一項後再儲存'); return; }
     if (wantsNameChange) {
+      if (this.myNameChangeCount >= NAME_CHANGE_LIMIT) { showErr('❌ 顯示名稱已達修改次數上限（' + NAME_CHANGE_LIMIT + ' 次），如需再次修改請聯繫我們協助處理'); return; }
       const nameErr = this._checkDisplayNameLength(dname);
       if (nameErr) { showErr('❌ ' + nameErr); return; }
     }
@@ -342,9 +356,11 @@ const Cloud = {
     if (authErr) { showErr('❌ 目前密碼輸入錯誤，請重新確認'); return; }
 
     if (wantsNameChange) {
-      const { error: nErr } = await _sb.from('profiles').update({ display_name: dname }).eq('id', this.myUserId);
+      const { error: nErr } = await _sb.from('profiles')
+        .update({ display_name: dname, name_change_count: this.myNameChangeCount + 1 }).eq('id', this.myUserId);
       if (nErr) { showErr('❌ ' + this._translateDbError(nErr.message)); return; }
       this.myDisplayName = dname;
+      this.myNameChangeCount += 1;
       this._renderUserBox();
     }
     if (wantsPwChange) {
