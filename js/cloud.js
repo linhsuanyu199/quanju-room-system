@@ -19,6 +19,7 @@ const Cloud = {
   inviteCode: '',
   myRole: 'member',
   myEmail: '',
+  myUserId: null,
   myDisplayName: '',
   companyMembers: [],
   _pendingDisplayName: '',
@@ -78,6 +79,7 @@ const Cloud = {
     const { data: { user } } = await _sb.auth.getUser();
     if (!user) return;
     this.myEmail = user.email || '';
+    this.myUserId = user.id;
     const { data: profile, error: pErr } = await _sb.from('profiles')
       .select('company_id, role, display_name').eq('id', user.id).maybeSingle();
     if (pErr) { alert('讀取帳號資料失敗：' + pErr.message); return; }
@@ -304,25 +306,58 @@ const Cloud = {
   // ── 修改密碼 ──────────────────────────────
   openCPW() {
     document.getElementById('cpw-email-show').value = this.myEmail;
+    document.getElementById('cpw-dname').value = this.myDisplayName || '';
     document.getElementById('cpw-new1').value = '';
     document.getElementById('cpw-new2').value = '';
+    document.getElementById('cpw-current').value = '';
     document.getElementById('cpw-err').style.display = 'none';
     document.getElementById('cpw-ov').classList.add('open');
   },
   closeCPW() { document.getElementById('cpw-ov').classList.remove('open'); },
   async doChangePW() {
+    const dname = (document.getElementById('cpw-dname').value || '').trim();
     const new1 = document.getElementById('cpw-new1').value || '';
     const new2 = document.getElementById('cpw-new2').value || '';
+    const curPass = document.getElementById('cpw-current').value || '';
     const err = document.getElementById('cpw-err');
     function showErr(msg) { err.textContent = msg; err.style.display = 'block'; }
-    if (!new1) { showErr('❌ 請輸入新密碼'); return; }
-    const pwErr = this._checkPasswordStrength(new1);
-    if (pwErr) { showErr('❌ ' + pwErr); return; }
-    if (new1 !== new2) { showErr('❌ 兩次密碼輸入不一致'); return; }
-    const { error } = await _sb.auth.updateUser({ password: new1 });
-    if (error) { showErr('❌ ' + error.message); return; }
+    err.style.display = 'none';
+
+    const wantsNameChange = dname && dname !== this.myDisplayName;
+    const wantsPwChange = !!new1;
+    if (!wantsNameChange && !wantsPwChange) { showErr('❌ 請修改顯示名稱或新密碼其中一項後再儲存'); return; }
+    if (wantsNameChange) {
+      const nameErr = this._checkDisplayNameLength(dname);
+      if (nameErr) { showErr('❌ ' + nameErr); return; }
+    }
+    if (wantsPwChange) {
+      const pwErr = this._checkPasswordStrength(new1);
+      if (pwErr) { showErr('❌ ' + pwErr); return; }
+      if (new1 !== new2) { showErr('❌ 兩次新密碼輸入不一致'); return; }
+    }
+    if (!curPass) { showErr('❌ 請輸入目前密碼以確認為本人操作'); return; }
+
+    // 用目前密碼重新驗證身份，確認操作者本人才能改名或改密碼
+    const { error: authErr } = await _sb.auth.signInWithPassword({ email: this.myEmail, password: curPass });
+    if (authErr) { showErr('❌ 目前密碼輸入錯誤，請重新確認'); return; }
+
+    if (wantsNameChange) {
+      const { error: nErr } = await _sb.from('profiles').update({ display_name: dname }).eq('id', this.myUserId);
+      if (nErr) { showErr('❌ ' + this._translateDbError(nErr.message)); return; }
+      this.myDisplayName = dname;
+      this._renderUserBox();
+    }
+    if (wantsPwChange) {
+      const { error: pErr } = await _sb.auth.updateUser({ password: new1 });
+      if (pErr) { showErr('❌ ' + pErr.message); return; }
+    }
+
     this.closeCPW();
-    alert('✅ 密碼已修改成功！');
+    if (wantsPwChange) {
+      alert('✅ 已儲存修改！密碼已變更，下次登入請使用新密碼。');
+    } else {
+      alert('✅ 顯示名稱已修改成功！');
+    }
   },
 
   // ── 平台管理後台（僅平台擁有者可見，白名單同時在 DB RPC 內二次驗證）──
