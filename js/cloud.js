@@ -49,6 +49,26 @@ const Cloud = {
     for (const row of data) KV_CACHE[row.key] = row.value;
   },
 
+  // 直接向雲端撈取單一 key 的最新資料（略過本機快取），用於多人同時編輯時的
+  // 「先讀最新、再合併寫回」流程，避免用過期的本機快照覆蓋掉別人剛存的異動
+  async getFresh(key, defVal) {
+    const { data, error } = await _sb.from('company_kv').select('value')
+      .eq('company_id', this.companyId).eq('key', key).maybeSingle();
+    if (error) { alert('讀取雲端最新資料失敗：' + error.message); throw error; }
+    const val = data ? data.value : defVal;
+    KV_CACHE[key] = val;
+    return val;
+  },
+
+  // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
+  async logBookingHistory(bookingId, oldValue) {
+    const { error } = await _sb.from('booking_history').insert({
+      company_id: this.companyId, booking_id: bookingId,
+      old_value: oldValue, changed_by: this.myDisplayName || this.myEmail
+    });
+    if (error) console.error('訂單歷史紀錄寫入失敗：', error.message);
+  },
+
   async _afterLogin() {
     const { data: { user } } = await _sb.auth.getUser();
     if (!user) return;
