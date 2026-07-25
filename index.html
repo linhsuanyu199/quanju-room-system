@@ -430,6 +430,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     </div>
 
     <div class="login-err" id="login-err" style="display:none"></div>
+    <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#bbb">
+      註冊或登入即表示您同意
+      <a href="./terms.html" target="_blank" style="color:#999">服務條款</a> 與
+      <a href="./privacy.html" target="_blank" style="color:#999">隱私權政策</a>
+    </div>
   </div>
 </div>
 
@@ -474,6 +479,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="logo-main">短租排房系統</div>
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
+  <div id="trial-badge" style="font-size:11px;margin-left:8px;white-space:nowrap;display:none"></div>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
@@ -490,6 +496,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="topbar-fixed">
     <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">👥 邀請成員</button>
+    <button class="btn-top btn-mgt-top" id="btn-platform-admin" onclick="Cloud.openPlatformAdmin()" title="平台管理後台" style="background:rgba(255,255,255,.1);display:none">🛡 後台</button>
+    <button class="btn-top btn-mgt-top" onclick="exportCompanyData()" title="匯出資料（Excel）" style="background:rgba(255,255,255,.1)">📤 匯出</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
   </div>
@@ -753,6 +761,22 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="form-actions">
     <button class="btn btn-ghost" onclick="Cloud.closeInvite()">關閉</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ Platform Admin Modal（平台管理後台，僅平台擁有者可見）═══ -->
+<div class="overlay" id="platform-admin-ov" onclick="if(event.target===this)Cloud.closePlatformAdmin()">
+<div class="modal" style="width:720px">
+  <div class="modal-h">
+    <h2>🛡 平台管理後台</h2>
+    <button class="close-btn" onclick="Cloud.closePlatformAdmin()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow:auto">
+    <div id="platform-admin-body">載入中…</div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-ghost" onclick="Cloud.closePlatformAdmin()">關閉</button>
   </div>
 </div>
 </div>
@@ -3247,6 +3271,41 @@ function cancelImport(){
   importParsed=null;
   document.getElementById('import-file').value='';
   document.getElementById('import-preview').innerHTML='';
+}
+
+// ════════════════════════════════════════════════
+// DATA EXPORT（匯出本企業房源＋訂單資料為 Excel）
+// ════════════════════════════════════════════════
+function exportCompanyData(){
+  const props=loadCPs();
+  const propRows=[];
+  props.forEach(p=>{
+    (p.rooms||[]).forEach(r=>{
+      propRows.push({
+        館別名稱:p.name,服務類型:p.serviceType||'',縣市:p.city||'',行政區:p.district||'',
+        地址:p.address||'',房號:r.room,房型:r.type||'',月租金:r.price||0
+      });
+    });
+  });
+  const bks=loadBks();
+  const bkRows=[];
+  bks.forEach(b=>{
+    (b.segments||[]).forEach(s=>{
+      const p=props.find(x=>String(x.id)===String(s.prop_id));
+      bkRows.push({
+        訂單編號:b.id,客戶姓名:b.guest||'',電話:b.phone||'',Email:b.email||'',
+        客戶來源:b.source||'',客戶類型:b.ctype||'',負責業務:b.agent||'',付款方式:b.payment||'',
+        押金:b.deposit||0,館別:p?p.name:'',房號:s.room||'',入住日:s.checkin||'',退房日:s.checkout||'',
+        月租金:s.monthlyPrice||0,總租金:s.totalRent||0,狀態:(STATUS[s.status]&&STATUS[s.status].label)||s.status||'',
+        備註:b.note||''
+      });
+    });
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
+  const stamp=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,(Cloud.companyName||'企業')+'_資料匯出_'+stamp+'.xlsx');
 }
 
 // ════════════════════════════════════════════════

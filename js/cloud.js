@@ -6,11 +6,16 @@
 // ════════════════════════════════════════════════
 const _sb = supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
 
+const TRIAL_DAYS = 14;
+// 平台管理者白名單（僅供企業管理後台存取判斷用，實際安全檢查同時在資料庫 RPC 內做一次）
+const PLATFORM_ADMIN_EMAILS = ['linhsuanyu199@gmail.com'];
+
 const KV_CACHE = {};
 const Cloud = {
   ready: false,
   companyId: null,
   companyName: '',
+  companyCreatedAt: null,
   inviteCode: '',
   myRole: 'member',
   myEmail: '',
@@ -83,9 +88,10 @@ const Cloud = {
     this.companyId = profile.company_id;
     this.myRole = profile.role;
     this.myDisplayName = profile.display_name || '';
-    const { data: comp } = await _sb.from('companies').select('name, invite_code').eq('id', this.companyId).maybeSingle();
+    const { data: comp } = await _sb.from('companies').select('name, invite_code, created_at').eq('id', this.companyId).maybeSingle();
     this.companyName = comp ? comp.name : '';
     this.inviteCode = comp ? comp.invite_code : '';
+    this.companyCreatedAt = comp ? comp.created_at : null;
     await this._loadKV();
     await this._loadCompanyMembers();
     this.ready = true;
@@ -103,6 +109,32 @@ const Cloud = {
     box.title = boxText;
     const inviteBtn = document.getElementById('btn-invite');
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    const adminBtn = document.getElementById('btn-platform-admin');
+    if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
+    this._renderTrialBadge();
+  },
+
+  // 試用期倒數提示（僅顯示，不鎖任何功能）
+  _renderTrialBadge() {
+    const el = document.getElementById('trial-badge');
+    if (!el) return;
+    if (!this.companyCreatedAt) { el.style.display = 'none'; return; }
+    const createdMs = new Date(this.companyCreatedAt).getTime();
+    const daysUsed = Math.floor((Date.now() - createdMs) / 86400000);
+    const daysLeft = TRIAL_DAYS - daysUsed;
+    if (daysLeft > 3) {
+      el.textContent = '🎁 試用期剩 ' + daysLeft + ' 天';
+      el.style.display = '';
+      el.style.color = 'rgba(255,255,255,.75)';
+    } else if (daysLeft > 0) {
+      el.textContent = '⏰ 試用期剩 ' + daysLeft + ' 天，即將到期';
+      el.style.display = '';
+      el.style.color = '#ffcf5c';
+    } else {
+      el.textContent = '⚠️ 試用期已到期，請聯繫我們續約';
+      el.style.display = '';
+      el.style.color = '#ff8a8a';
+    }
   },
 
   async _loadCompanyMembers() {
@@ -275,6 +307,34 @@ const Cloud = {
     this.closeCPW();
     alert('✅ 密碼已修改成功！');
   },
+
+  // ── 平台管理後台（僅平台擁有者可見，白名單同時在 DB RPC 內二次驗證）──
+  async openPlatformAdmin() {
+    const ov = document.getElementById('platform-admin-ov');
+    const body = document.getElementById('platform-admin-body');
+    if (!ov || !body) return;
+    ov.classList.add('open');
+    body.innerHTML = '載入中…';
+    const { data, error } = await _sb.rpc('admin_list_companies');
+    if (error) { body.innerHTML = '<div style="color:#ff8a8a">讀取失敗：' + error.message + '</div>'; return; }
+    if (!data || !data.length) { body.innerHTML = '<div>目前沒有企業資料</div>'; return; }
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+      '<tr style="text-align:left;border-bottom:1px solid #ddd"><th style="padding:6px 8px">企業名稱</th><th style="padding:6px 8px">邀請碼</th><th style="padding:6px 8px">成員數</th><th style="padding:6px 8px">館別數</th><th style="padding:6px 8px">建立時間</th><th style="padding:6px 8px">試用剩餘</th></tr>';
+    for (const c of data) {
+      const daysLeft = TRIAL_DAYS - Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+      html += '<tr style="border-bottom:1px solid #eee">' +
+        '<td style="padding:6px 8px">' + c.name + '</td>' +
+        '<td style="padding:6px 8px">' + c.invite_code + '</td>' +
+        '<td style="padding:6px 8px">' + c.member_count + '</td>' +
+        '<td style="padding:6px 8px">' + c.room_count + '</td>' +
+        '<td style="padding:6px 8px">' + new Date(c.created_at).toLocaleDateString('zh-TW') + '</td>' +
+        '<td style="padding:6px 8px">' + (daysLeft > 0 ? daysLeft + ' 天' : '已到期') + '</td>' +
+        '</tr>';
+    }
+    html += '</table>';
+    body.innerHTML = html;
+  },
+  closePlatformAdmin() { document.getElementById('platform-admin-ov').classList.remove('open'); },
 };
 
 Cloud.init();
