@@ -7,6 +7,7 @@
 const _sb = supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
 
 const TRIAL_DAYS = 14;
+const SHOW_TRIAL_BADGE = false; // demo期間暫時關閉試用期倒數徽章顯示，之後要恢復請改回 true
 const NAME_CHANGE_LIMIT = 2; // 顯示名稱最多可修改次數
 // 平台管理者白名單（僅供企業管理後台存取判斷用，實際安全檢查同時在資料庫 RPC 內做一次）
 const PLATFORM_ADMIN_EMAILS = ['linhsuanyu199@gmail.com'];
@@ -135,6 +136,7 @@ const Cloud = {
   _renderTrialBadge() {
     const el = document.getElementById('trial-badge');
     if (!el) return;
+    if (!SHOW_TRIAL_BADGE) { el.style.display = 'none'; return; }
     if (!this.companyCreatedAt) { el.style.display = 'none'; return; }
     const createdMs = new Date(this.companyCreatedAt).getTime();
     const daysUsed = Math.floor((Date.now() - createdMs) / 86400000);
