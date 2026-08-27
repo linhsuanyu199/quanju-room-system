@@ -411,7 +411,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <div class="pw-wrap">
           <input type="password" id="login-pass" placeholder="請輸入密碼" autocomplete="current-password"
             onkeydown="if(event.key==='Enter')Cloud.doLogin()">
-          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('login-pass',this)">👁</button>
+          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('login-pass',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
         </div>
       </div>
       <button class="login-btn" onclick="Cloud.doLogin()">登入系統</button>
@@ -434,7 +434,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <label>密碼</label>
         <div class="pw-wrap">
           <input type="password" id="reg-pass" placeholder="設定密碼" autocomplete="new-password">
-          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('reg-pass',this)">👁</button>
+          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('reg-pass',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
         </div>
         <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.5">
           建議至少 8 碼，並混合大寫、小寫、數字與符號<br>（如 !@#$%）以提高安全性
@@ -502,6 +502,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
+    <button class="btn-top btn-mgt-top" onclick="openCustomers()" title="依電話彙整所有訂單，查看客戶入住次數與歷史">客戶列表</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
     <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
       style="display:none;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;align-items:center;gap:4px"
@@ -756,15 +757,15 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       </div>
       <div class="field"><label>新密碼 <span style="color:#999;font-weight:400">（不修改請留空）</span></label>
         <div class="pw-wrap"><input id="cpw-new1" type="password" placeholder="至少8碼，混合大小寫/數字/符號中至少3種">
-          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-new1',this)">👁</button></div>
+          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-new1',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div>
       </div>
       <div class="field"><label>確認新密碼</label>
         <div class="pw-wrap"><input id="cpw-new2" type="password" placeholder="再輸入一次新密碼">
-          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-new2',this)">👁</button></div>
+          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-new2',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div>
       </div>
       <div class="field"><label>目前密碼 <span class="req">*</span></label>
         <div class="pw-wrap"><input id="cpw-current" type="password" placeholder="請輸入目前密碼以確認為本人操作" autocomplete="current-password">
-          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-current',this)">👁</button></div>
+          <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-current',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div>
       </div>
     </div>
     <div id="cpw-err" style="display:none;color:#c92a2a;font-size:11px;margin-top:6px"></div>
@@ -962,11 +963,13 @@ const STATUS={
 const TC={airbnb:'#e03131',monthly:'#1971c2',direct:'#2f9e44',mra:'#7048e8',other:'#868e96'};
 const TL={airbnb:'Airbnb',monthly:'月租',direct:'直客',mra:'MRA',other:'其他'};
 const WD=['日','一','二','三','四','五','六'];
+const EYE_ICON_CLOSED='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const EYE_ICON_OPEN='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 function togglePwField(id,btn){
   const el=document.getElementById(id);
   if(!el)return;
-  if(el.type==='password'){el.type='text';btn.textContent='🙈';}
-  else{el.type='password';btn.textContent='👁';}
+  if(el.type==='password'){el.type='text';btn.innerHTML=EYE_ICON_OPEN;}
+  else{el.type='password';btn.innerHTML=EYE_ICON_CLOSED;}
 }
 
 // ════════════════════════════════════════════════
@@ -2982,6 +2985,102 @@ function closeOO(){
 }
 
 // ════════════════════════════════════════════════
+// CUSTOMER LIST（CRM 輕量版：由既有訂單資料依電話號碼彙整，不新增資料表）
+// ════════════════════════════════════════════════
+function buildCustomerIndex(){
+  const bks=loadBks();
+  const map={};
+  bks.forEach(b=>{
+    const phone=(b.phone||'').trim();
+    if(!phone)return; // 無電話無法歸戶，略過
+    const isCancelled=b.segments.every(s=>s.status==='cancelled');
+    const cis=b.segments.map(s=>s.checkin).filter(Boolean).sort();
+    const minCi=cis[0]||'';
+    if(!map[phone]){
+      map[phone]={phone,name:b.guest||'—',ctype:b.ctype||'',email:b.email||'',
+        totalStays:0,totalRevenue:0,lastCheckin:''};
+    }
+    const c=map[phone];
+    if(minCi&&minCi>=c.lastCheckin){ // 用時間最新一筆訂單覆蓋顯示姓名/類型/信箱
+      c.name=b.guest||c.name;c.ctype=b.ctype||c.ctype;c.email=b.email||c.email;
+    }
+    if(!isCancelled){c.totalStays++;c.totalRevenue+=b.totalRent||0;}
+    if(minCi&&minCi>c.lastCheckin)c.lastCheckin=minCi;
+  });
+  return Object.values(map).sort((a,b)=>(b.lastCheckin||'').localeCompare(a.lastCheckin||''));
+}
+function openCustomers(){
+  document.getElementById('cust-search').value='';
+  renderCustomers();
+  document.getElementById('cust-ov').classList.add('open');
+}
+function closeCustomers(){document.getElementById('cust-ov').classList.remove('open');}
+function renderCustomers(){
+  const kw=(document.getElementById('cust-search').value||'').trim();
+  const list=buildCustomerIndex().filter(c=>!kw||c.name.includes(kw)||c.phone.includes(kw));
+  const tbody=document.getElementById('cust-tbody');
+  document.getElementById('cust-title').textContent='客戶列表 — 共 '+list.length+' 位（依電話號碼歸戶，取消訂單不計入次數與金額）';
+  if(list.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted)">尚無符合的客戶資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML=list.map(c=>
+    '<tr class="oo-row" onclick="openCustomerDetail(\''+c.phone.replace(/'/g,"\\'")+'\')">'+
+      '<td><strong>'+c.name+'</strong>'+(c.ctype?'<div style="font-size:10px;color:var(--muted)">'+c.ctype+'</div>':'')+'</td>'+
+      '<td style="font-size:11px">'+c.phone+'</td>'+
+      '<td style="text-align:center;font-size:12px;font-weight:700">'+c.totalStays+'</td>'+
+      '<td style="text-align:right;font-size:12px;font-weight:700;color:var(--primary)">$'+c.totalRevenue.toLocaleString()+'</td>'+
+      '<td style="font-size:11px">'+(c.lastCheckin||'—')+'</td>'+
+    '</tr>'
+  ).join('');
+}
+function openCustomerDetail(phone){
+  const bks=loadBks().filter(b=>(b.phone||'').trim()===phone);
+  const c=buildCustomerIndex().find(x=>x.phone===phone);
+  document.getElementById('custd-title').textContent=(c?c.name:'客戶')+'（'+phone+'）完整入住紀錄 — 共 '+bks.length+' 筆';
+  bks.sort((a,b)=>{
+    const ac=(a.segments.map(s=>s.checkin).filter(Boolean).sort()[0])||'';
+    const bc=(b.segments.map(s=>s.checkin).filter(Boolean).sort()[0])||'';
+    return bc.localeCompare(ac);
+  });
+  document.getElementById('custd-tbody').innerHTML=bks.map(b=>{
+    const mainSeg=b.segments[0]||{};
+    const prop=getProp(mainSeg.prop_id);
+    const propName=prop?prop.name:'—';
+    const rooms=b.segments.map((s,si)=>{
+      const r=s.room||'?';
+      if(si===0)return r;
+      return(s.segType==='parallel'?'＋':'→')+r;
+    }).join(' ');
+    const cis=b.segments.map(s=>s.checkin).filter(Boolean).sort();
+    const cos=b.segments.map(s=>s.checkout).filter(Boolean).sort();
+    const minCi=cis[0]||'';
+    const maxCo=cos[cos.length-1]||'';
+    const isCancelled=b.segments.every(s=>s.status==='cancelled');
+    const lastSeg=b.segments[b.segments.length-1];
+    const anyStatus=isCancelled?'cancelled':((lastSeg&&lastSeg.status)||'reserved');
+    const st=STATUS[anyStatus]||STATUS.reserved;
+    const statusCell=isCancelled
+      ?'<span style="background:#86869622;color:#868e96;font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">🚫 已取消</span>'
+      :'<span style="background:'+st.color+'22;color:'+st.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+st.emoji+' '+st.label+'</span>';
+    return '<tr class="oo-row"'+(isCancelled?' style="opacity:.65"':'')+'>'+
+      '<td style="font-size:11px">'+propName+'</td>'+
+      '<td style="font-size:11px;font-weight:600;color:var(--primary)">'+rooms+'</td>'+
+      '<td style="font-size:11px">'+minCi+'</td>'+
+      '<td style="font-size:11px">'+maxCo+'</td>'+
+      '<td>'+statusCell+'</td>'+
+      '<td style="text-align:right;font-weight:700;font-size:12px">$'+(b.totalRent||0).toLocaleString()+'</td>'+
+    '</tr>';
+  }).join('');
+  // 以陣列索引綁定點擊事件（避免把整筆訂單物件序列化進 onclick 字串）
+  Array.from(document.getElementById('custd-tbody').children).forEach((tr,i)=>{
+    tr.onclick=function(){closeCustomerDetail();closeCustomers();setTimeout(function(){openEditBk(bks[i]);},80);};
+  });
+  document.getElementById('custd-ov').classList.add('open');
+}
+function closeCustomerDetail(){document.getElementById('custd-ov').classList.remove('open');}
+
+// ════════════════════════════════════════════════
 // PROPERTY MANAGER
 // ════════════════════════════════════════════════
 function openPropMgr(){renderPM();document.getElementById('pm-ov').classList.add('open');}
@@ -3420,6 +3519,65 @@ init();
   <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
     <div id="oo-total" style="font-size:13px;font-weight:700;color:var(--primary)"></div>
     <button class="btn btn-ghost" onclick="closeOO()">關閉</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ Customer List Modal（CRM 輕量版）═══ -->
+<div class="overlay" id="cust-ov" onclick="if(event.target===this)closeCustomers()">
+<div class="modal" style="width:760px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="cust-title">客戶列表</h2>
+    <button class="close-btn" onclick="closeCustomers()">✕</button>
+  </div>
+  <div style="padding:12px 17px 4px">
+    <input class="search" id="cust-search" type="text" placeholder="搜尋姓名 / 電話…" oninput="renderCustomers()" style="width:100%">
+  </div>
+  <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">姓名</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">電話</th>
+          <th style="padding:8px 10px;text-align:center;color:var(--muted);font-size:10px">入住次數</th>
+          <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:10px">累計消費</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">最近入住日</th>
+        </tr>
+      </thead>
+      <tbody id="cust-tbody"></tbody>
+    </table>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:10.5px;color:var(--muted)">點擊任一列可查看該客戶完整入住紀錄。資料由既有訂單依電話號碼即時彙整，無電話之訂單不會歸戶。</div>
+    <button class="btn btn-ghost" onclick="closeCustomers()">關閉</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ Customer Detail Modal ═══ -->
+<div class="overlay" id="custd-ov" onclick="if(event.target===this)closeCustomerDetail()">
+<div class="modal" style="width:760px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="custd-title">客戶入住紀錄</h2>
+    <button class="close-btn" onclick="closeCustomerDetail()">✕</button>
+  </div>
+  <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">館別</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">房號</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">入住日</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">退房日</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">狀態</th>
+          <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:10px">訂單金額</th>
+        </tr>
+      </thead>
+      <tbody id="custd-tbody"></tbody>
+    </table>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="closeCustomerDetail()">關閉</button>
   </div>
 </div>
 </div>
