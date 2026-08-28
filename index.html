@@ -503,6 +503,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
     <button class="btn-top btn-mgt-top" onclick="openCustomers()" title="依電話彙整所有訂單，查看客戶入住次數與歷史">客戶列表</button>
+    <button class="btn-top btn-mgt-top" onclick="openGreet()" title="本月壽星與近期節日祝福提醒">祝福提醒</button>
+    <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
     <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
       style="display:none;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;align-items:center;gap:4px"
@@ -648,7 +650,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <!-- 2. 客戶姓名（必填） -->
       <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
       <!-- 3. 聯絡電話（必填） -->
-      <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required></div>
+      <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required onblur="lookupCustByPhone()">
+        <div id="g-phone-hint" style="display:none;font-size:10px;color:#2f9e44;margin-top:3px"></div></div>
       <!-- 4. 客戶類型（必填） -->
       <div class="field"><label>客戶類型 <span class="req">*</span></label>
         <select id="g-ctype" onchange="toggleTaxId()">
@@ -667,6 +670,16 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       </div>
       <!-- 6. Email -->
       <div class="field"><label>Email</label><input id="g-email" type="email"></div>
+      <!-- 6-1. 客戶生日（選填，供生日祝福使用） -->
+      <div class="field"><label>客戶生日 <span style="font-size:10px;color:var(--muted);font-weight:400">（選填，供生日祝福）</span></label>
+        <input id="g-birthday" type="date"></div>
+      <!-- 6-2. 行銷同意（個資法：主動發送祝福/活動訊息須經同意） -->
+      <div class="field"><label>祝福訊息同意</label>
+        <label style="display:flex;align-items:center;gap:6px;height:32px;font-size:11.5px;cursor:pointer">
+          <input id="g-optin" type="checkbox" style="width:15px;height:15px;cursor:pointer">
+          客戶同意接收活動與祝福訊息
+        </label>
+      </div>
       <!-- 7. 負責業務（必填） -->
       <div class="field"><label>負責業務 <span class="req">*</span></label>
         <select id="g-agent">
@@ -853,9 +866,27 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <label>結束日期 <span class="req">*</span></label>
         <input id="tk-end" type="date">
       </div>
+      <div class="field">
+        <label>處理進度 <span class="req">*</span></label>
+        <select id="tk-status"></select>
+      </div>
+      <div class="field">
+        <label>預計完成日</label>
+        <input id="tk-due" type="date">
+      </div>
+      <div class="field span2">
+        <label>處理人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（可填外部廠商，例如「阿明水電 0912-345-678」）</span></label>
+        <input id="tk-handler" type="text" placeholder="負責處理的人員或廠商">
+      </div>
       <div class="field span2">
         <label>備註說明</label>
         <textarea id="tk-note" placeholder="維修項目、廠商資訊、打掃注意事項…"></textarea>
+      </div>
+      <div class="field span2" id="tk-replace-hint" style="display:none">
+        <div style="background:#fff0f6;border:1px solid #f783ac;border-radius:6px;padding:8px 10px;font-size:11px;color:#a61e4d;line-height:1.6">
+          ⚠️ 標記「建議汰換」後，日曆上此房間會出現提醒，但<strong>仍可正常接受預定</strong>。<br>
+          若要完全擋下新訂單，請到「房源管理」把該房間設為<strong>停售</strong>。
+        </div>
       </div>
     </div>
   </div>
@@ -963,6 +994,27 @@ const STATUS={
 const TC={airbnb:'#e03131',monthly:'#1971c2',direct:'#2f9e44',mra:'#7048e8',other:'#868e96'};
 const TL={airbnb:'Airbnb',monthly:'月租',direct:'直客',mra:'MRA',other:'其他'};
 const WD=['日','一','二','三','四','五','六'];
+// ── 清潔/維修任務的處理進度 ──
+// suggest_replace（建議汰換）＝已判定該設備/房間值得換掉但尚未執行；
+// replaced（已汰換）＝汰換動作已完成。兩者刻意分開，才能看出「建議了卻一直沒做」的積壓。
+const TASK_STATUS={
+  todo:           {label:'待處理',  color:'#e67700',bg:'#fff3bf'},
+  doing:          {label:'處理中',  color:'#1971c2',bg:'#e7f5ff'},
+  done:           {label:'已完成',  color:'#2f9e44',bg:'#ebfbee'},
+  suggest_replace:{label:'建議汰換',color:'#d6336c',bg:'#fff0f6'},
+  replaced:       {label:'已汰換',  color:'#495057',bg:'#f1f3f5'},
+};
+const CLEAN_STATUS_KEYS=['todo','doing','done'];
+const REPAIR_STATUS_KEYS=['todo','doing','done','suggest_replace','replaced'];
+// 尚未結案的狀態：只有這些會出現在待辦統計與房間提醒
+const OPEN_STATUS_KEYS=['todo','doing','suggest_replace'];
+// 三節國曆日期對照表（農曆節日無法用 JS 內建日期換算，故內建對照表；到 2032 年，屆時需補表）
+const FESTIVALS=[
+  {key:'newyear',name:'春節',dates:{2026:'02-17',2027:'02-06',2028:'01-26',2029:'02-13',2030:'02-03',2031:'01-23',2032:'02-11'}},
+  {key:'dragon', name:'端午節',dates:{2026:'06-19',2027:'06-09',2028:'05-28',2029:'06-16',2030:'06-05',2031:'06-24',2032:'06-12'}},
+  {key:'moon',   name:'中秋節',dates:{2026:'09-25',2027:'09-15',2028:'10-03',2029:'09-22',2030:'09-12',2031:'10-01',2032:'09-19'}},
+];
+const FESTIVAL_TABLE_LAST_YEAR=2032;
 const EYE_ICON_CLOSED='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 const EYE_ICON_OPEN='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 function togglePwField(id,btn){
@@ -1019,8 +1071,25 @@ function loadOvr(){return Cloud.get('qj_ovr',{});}
 function saveOvr(o){Cloud.set('qj_ovr',o);}
 function loadExtras(){return Cloud.get('qj_ext',{});}
 function saveExtras(o){Cloud.set('qj_ext',o);}
-function loadTasks(){return Cloud.get('qj_tasks',[]);}
+// 舊資料沒有 status/handler/dueDate，讀取時補上預設值，避免下游到處寫 null 判斷
+function migTk(t){
+  if(t.status)return t;
+  return{...t,status:'todo',handler:t.handler||'',dueDate:t.dueDate||''};
+}
+function loadTasks(){return (Cloud.get('qj_tasks',[])).map(migTk);}
 function saveTasks(a){Cloud.set('qj_tasks',a);}
+// ── 客戶記錄（獨立於訂單，以電話號碼為識別）──────────
+// 訂單上的 agent（負責業務）是當下的歷史紀錄、永遠不會被改寫；
+// 這裡的 owner（歸屬業務）才是「這位客戶現在歸誰」，客戶轉移只改這個值。
+function loadCusts(){return Cloud.get('qj_customers',{});}
+function saveCusts(o){Cloud.set('qj_customers',o);}
+function getCust(phone){return loadCusts()[(phone||'').trim()]||null;}
+function setCustFields(phone,fields){
+  const p=(phone||'').trim();if(!p)return;
+  const all=loadCusts();
+  all[p]={...(all[p]||{}),...fields,updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
+  saveCusts(all);
+}
 const ROOM_TYPES=['分租套房','分租雅房','獨立套房','兩房','三房','四房'];
 const CITY_DISTRICTS={
   '台北市':['南港區','信義區','大安區','大同區','士林區','中山區','中正區','萬華區'],
@@ -1060,7 +1129,8 @@ function getAllProps(){
     const rn=rpi&&rpi.roomNames&&rpi.roomNames[r.room]?rpi.roomNames[r.room]:r.room;
     const rtRaw=rpi&&rpi.roomTypes&&rpi.roomTypes[r.room]!==undefined?rpi.roomTypes[r.room]:r.type;
     const rt=normalizeRoomType(rtRaw);
-    return{...r,room:rn,_origRoom:r.room,type:rt,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
+    const off=!!(rpi&&rpi.offSale&&rpi.offSale[r.room]===true);
+    return{...r,room:rn,_origRoom:r.room,type:rt,offSale:off,price:ov&&ov[r.room]!==undefined?ov[r.room]:r.price};
   }
   const cp=loadCPs().map(p=>{
     const info=pi[String(p.id)]||{};
@@ -1078,6 +1148,15 @@ function getProp(pid){return getAllProps().find(p=>String(p.id)===String(pid));}
 function getRoomPrice(pid,rno){
   const p=getProp(pid);if(!p)return 0;
   const r=p.rooms.find(x=>x.room===rno);return r?r.price||0:0;
+}
+function isRoomOffSale(pid,rno){
+  const p=getProp(pid);if(!p)return false;
+  const r=p.rooms.find(x=>x.room===rno);return !!(r&&r.offSale);
+}
+// 該房間目前尚未結案的「建議汰換」維修單（用於提醒，不擋單）
+function roomReplaceAlert(pid,rno){
+  return loadTasks().find(t=>String(t.prop_id)===String(pid)&&t.room===rno&&
+    t.type==='repair'&&t.status==='suggest_replace')||null;
 }
 
 // ════════════════════════════════════════════════
@@ -1120,6 +1199,8 @@ function checkConflicts(segs,excludeBkId){
     const ct=tasks.filter(t=>{
       if(String(t.prop_id)!==String(seg.prop_id)||t.room!==seg.room)return false;
       if(!t.start||!t.end||t.start>=seg.checkout||t.end<=seg.checkin)return false;
+      // 已完成/已汰換的排程不必再提醒
+      if(t.status==='done'||t.status==='replaced')return false;
       // 打掃：退房當日=入住當日允許（11點退/打掃/16點入住），只有維修才硬擋
       if(t.type==='cleaning'&&t.start===seg.checkin)return false;
       return true;
@@ -2019,10 +2100,27 @@ function render(){
       const stBadge=curSt
         ?'<span class="room-status" style="background:'+curSt.color+'22;color:'+curSt.color+';border-color:'+curSt.color+'44">'+curSt.label+'</span>'
         :'<span class="room-status empty">空置</span>';
-      rr.innerHTML='<span class="rno">'+room.room+'</span>'+
+      // 停售＝擋新訂單（房源管理設定）；建議汰換＝只提醒、仍可預訂（維修單狀態）
+      const replAlert=roomReplaceAlert(prop.id,room.room);
+      const flagBadge=room.offSale
+        ?'<span class="room-status" style="background:#fee2e2;color:#c92a2a;border-color:#ffa8a8">⛔ 停售</span>'
+        :(replAlert?'<span class="room-status" style="background:#fff0f6;color:#d6336c;border-color:#f783ac">⚠️ 建議汰換</span>':'');
+      if(room.offSale)rr.style.background='#fff7f7';
+      rr.innerHTML='<span class="rno"'+(room.offSale?' style="color:#c92a2a"':'')+'>'+room.room+'</span>'+
         (room.type?'<span class="rtype">'+room.type+'</span>':'')+
         (room.price>0?'<span class="rprice">$'+room.price.toLocaleString()+'/月</span>':'')+
-        stBadge;
+        flagBadge+stBadge;
+      if(room.offSale||replAlert){
+        const tip=room.offSale
+          ?'<div class="tt-title">⛔ 此房間已停售</div><div class="tt-row"><span class="tt-lbl">說明</span>無法新增訂單，既有訂單不受影響</div><div class="tt-row"><span class="tt-lbl">解除</span>房源管理 → 點「停售中」即可恢復</div>'
+          :'<div class="tt-title">⚠️ 建議汰換（尚未執行）</div>'+
+            (replAlert.note?'<div class="tt-row"><span class="tt-lbl">項目</span>'+escH(replAlert.note)+'</div>':'')+
+            (replAlert.handler?'<div class="tt-row"><span class="tt-lbl">處理人員</span>'+escH(replAlert.handler)+'</div>':'')+
+            (replAlert.dueDate?'<div class="tt-row"><span class="tt-lbl">預計完成</span>'+replAlert.dueDate+'</div>':'')+
+            '<div class="tt-row"><span class="tt-lbl">說明</span>仍可正常接受預定</div>';
+        rr.addEventListener('mouseenter',e=>showTT(e,tip));
+        rr.addEventListener('mousemove',moveTT);rr.addEventListener('mouseleave',hideTT);
+      }
       rc.appendChild(rr);
 
       const cr=document.createElement('div');
@@ -2105,7 +2203,7 @@ function updateStats(){
   if(fdist)ap=ap.filter(p=>(p.district||'')===fdist);
   if(frtype)ap=ap.map(p=>({...p,rooms:p.rooms.filter(r=>normalizeRoomType(r.type)===frtype)})).filter(p=>p.rooms.length>0);
 
-  let tRooms=0,tRDays=0,occD=0,actualRev=0;
+  let tRooms=0,tRDays=0,occD=0,actualRev=0,offRooms=0;
   const activeBkIds=new Set();
   lbs.forEach(bk=>{if(bk.segments.some(s=>ov(s.checkin,s.checkout)))activeBkIds.add(bk.id);});
   const bkCnt=activeBkIds.size;
@@ -2114,6 +2212,7 @@ function updateStats(){
     const pid=String(prop.id);
     prop.rooms.forEach(room=>{
       tRooms++;tRDays+=td;
+      if(room.offSale)offRooms++;
       const k=pid+'|'+room.room;
       (BM[k]||[]).forEach(b=>{
         const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
@@ -2134,11 +2233,12 @@ function updateStats(){
 
   const occR=tRDays>0?Math.round(occD/tRDays*100):0;
   document.getElementById('month-lbl').textContent=curY+'年 '+pad(curM)+'月';
-  document.getElementById('s-rooms').textContent=tRooms;
+  document.getElementById('s-rooms').textContent=tRooms+(offRooms>0?'（停售 '+offRooms+'）':'');
   document.getElementById('s-occ').textContent=occR+'%';
   document.getElementById('s-bk').textContent=bkCnt;
   document.getElementById('s-rev').textContent='$'+Math.round(actualRev).toLocaleString();
-  document.getElementById('s-sell').textContent=calcSellableDays(tRooms).toLocaleString();
+  // 停售房間不算進可銷售天數
+  document.getElementById('s-sell').textContent=calcSellableDays(tRooms-offRooms).toLocaleString();
 }
 
 function toggleProp(pid){
@@ -2179,6 +2279,9 @@ function openTaskModal(propId,roomNo,dateS,type){
   document.getElementById('tk-start').value=dateS||'';
   document.getElementById('tk-end').value=dateS?addDays(dateS,2):'';
   document.getElementById('tk-start').readOnly=false;
+  document.getElementById('tk-handler').value='';
+  document.getElementById('tk-due').value='';
+  fillTkStatus('todo');
 
   // *** FIX: use direct JS event binding, not HTML attribute ***
   populateTkProps(String(propId||''));
@@ -2202,6 +2305,9 @@ function openEditTask(tk){
   document.getElementById('tk-start').readOnly=false;   // 開始日期永遠可修改（含自動排程）
   document.getElementById('tk-end').value=tk.end||'';
   document.getElementById('tk-note').value=tk.note||'';
+  document.getElementById('tk-handler').value=tk.handler||'';
+  document.getElementById('tk-due').value=tk.dueDate||'';
+  fillTkStatus(tk.status||'todo');
   // 館別/房號鎖定讓使用者不誤改，但開始/結束日期全部開放
   populateTkProps(String(tk.prop_id||''),isAuto);
   fillTkRooms(String(tk.prop_id||''),tk.room||'',isAuto);
@@ -2251,9 +2357,24 @@ function resetTkRooms(){
   rs.disabled=false;
 }
 function setTkType(type){
+  const prev=document.getElementById('tk-status').value;
   curTkType=type;
   document.getElementById('tk-btn-clean').classList.toggle('active',type==='cleaning');
   document.getElementById('tk-btn-repair').classList.toggle('active',type==='repair');
+  fillTkStatus(prev||'todo');
+}
+// 打掃沒有汰換的概念，所以兩種類型的可選狀態不同
+function fillTkStatus(cur){
+  const sel=document.getElementById('tk-status');
+  const keys=curTkType==='repair'?REPAIR_STATUS_KEYS:CLEAN_STATUS_KEYS;
+  const use=keys.includes(cur)?cur:'todo';
+  sel.innerHTML=keys.map(k=>'<option value="'+k+'"'+(k===use?' selected':'')+'>'+TASK_STATUS[k].label+'</option>').join('');
+  sel.onchange=updTkReplaceHint;
+  updTkReplaceHint();
+}
+function updTkReplaceHint(){
+  const el=document.getElementById('tk-replace-hint');
+  if(el)el.style.display=document.getElementById('tk-status').value==='suggest_replace'?'':'none';
 }
 function saveTk(){
   const pid=document.getElementById('tk-prop').value;
@@ -2265,6 +2386,10 @@ function saveTk(){
   // 若開始=結束（同一天），自動延伸為 1 天
   const endAdj=start===end?addDays(start,1):end;
   const note=document.getElementById('tk-note').value.trim();
+  const handler=document.getElementById('tk-handler').value.trim();
+  const dueDate=document.getElementById('tk-due').value;
+  const status=document.getElementById('tk-status').value||'todo';
+  if(dueDate&&dueDate<start){alert('預計完成日不能早於開始日期');return;}
   const tasks=loadTasks();
   if(editingTkId){
     const idx=tasks.findIndex(t=>t.id===editingTkId);
@@ -2274,11 +2399,15 @@ function saveTk(){
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
         start,   // 開始日期現在允許修改（含自動排程）
-        end:endAdj,note};
+        end:endAdj,note,status,handler,dueDate,
+        doneAt:status==='done'||status==='replaced'?(old.doneAt||todayStr()):'',
+        updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
     tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
-      start,end:endAdj,note,isAuto:false,bookingId:null});
+      start,end:endAdj,note,isAuto:false,bookingId:null,
+      status,handler,dueDate,doneAt:status==='done'||status==='replaced'?todayStr():'',
+      createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
   saveTasks(tasks);closeTk();render();
 }
@@ -2292,6 +2421,8 @@ function closeTk(){
   document.getElementById('tk-prop').disabled=false;
   document.getElementById('tk-room').disabled=false;
   document.getElementById('tk-start').readOnly=false;
+  // 從維修追蹤清單點進來的，關掉後自動回到清單，不讓使用者迷路
+  if(maintReturnAfterTask){maintReturnAfterTask=false;setTimeout(openMaint,80);}
 }
 
 // ════════════════════════════════════════════════
@@ -2303,7 +2434,9 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('btn-del').style.display='none';
   document.getElementById('qa-bar').style.display='none';
   document.getElementById('conflict-warn').style.display='none';
-  ['g-name','g-phone','g-email','g-note','g-taxid'].forEach(id=>document.getElementById(id).value='');
+  ['g-name','g-phone','g-email','g-note','g-taxid','g-birthday'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('g-optin').checked=false;
+  document.getElementById('g-phone-hint').style.display='none';
   document.getElementById('g-deposit').value='';
   document.getElementById('g-payment').value='國泰(全居)';
   populateAgentOptions();
@@ -2346,6 +2479,11 @@ function openEditBk(bk){
   document.getElementById('g-taxid').value=bk.taxid||'';
   toggleTaxId();
   document.getElementById('g-note').value=bk.note||'';
+  // 生日／行銷同意存在客戶記錄，不存在訂單上（同一客戶多筆訂單只需維護一份）
+  const rec=getCust(bk.phone)||{};
+  document.getElementById('g-birthday').value=rec.birthday||'';
+  document.getElementById('g-optin').checked=rec.optIn===true;
+  document.getElementById('g-phone-hint').style.display='none';
   renderQA(bk);
   curSegs=bk.segments.map(s=>({...s}));
   renderSegs();updateTotal();
@@ -2361,6 +2499,27 @@ function openEditBk(bk){
     });
     updateTotal();
   },50);
+}
+// 輸入電話後自動帶出已建檔的客戶資料，避免同一客戶重複填、也避免存檔時覆蓋掉既有的同意設定
+function lookupCustByPhone(){
+  const phone=(document.getElementById('g-phone').value||'').trim();
+  const hint=document.getElementById('g-phone-hint');
+  if(!phone){hint.style.display='none';return;}
+  const rec=getCust(phone);
+  const idx=buildCustomerIndex().find(c=>c.phone===phone);
+  if(!rec&&!idx){hint.style.display='none';return;}
+  if(rec){
+    if(rec.birthday&&!document.getElementById('g-birthday').value)document.getElementById('g-birthday').value=rec.birthday;
+    if(rec.optIn===true)document.getElementById('g-optin').checked=true;
+  }
+  if(idx){
+    if(!document.getElementById('g-name').value)document.getElementById('g-name').value=idx.name==='—'?'':idx.name;
+    if(!document.getElementById('g-email').value&&idx.email)document.getElementById('g-email').value=idx.email;
+    hint.textContent='✔ 已是舊客戶（入住 '+idx.totalStays+' 次'+(idx.owner?'、歸屬業務：'+idx.owner:'')+'），已自動帶入既有資料';
+  }else{
+    hint.textContent='✔ 已帶入既有客戶資料';
+  }
+  hint.style.display='block';
 }
 function closeBk(){
   document.getElementById('bk-ov').classList.remove('open');
@@ -2840,6 +2999,8 @@ async function saveBk(){
     const tid=(document.getElementById('g-taxid').value||'').trim();
     if(!/^\d{8}$/.test(tid)){alert('客戶類型為「法人」，請填寫正確的統一編號（8位數字）');return;}
   }
+  const bdayVal=document.getElementById('g-birthday').value||'';
+  if(bdayVal&&bdayVal>todayStr()){alert('客戶生日不能是未來日期');return;}
   const agentVal=(document.getElementById('g-agent').value||'').trim();
   if(!agentVal){alert('請選擇負責業務');return;}
   const payVal=(document.getElementById('g-payment').value||'').trim();
@@ -2850,6 +3011,29 @@ async function saveBk(){
     const s=curSegs[i];
     if(!s.prop_id||!s.room||!s.checkin||!s.checkout){alert('第'+(i+1)+'段：請填寫完整（館別、房號、入住/退房日期）');return;}
     if(s.checkin>=s.checkout){alert('第'+(i+1)+'段：退房日期必須晚於入住日期');return;}
+  }
+  // ── 停售房間硬擋（房源管理裡設定，與維修單分開管理）──
+  // 只擋「這次新指派到停售房間」的段落；原本就住在裡面的舊訂單仍可編輯（續約、提前退房、改日期），
+  // 否則房間一旦停售就會連既有房客的訂單都改不動。
+  const prevRoomKeys=new Set();
+  if(editingBkId){
+    const prevBk=loadBks().find(b=>b.id===editingBkId);
+    if(prevBk)prevBk.segments.forEach(s=>prevRoomKeys.add(String(s.prop_id)+'|'+s.room));
+  }
+  const offRooms=curSegs.map((s,i)=>({i,s}))
+    .filter(x=>isRoomOffSale(x.s.prop_id,x.s.room)&&!prevRoomKeys.has(String(x.s.prop_id)+'|'+x.s.room));
+  if(offRooms.length>0){
+    alert('❌ 無法儲存：以下房間目前為「停售」狀態，不接受新訂單。\n\n'+
+      offRooms.map(x=>'第'+(x.i+1)+'段【'+x.s.room+'】').join('\n')+
+      '\n\n若確定要恢復銷售，請到「房源管理」把該房間的停售取消。');
+    return;
+  }
+  // ── 建議汰換提醒（不擋單，只提醒）──
+  const replAlerts=curSegs.map((s,i)=>({i,s,t:roomReplaceAlert(s.prop_id,s.room)}))
+    .filter(x=>x.t&&!prevRoomKeys.has(String(x.s.prop_id)+'|'+x.s.room));
+  if(replAlerts.length>0){
+    const msg=replAlerts.map(x=>'第'+(x.i+1)+'段【'+x.s.room+'】'+(x.t.note?'：'+x.t.note:'')).join('\n');
+    if(!confirm('⚠️ 以下房間已被標記「建議汰換」但尚未執行，仍可預訂。\n\n'+msg+'\n\n確定要繼續建立訂單嗎？'))return;
   }
   // ── Booking-to-booking hard block ──
   const bkCf=checkBookingConflicts(curSegs,editingBkId);
@@ -2892,6 +3076,11 @@ async function saveBk(){
     return fresh;
   },{bookingId:editingBkId,checkConflict:!!editingBkId,baseUpdatedAt:editingBkBaseUpdatedAt});
   if(result===null)return; // 使用者取消覆蓋
+  // 同步客戶記錄：生日/同意/Email 存在客戶檔，歸屬業務只在首次建檔時帶入，之後不因新訂單被改寫
+  const bday=document.getElementById('g-birthday').value||'';
+  const custFields={birthday:bday,optIn:document.getElementById('g-optin').checked,email:bk.email};
+  if(!getCust(bk.phone))custFields.owner=agentVal;
+  setCustFields(bk.phone,custFields);
   syncAutoTasks(bk);closeBk();render();
 }
 async function deleteBk(){
@@ -2985,10 +3174,333 @@ function closeOO(){
 }
 
 // ════════════════════════════════════════════════
+// GREETING REMINDER（生日 / 三節祝福提醒）
+// 不自動寄信：系統只負責「提醒誰該祝福」與「把信件內容準備好」，
+// 由業務按下按鈕用自己的信箱寄出。這樣不需要後端、不需要驗證寄件網域。
+// ════════════════════════════════════════════════
+function nextFestivals(daysAhead){
+  const tod=todayStr();
+  const out=[];
+  FESTIVALS.forEach(f=>{
+    Object.keys(f.dates).forEach(y=>{
+      const d=y+'-'+f.dates[y];
+      if(d>=tod&&diffDays(tod,d)<=daysAhead)out.push({name:f.name,date:d,days:diffDays(tod,d)});
+    });
+  });
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
+// 生日只比對月日，忽略年份
+function birthdayThisMonth(c,y,m){
+  if(!c.birthday)return null;
+  const bm=+c.birthday.slice(5,7),bd=+c.birthday.slice(8,10);
+  if(bm!==m)return null;
+  const maxD=dim(y,m);
+  return ds(y,m,Math.min(bd,maxD)); // 2/29 生日在平年顯示為 2/28
+}
+function greetMailto(c,subject,body){
+  return 'mailto:'+encodeURIComponent(c.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
+function bdaySubject(c){return '生日快樂！全居短租誠摯祝福 '+c.name+' 先生/小姐';}
+function bdayBody(c){
+  return c.name+' 您好：\n\n'+
+    '在這個特別的日子，全居短租團隊祝您生日快樂、平安順心。\n'+
+    '感謝您一直以來對我們的支持與信任。\n\n'+
+    '若有任何住宿需求，隨時與我們聯繫，很樂意為您服務。\n\n'+
+    '全居短租　'+(Cloud.myDisplayName||'')+' 敬上\n';
+}
+function festSubject(c,f){return f.name+'祝福｜全居短租敬賀';}
+function festBody(c,f){
+  return c.name+' 您好：\n\n'+
+    f.name+'將至，全居短租團隊在此向您與家人獻上誠摯的祝福，願您佳節愉快、身體健康。\n'+
+    '感謝您一直以來對我們的支持。\n\n'+
+    '若有任何住宿需求，隨時與我們聯繫。\n\n'+
+    '全居短租　'+(Cloud.myDisplayName||'')+' 敬上\n';
+}
+function copyGreetText(kind,phone,fkey){
+  const c=buildCustomerIndex().find(x=>x.phone===phone);
+  if(!c)return;
+  let txt;
+  if(kind==='bday')txt=bdaySubject(c)+'\n\n'+bdayBody(c);
+  else{
+    const f=FESTIVALS.find(x=>x.key===fkey)||FESTIVALS[0];
+    txt=festSubject(c,f)+'\n\n'+festBody(c,f);
+  }
+  navigator.clipboard.writeText(txt).then(()=>alert('✅ 祝福文案已複製，可貼到 LINE 或簡訊發送'));
+}
+function openGreet(){renderGreet();document.getElementById('gr-ov').classList.add('open');}
+function closeGreet(){document.getElementById('gr-ov').classList.remove('open');}
+function renderGreet(){
+  const box=document.getElementById('gr-content');
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;
+  const tod=todayStr();
+  const list=visibleCustomers();
+  const scope=isAdmin()?'企業全部客戶':'歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶';
+  document.getElementById('gr-title').textContent='🎉 祝福提醒 — '+scope;
+
+  // 本月壽星
+  const stars=list.map(c=>({c,d:birthdayThisMonth(c,y,m)})).filter(x=>x.d)
+    .sort((a,b)=>a.d.localeCompare(b.d));
+  const fests=nextFestivals(45);
+  const nextF=fests[0]||null;
+
+  function custRow(c,kind,f,prefix){
+    const canMail=c.optIn&&c.email;
+    const why=!c.optIn?'未勾選同意接收，不建議主動發送'
+      :(!c.email?'已同意但沒有 Email，可改用電話或 LINE 聯繫':'');
+    const subject=kind==='bday'?bdaySubject(c):festSubject(c,f);
+    const body=kind==='bday'?bdayBody(c):festBody(c,f);
+    const ph=escH(c.phone).replace(/'/g,"\\'");
+    return '<tr style="border-bottom:1px solid var(--border)'+(canMail?'':';opacity:.62')+'">'+
+      '<td style="padding:7px 9px">'+(prefix||'')+'<strong>'+escH(c.name)+'</strong>'+
+        '<div style="font-size:10px;color:var(--muted)">'+escH(c.phone)+'</div></td>'+
+      '<td style="padding:7px 9px;font-size:11px">'+escH(c.owner||'—')+'</td>'+
+      '<td style="padding:7px 9px;font-size:11px">'+(c.email?escH(c.email):'<span style="color:var(--muted)">未填</span>')+'</td>'+
+      '<td style="padding:7px 9px;font-size:11px">'+
+        (c.optIn?'<span style="color:#2f9e44;font-weight:700">✔ 已同意</span>':'<span style="color:#c92a2a;font-weight:700">✕ 未同意</span>')+
+        (why?'<div style="font-size:9.5px;color:var(--muted);margin-top:2px">'+why+'</div>':'')+'</td>'+
+      '<td style="padding:7px 9px;text-align:right;white-space:nowrap">'+
+        (canMail
+          ?'<a class="btn btn-primary sm" style="text-decoration:none" href="'+escH(greetMailto(c,subject,body))+'">✉️ 寄祝福</a> '
+          :'')+
+        '<button class="btn btn-ghost sm" onclick="copyGreetText(\''+kind+'\',\''+ph+'\',\''+(f?f.key:'')+'\')">複製文案</button>'+
+      '</td>'+
+    '</tr>';
+  }
+  function tableWrap(rows){
+    return '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">'+
+        ['客戶','歸屬業務','Email','祝福同意',''].map((h,i)=>
+          '<th style="padding:7px 9px;text-align:'+(i===4?'right':'left')+';color:var(--muted);font-size:10px">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  let html='';
+  html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin-bottom:7px">🎂 '+m+' 月壽星（'+stars.length+' 位）</div>';
+  if(stars.length===0){
+    html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted);margin-bottom:16px">'+
+      '本月沒有壽星。若客戶尚未填生日，可到「客戶列表」點該客戶後補填。</div>';
+  }else{
+    html+=tableWrap(stars.map(x=>{
+      const dayTag=x.d===tod?'<span style="color:#c92a2a;font-weight:700">今天</span>'
+        :(x.d>tod?'還有 '+diffDays(tod,x.d)+' 天':'已過 '+diffDays(x.d,tod)+' 天');
+      return custRow(x.c,'bday',null,
+        '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">'+x.d.slice(5)+'　'+dayTag+'</div>');
+    }).join(''))+'<div style="height:16px"></div>';
+  }
+
+  html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin:6px 0 7px">🏮 近期節日</div>';
+  if(!nextF){
+    html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted)">'+
+      '未來 45 天內沒有三節。'+(y>=FESTIVAL_TABLE_LAST_YEAR?'（提醒：內建節日對照表只到 '+FESTIVAL_TABLE_LAST_YEAR+' 年，需要更新）':'')+'</div>';
+  }else{
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">'+
+      fests.map(f=>'<div style="background:#fff3bf;border:1px solid #ffd43b;border-radius:8px;padding:7px 11px;font-size:11.5px">'+
+        '<strong>'+f.name+'</strong>　'+f.date+'　'+(f.days===0?'就是今天':'還有 '+f.days+' 天')+'</div>').join('')+'</div>';
+    const fObj=FESTIVALS.find(x=>x.name===nextF.name);
+    const okList=list.filter(c=>c.optIn);
+    html+='<div style="font-size:11px;color:var(--muted);margin-bottom:6px">下方為可發送「'+nextF.name+'」祝福的名單（'+okList.length+' 位已同意 / 共 '+list.length+' 位）</div>';
+    html+=list.length===0
+      ?'<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted)">目前沒有可發送的客戶。</div>'
+      :tableWrap(list.map(c=>custRow(c,'fest',fObj)).join(''));
+  }
+
+  html+='<div style="margin-top:16px;padding:11px 13px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
+    '<strong style="color:var(--text)">關於發送方式</strong><br>'+
+    '「✉️ 寄祝福」會用您電腦預設的信箱程式開啟一封已寫好的信，您可以修改後再送出，系統不會自動寄信。<br>'+
+    '「複製文案」可把同一段內容複製起來，貼到 LINE 或簡訊發送。<br>'+
+    '<strong style="color:var(--text)">個資法提醒</strong>：只有勾選「同意接收活動與祝福訊息」的客戶才會顯示寄信按鈕，未同意者僅供內部查看，請勿主動發送行銷內容。<br>'+
+    '春節／端午／中秋為農曆節日，系統內建國曆對照表至 '+FESTIVAL_TABLE_LAST_YEAR+' 年。'+
+  '</div>';
+  box.innerHTML=html;
+}
+
+// ════════════════════════════════════════════════
+// MAINTENANCE TRACKING（維修追蹤 + 維修報表）
+// ════════════════════════════════════════════════
+let maintTab='list',maintReturnAfterTask=false;
+function openMaint(){
+  const sel=document.getElementById('mt-f-prop');
+  sel.innerHTML='<option value="">全部館別</option>'+
+    getAllProps().map(p=>'<option value="'+p.id+'">'+escH(p.name)+'</option>').join('');
+  maintTab='list';setMaintTab('list');
+  document.getElementById('mt-ov').classList.add('open');
+}
+function closeMaint(){document.getElementById('mt-ov').classList.remove('open');}
+function setMaintTab(tab){
+  maintTab=tab;
+  document.getElementById('mt-tab-list').className='btn sm '+(tab==='list'?'btn-primary':'btn-ghost');
+  document.getElementById('mt-tab-report').className='btn sm '+(tab==='report'?'btn-primary':'btn-ghost');
+  document.getElementById('mt-filters').style.display=tab==='list'?'flex':'none';
+  renderMaint();
+}
+function maintFiltered(){
+  const fs=document.getElementById('mt-f-status').value;
+  const fp=document.getElementById('mt-f-prop').value;
+  const ft=document.getElementById('mt-f-type').value;
+  const kw=(document.getElementById('mt-search').value||'').trim().toLowerCase();
+  return loadTasks().filter(t=>{
+    if(ft&&t.type!==ft)return false;
+    if(fp&&String(t.prop_id)!==fp)return false;
+    if(fs==='open'){if(!OPEN_STATUS_KEYS.includes(t.status))return false;}
+    else if(fs&&t.status!==fs)return false;
+    if(kw){
+      const hay=((t.room||'')+' '+(t.note||'')+' '+(t.handler||'')).toLowerCase();
+      if(!hay.includes(kw))return false;
+    }
+    return true;
+  }).sort((a,b)=>{
+    // 未結案優先、再依預計完成日（沒填的排後面）、最後依開始日
+    const ao=OPEN_STATUS_KEYS.includes(a.status)?0:1;
+    const bo=OPEN_STATUS_KEYS.includes(b.status)?0:1;
+    if(ao!==bo)return ao-bo;
+    const ad=a.dueDate||'9999-12-31',bd=b.dueDate||'9999-12-31';
+    if(ad!==bd)return ad.localeCompare(bd);
+    return (a.start||'').localeCompare(b.start||'');
+  });
+}
+function stChip(k){
+  const s=TASK_STATUS[k]||TASK_STATUS.todo;
+  return '<span style="background:'+s.bg+';color:'+s.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+s.label+'</span>';
+}
+function renderMaint(){
+  const box=document.getElementById('mt-content');
+  if(maintTab==='report'){box.innerHTML=maintReportHtml();return;}
+  const list=maintFiltered();
+  const tod=todayStr();
+  document.getElementById('mt-title').textContent='🔧 維修追蹤 — 共 '+list.length+' 筆';
+  if(list.length===0){
+    box.innerHTML='<div style="text-align:center;padding:36px;color:var(--muted);font-size:12px">目前沒有符合條件的排程</div>';
+    return;
+  }
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+      ['類型','館別 / 房號','項目說明','處理人員','排程期間','預計完成','狀態',''].map((h,i)=>
+        '<th style="padding:8px 9px;text-align:'+(i===7?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+    '</tr></thead><tbody>'+
+    list.map(t=>{
+      const p=getProp(t.prop_id);
+      const isOpen=OPEN_STATUS_KEYS.includes(t.status);
+      const overdue=isOpen&&t.dueDate&&t.dueDate<tod;
+      const dueCell=t.dueDate
+        ?(overdue?'<span style="color:#c92a2a;font-weight:700">'+t.dueDate+' ⚠️逾期</span>':t.dueDate)
+        :'<span style="color:var(--muted)">—</span>';
+      return '<tr style="border-bottom:1px solid var(--border)'+(overdue?';background:#fff5f5':'')+'">'+
+        '<td style="padding:7px 9px;white-space:nowrap">'+(t.type==='repair'?'🔧 維修':'🧹 清潔')+(t.isAuto?'<div style="font-size:9px;color:var(--muted)">自動排程</div>':'')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px">'+escH(p?p.name:'—')+'<div style="font-weight:700;color:var(--primary)">'+escH(t.room||'')+'</div></td>'+
+        '<td style="padding:7px 9px;font-size:11px;max-width:190px">'+(t.note?escH(t.note):'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px">'+(t.handler?escH(t.handler):'<span style="color:var(--muted)">未指派</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+(t.start||'')+'<div style="color:var(--muted)">~ '+(t.end||'')+'</div></td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+dueCell+'</td>'+
+        '<td style="padding:7px 9px">'+stChip(t.status)+'</td>'+
+        '<td style="padding:7px 9px;text-align:right"><button class="btn btn-ghost sm" onclick="editMaintTask(\''+t.id+'\')">編輯</button></td>'+
+      '</tr>';
+    }).join('')+'</tbody></table>';
+}
+function editMaintTask(id){
+  const t=loadTasks().find(x=>x.id===id);
+  if(!t)return;
+  closeMaint();maintReturnAfterTask=true;
+  setTimeout(()=>openEditTask(t),80);
+}
+function newMaintTask(){
+  closeMaint();maintReturnAfterTask=true;
+  setTimeout(()=>openTaskModal(null,null,todayStr(),'repair'),80);
+}
+function maintReportHtml(){
+  const tod=todayStr();
+  const all=loadTasks().filter(t=>t.type==='repair');
+  document.getElementById('mt-title').textContent='🔧 維修報表';
+  if(all.length===0)return '<div style="text-align:center;padding:36px;color:var(--muted);font-size:12px">目前沒有任何維修單，先到日曆上排一筆維修就會出現統計。</div>';
+  const cnt={};REPAIR_STATUS_KEYS.forEach(k=>cnt[k]=0);
+  all.forEach(t=>{if(cnt[t.status]!==undefined)cnt[t.status]++;});
+  const openList=all.filter(t=>OPEN_STATUS_KEYS.includes(t.status));
+  const overdue=openList.filter(t=>t.dueDate&&t.dueDate<tod);
+  // 平均處理天數：只算已結案且有完成日的單，用開始日到完成日
+  const closed=all.filter(t=>(t.status==='done'||t.status==='replaced')&&t.doneAt&&t.start);
+  const avgDays=closed.length?Math.round(closed.reduce((s,t)=>s+diffDays(t.start,t.doneAt),0)/closed.length):null;
+  // 建議汰換積壓天數（從排程開始日算到今天）
+  const pendRepl=all.filter(t=>t.status==='suggest_replace')
+    .map(t=>({t,days:t.start?diffDays(t.start,tod):0})).sort((a,b)=>b.days-a.days);
+  // 房間維修次數排行
+  const byRoom={};
+  all.forEach(t=>{
+    const p=getProp(t.prop_id);
+    const k=(p?p.name:'?')+' / '+(t.room||'?');
+    byRoom[k]=(byRoom[k]||0)+1;
+  });
+  const topRooms=Object.entries(byRoom).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  function card(label,val,color,sub){
+    return '<div style="flex:1;min-width:112px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+      '<div style="font-size:20px;font-weight:800;color:'+color+';line-height:1.2">'+val+'</div>'+
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">'+label+'</div>'+
+      (sub?'<div style="font-size:9.5px;color:var(--muted);margin-top:3px">'+sub+'</div>':'')+
+    '</div>';
+  }
+  let html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
+    card('待處理',cnt.todo,TASK_STATUS.todo.color)+
+    card('處理中',cnt.doing,TASK_STATUS.doing.color)+
+    card('已完成',cnt.done,TASK_STATUS.done.color)+
+    card('建議汰換',cnt.suggest_replace,TASK_STATUS.suggest_replace.color,'尚未執行')+
+    card('已汰換',cnt.replaced,TASK_STATUS.replaced.color,'已執行完成')+
+  '</div>'+
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+    card('逾期未完成',overdue.length,overdue.length>0?'#c92a2a':'#2f9e44','超過預計完成日')+
+    card('平均處理天數',avgDays===null?'—':avgDays+' 天','#1971c2',closed.length?'依 '+closed.length+' 筆已結案單計算':'尚無已結案資料')+
+    card('未結案總數',openList.length,'#e67700','待處理＋處理中＋建議汰換')+
+  '</div>';
+
+  if(overdue.length>0){
+    html+='<div style="font-size:12px;font-weight:700;color:#c92a2a;margin:12px 0 6px">⚠️ 已逾期未完成（'+overdue.length+' 筆）</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      overdue.sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||'')).map(t=>{
+        const p=getProp(t.prop_id);
+        return '<tr style="border-bottom:1px solid var(--border)">'+
+          '<td style="padding:6px 8px">'+escH(p?p.name:'—')+' <strong>'+escH(t.room||'')+'</strong></td>'+
+          '<td style="padding:6px 8px">'+(t.note?escH(t.note):'—')+'</td>'+
+          '<td style="padding:6px 8px">'+(t.handler?escH(t.handler):'未指派')+'</td>'+
+          '<td style="padding:6px 8px;color:#c92a2a;white-space:nowrap">預計 '+t.dueDate+'（逾期 '+diffDays(t.dueDate,tod)+' 天）</td>'+
+          '<td style="padding:6px 8px">'+stChip(t.status)+'</td>'+
+        '</tr>';
+      }).join('')+'</table>';
+  }
+  if(pendRepl.length>0){
+    html+='<div style="font-size:12px;font-weight:700;color:#d6336c;margin:16px 0 6px">🔁 建議汰換但尚未執行（'+pendRepl.length+' 筆）</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      pendRepl.map(x=>{
+        const p=getProp(x.t.prop_id);
+        return '<tr style="border-bottom:1px solid var(--border)">'+
+          '<td style="padding:6px 8px">'+escH(p?p.name:'—')+' <strong>'+escH(x.t.room||'')+'</strong></td>'+
+          '<td style="padding:6px 8px">'+(x.t.note?escH(x.t.note):'—')+'</td>'+
+          '<td style="padding:6px 8px;white-space:nowrap">已擱置 '+x.days+' 天</td>'+
+        '</tr>';
+      }).join('')+'</table>';
+  }
+  html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">🏆 維修次數最多的房間</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+    topRooms.map(([k,v])=>'<tr style="border-bottom:1px solid var(--border)">'+
+      '<td style="padding:6px 8px">'+escH(k)+'</td>'+
+      '<td style="padding:6px 8px;width:60%">'+
+        '<div style="background:#f1f3f5;border-radius:4px;height:12px;overflow:hidden">'+
+        '<div style="width:'+Math.round(v/topRooms[0][1]*100)+'%;height:100%;background:#c92a2a"></div></div>'+
+      '</td>'+
+      '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v+' 次</td>'+
+    '</tr>').join('')+'</table>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.7">'+
+      '平均處理天數＝各已結案維修單「開始日 → 標記完成當天」的天數平均，只計有完成日的單。<br>'+
+      '逾期＝已過預計完成日但狀態仍為待處理／處理中／建議汰換。'+
+    '</div>';
+  return html;
+}
+
+// ════════════════════════════════════════════════
 // CUSTOMER LIST（CRM 輕量版：由既有訂單資料依電話號碼彙整，不新增資料表）
 // ════════════════════════════════════════════════
+function isAdmin(){return Cloud.myRole==='admin';}
+// 訂單彙整 ＋ 獨立客戶記錄合併後的客戶檢視。
+// owner（歸屬業務）只存在客戶記錄裡；訂單上的 agent 是當下承辦的歷史紀錄，永遠不動。
 function buildCustomerIndex(){
   const bks=loadBks();
+  const custs=loadCusts();
   const map={};
   bks.forEach(b=>{
     const phone=(b.phone||'').trim();
@@ -2998,16 +3510,35 @@ function buildCustomerIndex(){
     const minCi=cis[0]||'';
     if(!map[phone]){
       map[phone]={phone,name:b.guest||'—',ctype:b.ctype||'',email:b.email||'',
-        totalStays:0,totalRevenue:0,lastCheckin:''};
+        totalStays:0,totalRevenue:0,lastCheckin:'',firstCheckin:'',firstAgent:'',lastAgent:''};
     }
     const c=map[phone];
     if(minCi&&minCi>=c.lastCheckin){ // 用時間最新一筆訂單覆蓋顯示姓名/類型/信箱
       c.name=b.guest||c.name;c.ctype=b.ctype||c.ctype;c.email=b.email||c.email;
+      c.lastAgent=b.agent||c.lastAgent;
     }
+    if(!c.firstCheckin||(minCi&&minCi<c.firstCheckin)){c.firstCheckin=minCi;c.firstAgent=b.agent||'';}
     if(!isCancelled){c.totalStays++;c.totalRevenue+=b.totalRent||0;}
     if(minCi&&minCi>c.lastCheckin)c.lastCheckin=minCi;
   });
+  Object.values(map).forEach(c=>{
+    const rec=custs[c.phone]||{};
+    // 沒有手動指定歸屬時，以「最早一筆訂單的負責業務」作為預設歸屬
+    c.owner=rec.owner||c.firstAgent||'';
+    c.ownerAuto=!rec.owner;
+    c.birthday=rec.birthday||'';
+    c.optIn=rec.optIn===true;
+    c.crmNote=rec.note||'';
+    if(rec.email)c.email=rec.email;
+  });
   return Object.values(map).sort((a,b)=>(b.lastCheckin||'').localeCompare(a.lastCheckin||''));
+}
+// 一般成員只看得到歸屬給自己的客戶；admin 看全部
+function visibleCustomers(){
+  const all=buildCustomerIndex();
+  if(isAdmin())return all;
+  const me=Cloud.myDisplayName||'';
+  return all.filter(c=>c.owner===me);
 }
 function openCustomers(){
   document.getElementById('cust-search').value='';
@@ -3017,27 +3548,100 @@ function openCustomers(){
 function closeCustomers(){document.getElementById('cust-ov').classList.remove('open');}
 function renderCustomers(){
   const kw=(document.getElementById('cust-search').value||'').trim();
-  const list=buildCustomerIndex().filter(c=>!kw||c.name.includes(kw)||c.phone.includes(kw));
+  const list=visibleCustomers().filter(c=>!kw||c.name.includes(kw)||c.phone.includes(kw));
   const tbody=document.getElementById('cust-tbody');
-  document.getElementById('cust-title').textContent='客戶列表 — 共 '+list.length+' 位（依電話號碼歸戶，取消訂單不計入次數與金額）';
+  const scope=isAdmin()?'（企業管理者：可看全部客戶）':'（僅顯示歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶）';
+  document.getElementById('cust-title').textContent='客戶列表 — 共 '+list.length+' 位'+scope;
   if(list.length===0){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted)">尚無符合的客戶資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">'+
+      (isAdmin()?'尚無符合的客戶資料':'目前沒有歸屬於您的客戶。若確認有客戶應由您負責，請聯繫企業管理者調整歸屬。')+'</td></tr>';
     return;
   }
-  tbody.innerHTML=list.map(c=>
-    '<tr class="oo-row" onclick="openCustomerDetail(\''+c.phone.replace(/'/g,"\\'")+'\')">'+
-      '<td><strong>'+c.name+'</strong>'+(c.ctype?'<div style="font-size:10px;color:var(--muted)">'+c.ctype+'</div>':'')+'</td>'+
-      '<td style="font-size:11px">'+c.phone+'</td>'+
+  const agents=Cloud.companyMembers||[];
+  tbody.innerHTML=list.map(c=>{
+    const ph=escH(c.phone);
+    const ownerCell=isAdmin()
+      ?'<select onclick="event.stopPropagation()" onchange="setCustOwner(\''+ph+'\',this.value)" '+
+        'style="height:24px;font-size:10.5px;border:1px solid var(--border);border-radius:4px;background:#fff;max-width:92px">'+
+        '<option value="">— 未歸屬 —</option>'+
+        agents.map(a=>'<option value="'+escH(a)+'"'+(a===c.owner?' selected':'')+'>'+escH(a)+'</option>').join('')+
+        (c.owner&&!agents.includes(c.owner)?'<option value="'+escH(c.owner)+'" selected>'+escH(c.owner)+'（已離職）</option>':'')+
+       '</select>'+(c.ownerAuto&&c.owner?'<div style="font-size:9px;color:var(--muted);margin-top:2px">自動帶入</div>':'')
+      :'<span style="font-size:11px">'+escH(c.owner||'—')+'</span>';
+    return '<tr class="oo-row" onclick="openCustomerDetail(\''+ph.replace(/'/g,"\\'")+'\')">'+
+      '<td><strong>'+escH(c.name)+'</strong>'+(c.ctype?'<div style="font-size:10px;color:var(--muted)">'+escH(c.ctype)+'</div>':'')+'</td>'+
+      '<td style="font-size:11px">'+ph+'</td>'+
+      '<td>'+ownerCell+'</td>'+
+      '<td style="text-align:center;font-size:11px">'+(c.birthday||'<span style="color:var(--muted)">未填</span>')+
+        (c.optIn?'<div style="font-size:9px;color:#2f9e44">✔ 同意接收</div>':'')+'</td>'+
       '<td style="text-align:center;font-size:12px;font-weight:700">'+c.totalStays+'</td>'+
       '<td style="text-align:right;font-size:12px;font-weight:700;color:var(--primary)">$'+c.totalRevenue.toLocaleString()+'</td>'+
       '<td style="font-size:11px">'+(c.lastCheckin||'—')+'</td>'+
-    '</tr>'
-  ).join('');
+    '</tr>';
+  }).join('');
+}
+function setCustOwner(phone,owner){
+  if(!isAdmin()){alert('只有企業管理者可以調整客戶歸屬');return;}
+  setCustFields(phone,{owner});
+  renderCustomers();
+}
+// 客戶詳情頁上方的可編輯資料卡（生日、行銷同意、Email、歸屬、備註）
+function renderCustProfile(phone,c){
+  const box=document.getElementById('custd-profile');
+  if(!box)return;
+  if(!c){box.innerHTML='';return;}
+  const agents=Cloud.companyMembers||[];
+  const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;width:100%;background:#fff';
+  box.innerHTML=
+    '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:11px 13px">'+
+      '<div class="form-grid" style="gap:9px">'+
+        '<div class="field"><label style="font-size:10px">客戶生日</label>'+
+          '<input type="date" id="cd-bday" value="'+(c.birthday||'')+'" style="'+inp+'"></div>'+
+        '<div class="field"><label style="font-size:10px">Email（寄祝福用）</label>'+
+          '<input type="email" id="cd-email" value="'+escH(c.email||'')+'" placeholder="尚未填寫" style="'+inp+'"></div>'+
+        '<div class="field"><label style="font-size:10px">歸屬業務'+(isAdmin()?'':'（僅管理者可改）')+'</label>'+
+          '<select id="cd-owner" '+(isAdmin()?'':'disabled')+' style="'+inp+(isAdmin()?'':';background:#f1f3f5')+'">'+
+            '<option value="">— 未歸屬 —</option>'+
+            agents.map(a=>'<option value="'+escH(a)+'"'+(a===c.owner?' selected':'')+'>'+escH(a)+'</option>').join('')+
+            (c.owner&&!agents.includes(c.owner)?'<option value="'+escH(c.owner)+'" selected>'+escH(c.owner)+'（已離職）</option>':'')+
+          '</select></div>'+
+        '<div class="field"><label style="font-size:10px">祝福訊息同意</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;height:28px;font-size:11px;cursor:pointer">'+
+            '<input type="checkbox" id="cd-optin" '+(c.optIn?'checked':'')+' style="width:15px;height:15px;cursor:pointer">'+
+            '同意接收活動與祝福訊息</label></div>'+
+        '<div class="field span2"><label style="font-size:10px">客戶備註（僅內部可見）</label>'+
+          '<input type="text" id="cd-note" value="'+escH(c.crmNote||'')+'" placeholder="偏好、禁忌、注意事項…" style="'+inp+'"></div>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;gap:10px">'+
+        '<div style="font-size:10px;color:var(--muted);line-height:1.6">未勾選「同意接收」的客戶不會出現在祝福寄送名單中（個資法：主動行銷須經同意）。</div>'+
+        '<button class="btn btn-primary sm" onclick="saveCustProfile(\''+escH(phone).replace(/'/g,"\\'")+'\')" style="flex-shrink:0">💾 儲存客戶資料</button>'+
+      '</div>'+
+    '</div>';
+}
+function saveCustProfile(phone){
+  const birthday=document.getElementById('cd-bday').value||'';
+  if(birthday&&birthday>todayStr()){alert('生日不能是未來日期');return;}
+  const fields={
+    birthday,
+    email:(document.getElementById('cd-email').value||'').trim(),
+    optIn:document.getElementById('cd-optin').checked,
+    note:(document.getElementById('cd-note').value||'').trim(),
+  };
+  const ownerSel=document.getElementById('cd-owner');
+  if(isAdmin())fields.owner=ownerSel.value;
+  setCustFields(phone,fields);
+  alert('✅ 客戶資料已儲存');
+  renderCustomers();
 }
 function openCustomerDetail(phone){
   const bks=loadBks().filter(b=>(b.phone||'').trim()===phone);
   const c=buildCustomerIndex().find(x=>x.phone===phone);
+  if(c&&!isAdmin()&&c.owner!==(Cloud.myDisplayName||'')){
+    alert('此客戶目前歸屬於「'+(c.owner||'未指定')+'」，您沒有檢視權限。');
+    return;
+  }
   document.getElementById('custd-title').textContent=(c?c.name:'客戶')+'（'+phone+'）完整入住紀錄 — 共 '+bks.length+' 筆';
+  renderCustProfile(phone,c);
   bks.sort((a,b)=>{
     const ac=(a.segments.map(s=>s.checkin).filter(Boolean).sort()[0])||'';
     const bc=(b.segments.map(s=>s.checkin).filter(Boolean).sort()[0])||'';
@@ -3107,14 +3711,19 @@ function renderPM(){
       const origP=orig?orig.price:room.price;
       const curP=ov[origRoom]!==undefined?ov[origRoom]:room.price;
       const changed=ov[origRoom]!==undefined&&ov[origRoom]!==origP;
-      return '<div class="pm-room-row">'+
-        '<span class="pm-rno">'+room.room+'</span>'+
+      const off=!!room.offSale;
+      return '<div class="pm-room-row"'+(off?' style="background:#fff5f5"':'')+'>'+
+        '<span class="pm-rno"'+(off?' style="color:#c92a2a"':'')+'>'+room.room+'</span>'+
         rtSel(room.type||'','setRT(\''+pid+'\',\''+origRoom+'\',this)')+
         '<span class="pm-price-wrap">NT$&nbsp;'+
           '<input class="pm-price-input'+(changed?' changed':'')+'" type="number" '+
             'value="'+(curP||'')+'" placeholder="月租金" '+
             'onchange="setRP(\''+pid+'\',\''+origRoom+'\',this)">&nbsp;/月'+
         '</span>'+
+        '<button class="pm-icon-btn" onclick="toggleOffSale(\''+pid+'\',\''+origRoom+'\')" '+
+          'title="'+(off?'目前停售中，點擊恢復銷售':'目前正常銷售，點擊設為停售（停售後無法新增訂單）')+'" '+
+          'style="background:'+(off?'#fee2e2;color:#c92a2a':'#f1f3f5;color:#495057')+'">'+
+          (off?'⛔ 停售中':'✔ 銷售中')+'</button>'+
         (isCustom?'<button class="pm-icon-del" onclick="delRoom(\''+pid+'\',\''+origRoom+'\')">🗑</button>':'')+
       '</div>';
     }).join('');
@@ -3198,6 +3807,28 @@ function setRP(pid,rno,input){
   const orig=loadCPs().find(p=>String(p.id)===pid);
   const or=orig?orig.rooms.find(r=>r.room===rno):null;
   input.classList.toggle('changed',!!(or&&or.price!==val));
+}
+function toggleOffSale(pid,rno){
+  const pi=loadPropInfo();
+  if(!pi[pid])pi[pid]={};
+  if(!pi[pid].offSale)pi[pid].offSale={};
+  const nowOff=pi[pid].offSale[rno]===true;
+  if(nowOff){
+    delete pi[pid].offSale[rno];
+  }else{
+    // 停售前先檢查是否還有未來的有效訂單，避免誤把有房客的房間停掉
+    const future=loadBks().filter(b=>b.segments.some(s=>
+      String(s.prop_id)===String(pid)&&s.room===rno&&
+      ['reserved','pending','checkin'].includes(s.status)&&s.checkout>todayStr()));
+    if(future.length>0){
+      const names=future.map(b=>'・'+b.guest+'（'+b.segments.filter(s=>s.room===rno)[0].checkin+' ~ '+b.segments.filter(s=>s.room===rno)[0].checkout+'）').join('\n');
+      if(!confirm('⚠️【'+rno+'】目前還有 '+future.length+' 筆生效中或未來的訂單：\n\n'+names+
+        '\n\n設為停售不會影響這些既有訂單（仍可正常編輯），只會擋下之後的新訂單。確定要停售嗎？'))return;
+    }
+    pi[pid].offSale[rno]=true;
+  }
+  savePropInfo(pi);
+  renderPM();
 }
 function setRT(pid,rno,input){
   const val=(input.value||'').trim();
@@ -3420,9 +4051,11 @@ function exportCompanyData(){
   const propRows=[];
   props.forEach(p=>{
     (p.rooms||[]).forEach(r=>{
+      const rpi=loadPropInfo()[String(p.id)];
       propRows.push({
         館別名稱:p.name,服務類型:p.serviceType||'',縣市:p.city||'',行政區:p.district||'',
-        地址:p.address||'',房號:r.room,房型:r.type||'',月租金:r.price||0
+        地址:p.address||'',房號:r.room,房型:r.type||'',月租金:r.price||0,
+        銷售狀態:(rpi&&rpi.offSale&&rpi.offSale[r.room]===true)?'停售':'銷售中'
       });
     });
   });
@@ -3440,9 +4073,30 @@ function exportCompanyData(){
       });
     });
   });
+  // 維修/清潔排程
+  const taskRows=loadTasks().map(t=>{
+    const p=getProp(t.prop_id);
+    return{
+      類型:t.type==='repair'?'維修':'清潔',館別:p?p.name:'',房號:t.room||'',
+      項目說明:t.note||'',處理人員:t.handler||'',
+      開始日:t.start||'',結束日:t.end||'',預計完成日:t.dueDate||'',實際完成日:t.doneAt||'',
+      狀態:(TASK_STATUS[t.status]&&TASK_STATUS[t.status].label)||t.status||'',
+      來源:t.isAuto?'系統自動排程':'手動建立'
+    };
+  });
+  // 客戶（含歸屬業務；一般成員只匯出自己的客戶）
+  const custRows=visibleCustomers().map(c=>({
+    姓名:c.name,電話:c.phone,Email:c.email||'',客戶類型:c.ctype||'',
+    歸屬業務:c.owner||'',生日:c.birthday||'',
+    祝福訊息同意:c.optIn?'是':'否',
+    入住次數:c.totalStays,累計消費:c.totalRevenue,
+    最早入住日:c.firstCheckin||'',最近入住日:c.lastCheckin||'',客戶備註:c.crmNote||''
+  }));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(custRows),'客戶');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(taskRows),'維修清潔');
   const stamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,(Cloud.companyName||'企業')+'_資料匯出_'+stamp+'.xlsx');
 }
@@ -3523,6 +4177,66 @@ init();
 </div>
 </div>
 
+<!-- ═══ Maintenance Tracking Modal ═══ -->
+<div class="overlay" id="mt-ov" onclick="if(event.target===this)closeMaint()">
+<div class="modal" style="width:940px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="mt-title">🔧 維修追蹤</h2>
+    <div style="display:flex;gap:5px;margin-right:8px">
+      <button id="mt-tab-list" class="btn btn-primary sm" onclick="setMaintTab('list')">追蹤清單</button>
+      <button id="mt-tab-report" class="btn btn-ghost sm" onclick="setMaintTab('report')">維修報表</button>
+    </div>
+    <button class="close-btn" onclick="closeMaint()">✕</button>
+  </div>
+  <div style="padding:10px 17px 4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="mt-filters">
+    <select class="sel" id="mt-f-status" onchange="renderMaint()">
+      <option value="open">未結案（待處理／處理中／建議汰換）</option>
+      <option value="">全部狀態</option>
+      <option value="todo">待處理</option>
+      <option value="doing">處理中</option>
+      <option value="done">已完成</option>
+      <option value="suggest_replace">建議汰換</option>
+      <option value="replaced">已汰換</option>
+    </select>
+    <select class="sel" id="mt-f-prop" onchange="renderMaint()"><option value="">全部館別</option></select>
+    <select class="sel" id="mt-f-type" onchange="renderMaint()">
+      <option value="repair">只看維修</option>
+      <option value="">維修＋清潔</option>
+      <option value="cleaning">只看清潔</option>
+    </select>
+    <input class="search" id="mt-search" type="text" placeholder="搜尋房號 / 項目 / 處理人員…" oninput="renderMaint()" style="flex:1;min-width:140px">
+  </div>
+  <div class="modal-body" style="max-height:64vh;overflow-y:auto">
+    <div id="mt-content"></div>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div style="font-size:10.5px;color:var(--muted);line-height:1.6">
+      「建議汰換」只在日曆提醒、房間仍可預訂；要完全擋下新訂單請到房源管理把房間設為<strong>停售</strong>。
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-primary sm" onclick="newMaintTask()">＋ 新增維修單</button>
+      <button class="btn btn-ghost sm" onclick="closeMaint()">關閉</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ Greeting Reminder Modal ═══ -->
+<div class="overlay" id="gr-ov" onclick="if(event.target===this)closeGreet()">
+<div class="modal" style="width:820px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="gr-title">🎉 祝福提醒</h2>
+    <button class="close-btn" onclick="closeGreet()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+    <div id="gr-content"></div>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="closeGreet()">關閉</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ Customer List Modal（CRM 輕量版）═══ -->
 <div class="overlay" id="cust-ov" onclick="if(event.target===this)closeCustomers()">
 <div class="modal" style="width:760px;max-width:98vw">
@@ -3539,6 +4253,8 @@ init();
         <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">姓名</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">電話</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">歸屬業務</th>
+          <th style="padding:8px 10px;text-align:center;color:var(--muted);font-size:10px">生日</th>
           <th style="padding:8px 10px;text-align:center;color:var(--muted);font-size:10px">入住次數</th>
           <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:10px">累計消費</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">最近入住日</th>
@@ -3547,9 +4263,12 @@ init();
       <tbody id="cust-tbody"></tbody>
     </table>
   </div>
-  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:10.5px;color:var(--muted)">點擊任一列可查看該客戶完整入住紀錄。資料由既有訂單依電話號碼即時彙整，無電話之訂單不會歸戶。</div>
-    <button class="btn btn-ghost" onclick="closeCustomers()">關閉</button>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div style="font-size:10.5px;color:var(--muted);line-height:1.6">
+      點擊任一列可查看與編輯該客戶資料。依電話號碼歸戶，無電話之訂單不會歸戶；取消訂單不計入次數與金額。<br>
+      歸屬業務預設帶入該客戶最早一筆訂單的負責業務，企業管理者可在此直接調整。
+    </div>
+    <button class="btn btn-ghost" onclick="closeCustomers()" style="flex-shrink:0">關閉</button>
   </div>
 </div>
 </div>
@@ -3561,7 +4280,8 @@ init();
     <h2 id="custd-title">客戶入住紀錄</h2>
     <button class="close-btn" onclick="closeCustomerDetail()">✕</button>
   </div>
-  <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
+  <div id="custd-profile" style="padding:12px 17px 4px"></div>
+  <div style="padding:0 17px 4px;overflow-x:auto;max-height:46vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
