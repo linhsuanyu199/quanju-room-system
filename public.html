@@ -151,6 +151,14 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
   transition:background .2s;white-space:nowrap;
 }
 .card-btn:hover{background:var(--accent)}
+.card-btn-ask{
+  background:var(--accent);color:#fff;border:none;
+  padding:8px 16px;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .2s;white-space:nowrap;
+}
+.card-btn-ask:hover{background:#1d4ed8}
+.card-actions{display:flex;gap:8px}
 .card-body{padding:0 18px;flex:1}
 
 /* MODAL OVERLAY */
@@ -192,6 +200,13 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .room-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
 .room-table tr:last-child td{border-bottom:none}
 .room-table tr:hover td{background:var(--light)}
+.room-ask{
+  background:#fff;color:var(--accent);border:1px solid var(--accent);
+  padding:5px 12px;border-radius:var(--radius-pill);
+  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+  transition:all .2s;
+}
+.room-ask:hover{background:var(--accent);color:#fff}
 .status-badge{
   display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);
   font-size:11px;font-weight:700;
@@ -207,47 +222,6 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
 .inquiry-btn:hover{background:#1d4ed8}
-
-/* CONTACT MODAL */
-.contact-modal{
-  position:fixed;inset:0;z-index:202;display:flex;align-items:center;justify-content:center;
-  padding:20px;
-}
-.contact-box{
-  background:#fff;border-radius:var(--radius);width:100%;max-width:480px;
-  box-shadow:var(--shadow-lg);transform:scale(.95);opacity:0;
-  transition:transform .3s,opacity .3s;
-}
-.contact-modal.open .contact-box{transform:scale(1);opacity:1}
-.contact-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between}
-.contact-header h2{font-size:18px;font-weight:700;color:var(--primary)}
-.contact-body{padding:20px 24px}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:13px;font-weight:600;
-  color:var(--text);margin-bottom:6px}
-.form-group label .req{color:#dc2626;margin-left:2px}
-.form-group input,.form-group textarea,.form-group select{
-  width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
-  padding:10px 12px;font-size:14px;font-family:inherit;
-  outline:none;transition:border .2s;color:var(--text);background:#fff;
-}
-.form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--accent)}
-.form-group textarea{resize:vertical;min-height:80px}
-.contact-footer{padding:16px 24px;border-top:1px solid var(--border);
-  display:flex;gap:10px;justify-content:flex-end}
-.btn-cancel{background:var(--light);color:var(--text);border:none;
-  padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;
-  font-weight:600;cursor:pointer;transition:background .2s}
-.btn-cancel:hover{background:var(--border)}
-.btn-submit{background:var(--accent);color:#fff;border:none;
-  padding:10px 24px;border-radius:var(--radius-sm);font-size:14px;
-  font-weight:700;cursor:pointer;transition:background .2s}
-.btn-submit:hover{background:#1d4ed8}
-.success-msg{text-align:center;padding:32px 24px}
-.success-msg .icon{font-size:48px;margin-bottom:12px}
-.success-msg h3{font-size:18px;font-weight:700;color:var(--success);margin-bottom:8px}
-.success-msg p{font-size:14px;color:var(--muted)}
 
 /* FOOTER */
 footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
@@ -324,6 +298,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
       <a href="#listing">找房</a>
       <a href="#services">服務項目</a>
       <a href="#contact">聯絡我們</a>
+      <a href="#" id="navInquiry" onclick="return goInquiry()">預約詢問</a>
     </nav>
     <button class="hamburger" id="hamburgerBtn" aria-label="選單">
       <span></span><span></span><span></span>
@@ -333,6 +308,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     <a href="#listing" onclick="closeMobileNav()">找房</a>
     <a href="#services" onclick="closeMobileNav()">服務項目</a>
     <a href="#contact" onclick="closeMobileNav()">聯絡我們</a>
+    <a href="#" onclick="closeMobileNav();return goInquiry()">預約詢問</a>
   </div>
 </header>
 
@@ -513,59 +489,16 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
           <th>類型</th>
           <th>月租</th>
           <th>狀態</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="roomTableBody"></tbody>
     </table>
   </div>
   <div class="modal-footer">
-    <button class="inquiry-btn" id="detailInquiryBtn" onclick="openContact()">
+    <button class="inquiry-btn" id="detailInquiryBtn" onclick="goInquiry(currentProp&&currentProp.id)">
       📞 詢問此物件
     </button>
-  </div>
-</div>
-
-<!-- CONTACT MODAL -->
-<div class="contact-modal" id="contactModal" role="dialog" aria-modal="true">
-  <div class="contact-box">
-    <div class="contact-header">
-      <h2>詢問房源</h2>
-      <button class="modal-close" onclick="closeContact()" aria-label="關閉">✕</button>
-    </div>
-    <div id="contactFormArea">
-      <div class="contact-body">
-        <div class="form-group">
-          <label>姓名<span class="req">*</span></label>
-          <input type="text" id="fName" placeholder="請輸入姓名">
-        </div>
-        <div class="form-group">
-          <label>聯絡電話<span class="req">*</span></label>
-          <input type="tel" id="fPhone" placeholder="請輸入聯絡電話">
-        </div>
-        <div class="form-group">
-          <label>期望入住日</label>
-          <input type="date" id="fDate">
-        </div>
-        <div class="form-group">
-          <label>詢問物件</label>
-          <input type="text" id="fProp" placeholder="物件名稱">
-        </div>
-        <div class="form-group">
-          <label>備註</label>
-          <textarea id="fNote" placeholder="其他需求或問題…"></textarea>
-        </div>
-      </div>
-      <div class="contact-footer">
-        <button class="btn-cancel" onclick="closeContact()">取消</button>
-        <button class="btn-submit" onclick="submitInquiry()">送出詢問</button>
-      </div>
-    </div>
-    <div class="success-msg" id="successMsg" style="display:none">
-      <div class="icon">✅</div>
-      <h3>詢問已送出！</h3>
-      <p>我們將盡快與您聯繫，謝謝您的興趣。</p>
-      <button class="btn-submit" style="margin-top:16px" onclick="closeContact()">關閉</button>
-    </div>
   </div>
 </div>
 
@@ -801,7 +734,10 @@ function cardHTML(p){
     <div class="card-meta">
       共${p.rooms.length}間 │ <strong style="color:${availColor}">✓ ${availCnt}間可租</strong>
     </div>
-    <button class="card-btn">查看詳情 →</button>
+    <div class="card-actions">
+      <button class="card-btn">查看詳情</button>
+      <button class="card-btn-ask" onclick="event.stopPropagation();goInquiry('${esc(p.id)}')">我要詢問</button>
+    </div>
   </div>
 </div>`;
 }
@@ -827,11 +763,9 @@ function openDetail(propId){
       <td>${esc(typNorm)}</td>
       <td>NT$${(r.price||0).toLocaleString()}</td>
       <td><span class="status-badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+      <td style="text-align:right"><button class="room-ask" onclick="goInquiry('${esc(p.id)}','${esc(r.room)}')">詢問</button></td>
     </tr>`;
   }).join('');
-
-  // pre-fill inquiry with prop name
-  document.getElementById('fProp').value=p.name;
 
   document.getElementById('detailModal').classList.add('open');
   document.getElementById('overlay').classList.add('open');
@@ -840,75 +774,20 @@ function openDetail(propId){
 
 function closeDetail(){
   document.getElementById('detailModal').classList.remove('open');
-  if(!document.getElementById('contactModal').classList.contains('open')){
-    document.getElementById('overlay').classList.remove('open');
-    document.body.style.overflow='';
-  }
-}
-
-// ── CONTACT MODAL ─────────────────────────────────────────────────────────
-function openContact(){
-  if(currentProp){
-    document.getElementById('fProp').value=currentProp.name;
-  }
-  document.getElementById('successMsg').style.display='none';
-  document.getElementById('contactFormArea').style.display='block';
-  document.getElementById('contactModal').classList.add('open');
-  document.getElementById('overlay').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-
-function closeContact(){
-  document.getElementById('contactModal').classList.remove('open');
-  if(!document.getElementById('detailModal').classList.contains('open')){
-    document.getElementById('overlay').classList.remove('open');
-    document.body.style.overflow='';
-  }
-  // reset form
-  setTimeout(()=>{
-    document.getElementById('fName').value='';
-    document.getElementById('fPhone').value='';
-    document.getElementById('fDate').value='';
-    document.getElementById('fNote').value='';
-    document.getElementById('successMsg').style.display='none';
-    document.getElementById('contactFormArea').style.display='block';
-  },400);
-}
-
-function closeAll(){
-  closeDetail();
-  closeContact();
   document.getElementById('overlay').classList.remove('open');
   document.body.style.overflow='';
 }
 
-async function submitInquiry(){
-  const name=document.getElementById('fName').value.trim();
-  const phone=document.getElementById('fPhone').value.trim();
-  if(!name){alert('請輸入姓名');document.getElementById('fName').focus();return;}
-  if(!phone){alert('請輸入聯絡電話');document.getElementById('fPhone').focus();return;}
-  if(!window._pubCompanyId){alert('系統錯誤，請重新整理頁面後再試');return;}
+function closeAll(){ closeDetail(); }
 
-  const btn=document.querySelector('#contactFormArea .btn-submit');
-  if(btn){btn.disabled=true;btn.textContent='送出中…';}
-
-  const sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
-  const { data, error } = await sb.rpc('public_submit_inquiry', {
-    p_company_id: window._pubCompanyId,
-    p_name: name, p_phone: phone,
-    p_date: document.getElementById('fDate').value,
-    p_prop: document.getElementById('fProp').value,
-    p_note: document.getElementById('fNote').value
-  });
-
-  if(error || data!==true){
-    if(btn){btn.disabled=false;btn.textContent='送出詢問';}
-    alert('送出失敗，請稍後再試');
-    return;
-  }
-
-  document.getElementById('contactFormArea').style.display='none';
-  document.getElementById('successMsg').style.display='block';
+// ── 導向獨立詢問頁 ─────────────────────────────────────────────────────────
+function goInquiry(propId, room){
+  if(!window._pubCompanyId){alert('系統錯誤，請重新整理頁面後再試');return false;}
+  let url='inquiry.html?co='+encodeURIComponent(window._pubCompanyId);
+  if(propId) url+='&prop='+encodeURIComponent(propId);
+  if(room) url+='&room='+encodeURIComponent(room);
+  location.href=url;
+  return false;
 }
 
 // ── MOBILE NAV ────────────────────────────────────────────────────────────
@@ -928,10 +807,7 @@ function esc(s){
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
-    if(document.getElementById('contactModal').classList.contains('open')) closeContact();
-    else if(document.getElementById('detailModal').classList.contains('open')) closeDetail();
-  }
+  if(e.key==='Escape' && document.getElementById('detailModal').classList.contains('open')) closeDetail();
 });
 
 // ── BOOT ──────────────────────────────────────────────────────────────────

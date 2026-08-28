@@ -69,6 +69,28 @@ const Cloud = {
     return val;
   },
 
+  // ── 官網預約詢問單（獨立資料表，靠 RLS 隔離企業）──────────
+  async listInquiries() {
+    const { data, error } = await _sb.from('inquiries').select('*')
+      .eq('company_id', this.companyId).order('created_at', { ascending: false });
+    if (error) { alert('讀取詢問單失敗：' + error.message); return []; }
+    return data || [];
+  },
+  async countNewInquiries() {
+    const { count, error } = await _sb.from('inquiries')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', this.companyId).eq('status', 'new');
+    if (error) return 0;
+    return count || 0;
+  },
+  async updateInquiry(id, patch) {
+    const { error } = await _sb.from('inquiries')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('更新詢問單失敗：' + error.message); return false; }
+    return true;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({
