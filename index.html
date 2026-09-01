@@ -2479,18 +2479,20 @@ function openNewBk(propId,roomNo,dateS){
     checkin:dateS||'',checkout:'',monthlyPrice:0,totalRent:0,status:'reserved'}];
   renderSegs();updateTotal();
   document.getElementById('bk-ov').classList.add('open');
+  // renderSegs() 是同步的，卡片此時已在 DOM，直接填即可（不要用 setTimeout 猜時間，
+  // 背景分頁會被瀏覽器節流成每秒一次，導致房價/押金遲遲沒帶入）
   if(propId){
-    setTimeout(()=>{
-      const c=document.querySelector('.seg-card[data-idx="0"]');if(!c)return;
+    const c=document.querySelector('.seg-card[data-idx="0"]');
+    if(c){
       c.querySelector('.seg-prop').value=String(propId);
       fillSegRoom(c,String(propId),roomNo);
-      if(roomNo){setTimeout(()=>{
+      if(roomNo){
         c.querySelector('.seg-room').value=roomNo;
         const p=getRoomPrice(propId,roomNo);
         if(p>0){c.querySelector('.seg-price').value=p;curSegs[0].monthlyPrice=p;}
         updSegCalc(0);updateTotal();
-      },30);}
-    },40);
+      }
+    }
   }
 }
 function openEditBk(bk){
