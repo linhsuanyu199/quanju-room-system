@@ -3911,8 +3911,12 @@ function closeCustomerDetail(){document.getElementById('custd-ov').classList.rem
 // ════════════════════════════════════════════════
 // 只取到路（街／大道）與段，捨棄巷弄門牌，避免行情資料被回推到特定物件
 function marketRoad(addr){
-  const s=String(addr||'').replace(/\s/g,'');
+  let s=String(addr||'').replace(/\s/g,'');
   if(!s)return null;
+  // 地址有人寫「台北市中山區林森北路…」有人只寫「林森北路…」。
+  // 不先剝掉縣市與行政區前綴的話，同一條路會被記成兩種寫法而互相對不上。
+  // 用最短匹配，否則「信義區市府路」會被當成行政區「信義區市」而砍成「府路」
+  s=s.replace(/^[\u4e00-\u9fa5]{1,4}?[市縣]/,'').replace(/^[\u4e00-\u9fa5]{1,5}?[區鄉鎮市]/,'');
   const m=s.match(/^(.*?(?:大道|路|街))(?:([一二三四五六七八九十0-9]+)段)?/);
   if(!m||!m[1])return null;
   return m[1]+(m[2]?m[2]+'段':'');
@@ -4068,6 +4072,7 @@ function showEstResult(id){
         '估價是參考值，套用前會再確認一次，原價會記在估價紀錄裡可回頭查。'+
       '</div>');
   }
+  h+='<div id="est-market" style="margin-bottom:12px"></div>';
   if(isNew)h+=newPropFormHtml(e);
   if(e.applied){
     h+='<div style="background:#ebfbee;border:1px solid #2f9e4433;border-radius:8px;padding:9px 12px;font-size:11px;color:#2f9e44;margin-bottom:12px">'+
@@ -4092,6 +4097,74 @@ function showEstResult(id){
     '</div>';
   document.getElementById('est-body').innerHTML=h;
   document.getElementById('est-ov').classList.add('open');
+  loadEstMarket(id);
+}
+
+// ── 成交行情參考 ────────────────────────────────
+// 只顯示全平台的匿名統計值（筆數／中位數／四分位），不會動到上面的估價金額。
+// 資料庫端已擋掉樣本數不足的範圍，前端拿不到單筆成交，也看不出是哪間公司成交的。
+const MKT_LEVEL={building:'同一棟大樓',road:'同一條路（含段）',district:'同一個行政區'};
+function mktBox(inner,tone){
+  const c=tone==='ok'?'#5f3dc4':'var(--border)';
+  const bg=tone==='ok'?'#f3f0ff':'#f8f9fa';
+  return '<div style="background:'+bg+';border:1px solid '+c+'33;border-radius:9px;padding:11px 13px">'+inner+'</div>';
+}
+function mktNote(t){
+  return mktBox('<div style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:3px">📈 成交行情參考</div>'+
+    '<div style="font-size:10.5px;color:var(--muted);line-height:1.7">'+escH(t)+'</div>');
+}
+// 估價紀錄 → market_stats 的查詢條件（房型要換回排房系統的名稱才對得上成交資料）
+function estMarketQuery(e){
+  const i=e.input||{};
+  const p=e.prop_id?getProp(e.prop_id):null;
+  const rtype=EST_TO_RTYPE[i.rtype]||'';
+  if(!i.city||!i.dist||!rtype)return null;
+  return {city:i.city,district:i.dist,rtype,
+    road:marketRoad(i.addr),building:(p&&p.building)||''};
+}
+async function loadEstMarket(id){
+  if(!document.getElementById('est-market'))return;
+  const e=loadEstimates().find(x=>x.id===id);
+  const q=e&&estMarketQuery(e);
+  const paint=html=>{const b=document.getElementById('est-market');if(b)b.innerHTML=html;};
+  if(!q){paint(mktNote('這筆估價缺少縣市、行政區或房源類型，無法比對行情。'));return;}
+  paint(mktNote('正在查詢成交行情…'));
+  const s=await Cloud.marketStats(q);
+  if(!s){paint(mktNote('行情查詢失敗，請稍後再開一次。'));return;}
+  if(s.level==='none'){
+    const why=s.reason==='opted_out'
+      ? '貴公司已關閉行情共享，因此查不到其他公司貢獻的成交行情。可在房源管理的「📈 行情共享」重新開啟。'
+      : s.reason==='not_in_company'
+      ? '目前帳號尚未加入企業，無法查詢行情。'
+      : '這個範圍近兩年的成交筆數還不夠（同棟需 3 筆、同路或同區需 5 筆），先不顯示以免誤導。'+
+        '等成交累積起來就會自動出現。';
+    paint(mktNote(why));return;
+  }
+  const gap=(()=>{
+    const pk=estNum(e.rentPK);
+    if(!pk||!s.median)return '';
+    const d=Math.round((pk-s.median)/s.median*100);
+    const t=d>0?'高於':d<0?'低於':'等於';
+    return '<div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.7">'+
+      '本次估價旺季租金 $'+pk.toLocaleString()+'，'+t+'此範圍中位數 '+Math.abs(d)+'%。</div>';
+  })();
+  paint(mktBox(
+    '<div style="font-size:11px;font-weight:800;color:#5f3dc4;margin-bottom:6px">📈 成交行情參考 · '+
+      escH(MKT_LEVEL[s.level]||'')+'</div>'+
+    '<div style="font-size:10.5px;color:var(--muted);margin-bottom:8px">'+
+      escH(s.scope||'')+'　'+escH(q.rtype)+'　近 2 年 '+s.n+' 筆成交</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:10px;color:var(--muted)">成交中位數</div>'+
+        '<div style="font-size:19px;font-weight:800;color:#5f3dc4;line-height:1.3">$'+s.median.toLocaleString()+'</div></div>'+
+      '<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:10px;color:var(--muted)">常見區間（25%–75%）</div>'+
+        '<div style="font-size:14px;font-weight:800;line-height:1.75">$'+s.p25.toLocaleString()+' – $'+s.p75.toLocaleString()+'</div></div>'+
+    '</div>'+gap+
+    '<div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7">'+
+      '來自全平台各公司的匿名成交統計，不含門牌、房客資料與公司名稱，也查不到單筆成交。'+
+      '僅供參考，不會影響上方的估價金額。</div>'
+  ,'ok'));
 }
 
 // 估價站的房型 → 排房系統的房型（RTYPE_TO_EST 的反向）
