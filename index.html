@@ -920,17 +920,33 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <h2>📈 全平台行情共享</h2>
     <button class="close-btn" onclick="closeMarketShare()">✕</button>
   </div>
-  <div class="modal-body" style="max-height:unset;font-size:12px;line-height:1.8;color:var(--muted)">
-    <p style="margin-bottom:10px">訂單成立時，系統會把這筆成交的<strong>行政區、路名、社區／大樓名、房型、月租金、成交月份</strong>送進共用行情庫；換來的是您在估價時能看到同路段、同棟大樓的實際成交行情。</p>
-    <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div style="font-weight:800;color:var(--text);margin-bottom:4px">不會送出的資料</div>
-      門牌號碼、房客姓名／電話／任何個資、館別名稱、您的公司名稱。
-      <div style="font-weight:800;color:var(--text);margin:8px 0 4px">別人看得到什麼</div>
-      只有「這個範圍有 N 筆、中位數多少」的統計值。原始成交紀錄任何前端都讀不到，且樣本數不足（同棟少於 3 筆、同路少於 5 筆）時不會顯示。
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto;font-size:12px;line-height:1.8;color:var(--muted)">
+    <p style="margin-bottom:10px">您啟用本功能，即授權本平台於訂單成立時，蒐集、處理及利用該筆交易之下列<strong>去識別化</strong>資料，並提供予本平台其他企業用戶作為市場行情參考之用。</p>
+
+    <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:9px">
+      <div style="font-weight:800;color:var(--text);margin-bottom:4px">一、蒐集項目</div>
+      縣市、行政區、路名（含路段，不含巷弄與門牌號）、社區或大樓名稱、房型、月租金、成交月份（僅記錄至月份，不含日期）。
+
+      <div style="font-weight:800;color:var(--text);margin:9px 0 4px">二、不予蒐集之項目</div>
+      門牌號碼與完整地址、承租人姓名、電話、身分證字號或任何得以直接或間接識別特定個人之資料、館別名稱、貴公司名稱與識別資訊。本平台不會、亦無從自共享資料還原上述內容。
+
+      <div style="font-weight:800;color:var(--text);margin:9px 0 4px">三、揭露方式與範圍</div>
+      其他企業用戶僅能取得經統計運算後之<strong>彙總數值</strong>（樣本筆數、中位數、25%／75% 分位數），無法讀取任何單筆原始交易紀錄，亦無法得知該筆交易之來源公司。
+      同一查詢範圍內近 24 個月之成交筆數<strong>少於 3 筆</strong>時，系統不予顯示，以避免回推特定交易。
+
+      <div style="font-weight:800;color:var(--text);margin:9px 0 4px">四、資料期間</div>
+      行情統計僅採計自查詢日起回溯 24 個月內之成交資料，逾期資料不納入統計。
+
+      <div style="font-weight:800;color:var(--text);margin:9px 0 4px">五、您的權利</div>
+      本功能採自願參與，您得隨時於本頁面關閉。關閉後系統將停止蒐集新的交易資料，貴公司亦同時失去查詢行情之權限（未貢獻資料者不得查詢）。已提供之去識別化資料因無從識別特定交易來源，將續留存於統計母體。如需完全刪除，請聯繫本平台客服另行處理。
+
+      <div style="font-weight:800;color:var(--text);margin:9px 0 4px">六、免責聲明</div>
+      行情數值係彙總其他企業用戶自行申報之交易資料，本平台不擔保其完整性、正確性或即時性。該數值僅供參考，不構成任何定價建議或交易保證，您應自行判斷並承擔據以決策之結果。
     </div>
+
     <label style="display:flex;align-items:center;gap:8px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
       <input type="checkbox" id="ms-toggle" style="width:16px;height:16px">
-      參與行情共享（關閉後也將無法查看行情）
+      我已閱讀並同意上述條款，參與行情共享
     </label>
   </div>
   <div class="form-actions">
@@ -4136,7 +4152,7 @@ async function loadEstMarket(id){
       ? '貴公司已關閉行情共享，因此查不到其他公司貢獻的成交行情。可在房源管理的「📈 行情共享」重新開啟。'
       : s.reason==='not_in_company'
       ? '目前帳號尚未加入企業，無法查詢行情。'
-      : '這個範圍近兩年的成交筆數還不夠（同棟需 3 筆、同路或同區需 5 筆），先不顯示以免誤導。'+
+      : '這個範圍近 24 個月的成交筆數還不夠（同棟、同路、同區都至少要 3 筆），先不顯示以免誤導。'+
         '等成交累積起來就會自動出現。';
     paint(mktNote(why));return;
   }

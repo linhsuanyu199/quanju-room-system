@@ -71,7 +71,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ── 7. 對外唯一讀取入口 ───────────────────────────────────
--- 樣本門檻：同大樓 >= 3；同路名 >= 5；同行政區 >= 5；再不夠就回 level='none'
+-- 樣本門檻：同大樓 / 同路名 / 同行政區 一律 >= 3；再不夠就回 level='none'
 create or replace function public.market_stats(
   p_city text, p_district text, p_rtype text,
   p_road text default null, p_building text default null
@@ -104,14 +104,14 @@ begin
 
   if road_n is not null then
     select * into r from public._market_agg(p_city, p_district, p_rtype, road_n, null);
-    if r.n >= 5 then
+    if r.n >= 3 then
       return jsonb_build_object('level','road','scope',p_road,
         'n',r.n,'median',r.median,'p25',r.p25,'p75',r.p75);
     end if;
   end if;
 
   select * into r from public._market_agg(p_city, p_district, p_rtype, null, null);
-  if r.n >= 5 then
+  if r.n >= 3 then
     return jsonb_build_object('level','district','scope',p_city || p_district,
       'n',r.n,'median',r.median,'p25',r.p25,'p75',r.p75);
   end if;
