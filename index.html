@@ -177,6 +177,8 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   z-index:1000;align-items:flex-start;justify-content:center;
   padding:20px;overflow-y:auto}
 .overlay.open{display:flex}
+/* 估價是從房源管理裡叫出來的，必須疊在它上面 */
+#estform-ov,#est-ov{z-index:1100}
 .modal{background:var(--white);border-radius:14px;width:680px;max-width:100%;
   margin:auto;box-shadow:0 24px 70px rgba(0,0,0,.22)}
 .modal-lg{width:700px}
@@ -911,7 +913,19 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 </div>
 </div>
 
-<!-- ═══ Property Manager ═══ -->
+<!-- ═══ 估價表單（嵌入估價站）═══ -->
+<div class="overlay" id="estform-ov" onclick="if(event.target===this)closeEstForm()">
+<div class="modal" style="max-width:760px;width:96%">
+  <div class="modal-h">
+    <h2 id="estform-title">🧮 估價</h2>
+    <button class="close-btn" onclick="closeEstForm()">✕</button>
+  </div>
+  <iframe id="estform-frame" title="全居短租物件估價問卷"
+    style="width:100%;height:76vh;border:0;display:block;background:#f4f6fa"></iframe>
+</div>
+</div>
+
+<!-- ═══ 估價結果 ═══ -->
 <div class="overlay" id="est-ov" onclick="if(event.target===this)closeEst()">
 <div class="modal" style="max-width:640px">
   <div class="modal-h">
@@ -935,6 +949,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="pm-toolbar">
       <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
       <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
+      <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
       <button class="btn btn-primary sm" onclick="scrollToAddProp()">＋ 新增館別</button>
     </div>
     <div id="pm-content"></div>
@@ -3880,21 +3895,36 @@ function estBadgeHtml(pid,room){
     'title="查看此房間的估價紀錄" style="background:#f3f0ff;color:#5f3dc4">📊 '+escH(t)+'</button>';
 }
 
-let estPending=null;   // {pid, room, ref}
+let estPending=null;   // {pid, room, ref}；pid 為 null 代表「還沒進系統的新物件」
 function openEstimate(pid,room){
   const p=getProp(pid);
   if(!p){alert('找不到此館別');return;}
   const r=p.rooms.find(x=>(x._origRoom||x.room)===room);
-  const ref=genId('EST');
-  estPending={pid:String(pid),room,ref};
-  const q=new URLSearchParams({ret:location.origin,ref});
+  const q=new URLSearchParams();
   if(p.address)q.set('addr',p.address);
   if(p.city)q.set('city',p.city);
   if(p.district)q.set('dist',p.district);
   const rt=RTYPE_TO_EST[(r&&r.type)||''];
   if(rt)q.set('rtype',rt);
-  const w=window.open(PRICING_ORIGIN+'/?'+q.toString(),'_blank');
-  if(!w){alert('瀏覽器擋下了新分頁，請允許本站開啟彈出視窗後再試一次');estPending=null;}
+  showEstForm(String(pid),room,'🧮 估價 · '+p.name+' '+room,q);
+}
+// 尚未建檔的物件：先估價，覺得可以再一鍵建立成房源
+function openEstimateNew(){
+  showEstForm(null,null,'🧮 新物件估價',new URLSearchParams());
+}
+function showEstForm(pid,room,title,q){
+  const ref=genId('EST');
+  estPending={pid,room,ref};
+  q.set('ret',location.origin);q.set('ref',ref);
+  // 用 iframe 嵌在本站的 modal 裡，不另開分頁；計價邏輯仍只在估價站的伺服器端
+  document.getElementById('estform-title').textContent=title;
+  document.getElementById('estform-frame').src=PRICING_ORIGIN+'/?'+q.toString();
+  document.getElementById('estform-ov').classList.add('open');
+}
+function closeEstForm(){
+  document.getElementById('estform-ov').classList.remove('open');
+  document.getElementById('estform-frame').src='about:blank';
+  estPending=null;
 }
 
 window.addEventListener('message',function(ev){
@@ -3915,6 +3945,7 @@ window.addEventListener('message',function(ev){
   const all=loadEstimates();
   all.unshift(rec);
   saveEstimates(all.slice(0,300));
+  closeEstForm();
   showEstResult(rec.id);
 });
 
@@ -3922,11 +3953,14 @@ function closeEst(){document.getElementById('est-ov').classList.remove('open');}
 function showEstResult(id){
   const e=loadEstimates().find(x=>x.id===id);
   if(!e)return;
-  const p=getProp(e.prop_id);
-  const cur=getRoomPrice(e.prop_id,e.room);
+  const isNew=!e.prop_id;   // 還沒建檔的新物件
+  const p=isNew?null:getProp(e.prop_id);
+  const cur=isNew?0:getRoomPrice(e.prop_id,e.room);
   const clr={ok:'#2f9e44',warn:'#e67700',bad:'#c92a2a'}[e.cls]||'#495057';
   const bg={ok:'#ebfbee',warn:'#fff9db',bad:'#fff5f5'}[e.cls]||'#f8f9fa';
-  document.getElementById('est-title').textContent='🧮 估價結果 · '+(p?p.name:'—')+' '+e.room;
+  document.getElementById('est-title').textContent=isNew
+    ?'🧮 估價結果 · 新物件'
+    :'🧮 估價結果 · '+(p?p.name:'—')+' '+e.room;
   let h='<div style="background:'+bg+';border:1px solid '+clr+'33;border-radius:9px;padding:12px 14px;margin-bottom:12px">'+
     '<div style="font-size:15px;font-weight:800;color:'+clr+'">'+escH(e.rec)+'</div>'+
     '<div style="font-size:11px;color:var(--muted);margin-top:3px">'+escH(e.sub||'')+'</div>'+
@@ -3944,14 +3978,15 @@ function showEstResult(id){
         return '<div style="flex:1;min-width:150px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
           '<div style="font-size:10.5px;color:var(--muted)">'+SEASON[k]+'</div>'+
           '<div style="font-size:20px;font-weight:800;color:var(--primary);line-height:1.3">$'+escH(v)+'</div>'+
-          '<button class="btn btn-ghost sm" style="width:100%;margin-top:6px" onclick="applyEstPrice(\''+e.id+'\',\''+k+'\')">套用為月租金</button>'+
+          (isNew?'':'<button class="btn btn-ghost sm" style="width:100%;margin-top:6px" onclick="applyEstPrice(\''+e.id+'\',\''+k+'\')">套用為月租金</button>')+
         '</div>';
       }).join('')+'</div>'+
-      '<div style="font-size:10.5px;color:var(--muted);line-height:1.7;margin-bottom:12px">'+
+      (isNew?'':'<div style="font-size:10.5px;color:var(--muted);line-height:1.7;margin-bottom:12px">'+
         '目前設定的月租金：<strong>'+(cur?('$'+cur.toLocaleString()):'（未設定）')+'</strong>。'+
         '估價是參考值，套用前會再確認一次，原價會記在估價紀錄裡可回頭查。'+
-      '</div>';
+      '</div>');
   }
+  if(isNew)h+=newPropFormHtml(e);
   if(e.applied){
     h+='<div style="background:#ebfbee;border:1px solid #2f9e4433;border-radius:8px;padding:9px 12px;font-size:11px;color:#2f9e44;margin-bottom:12px">'+
       '✓ 已於 '+e.applied.at.slice(0,10)+' 套用「'+SEASON[e.applied.season]+'」$'+e.applied.price.toLocaleString()+
@@ -3975,6 +4010,70 @@ function showEstResult(id){
     '</div>';
   document.getElementById('est-body').innerHTML=h;
   document.getElementById('est-ov').classList.add('open');
+}
+
+// 估價站的房型 → 排房系統的房型（RTYPE_TO_EST 的反向）
+const EST_TO_RTYPE=Object.fromEntries(Object.entries(RTYPE_TO_EST).map(([k,v])=>[v,k]));
+// 新物件估價結果下方的「建立成房源」表單
+function newPropFormHtml(e){
+  const i=e.input||{};
+  const rt=EST_TO_RTYPE[i.rtype]||'';
+  const seasons=e.yearly?[]:['SP','PK','OP'].filter(k=>estNum(e['rent'+k])>0);
+  return '<div style="background:#f3f0ff;border:1px solid #5f3dc433;border-radius:9px;padding:12px 14px;margin-bottom:12px">'+
+    '<div style="font-size:12px;font-weight:800;color:#5f3dc4;margin-bottom:2px">➕ 建立成房源</div>'+
+    '<div style="font-size:10.5px;color:var(--muted);margin-bottom:9px">'+
+      '會用估價填的地址開一個新館別，並建立第一間房。之後可在房源管理繼續加房間。</div>'+
+    '<div class="form-grid">'+
+      '<div class="field"><label>館別名稱 <span class="req">*</span></label>'+
+        '<input id="np2-name" type="text" placeholder="例：中山林森館"></div>'+
+      '<div class="field"><label>房號 <span class="req">*</span></label>'+
+        '<input id="np2-room" type="text" value="101"></div>'+
+      '<div class="field"><label>服務類型</label>'+
+        '<select id="np2-svc"><option value="包租">📦 包租</option>'+
+        '<option value="合作拆帳">🤝 合作拆帳</option></select></div>'+
+      '<div class="field"><label>房型</label>'+
+        '<select id="np2-type">'+
+          ROOM_TYPES.map(t=>'<option value="'+escH(t)+'"'+(t===rt?' selected':'')+'>'+escH(t)+'</option>').join('')+
+        '</select></div>'+
+      '<div class="field span2"><label>初始月租金</label>'+
+        '<select id="np2-price">'+
+          seasons.map(k=>'<option value="'+estNum(e['rent'+k])+'"'+(k==='PK'?' selected':'')+'>'+
+            SEASON[k]+'　$'+estNum(e['rent'+k]).toLocaleString()+'</option>').join('')+
+          '<option value="0">先不設定，之後再填</option>'+
+        '</select></div>'+
+    '</div>'+
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:8px">'+
+      '地址：'+escH(i.addr||'（估價時未填）')+'　'+escH(i.city||'')+escH(i.dist||'')+'</div>'+
+    '<button class="btn btn-primary sm" style="width:100%;margin-top:9px" onclick="createPropFromEst(\''+e.id+'\')">➕ 建立這個房源</button>'+
+  '</div>';
+}
+function createPropFromEst(id){
+  const all=loadEstimates();
+  const e=all.find(x=>x.id===id);
+  if(!e)return;
+  const nm=(document.getElementById('np2-name').value||'').trim();
+  if(!nm){alert('請輸入館別名稱');return;}
+  const rno=(document.getElementById('np2-room').value||'').trim();
+  if(!rno){alert('請輸入房號');return;}
+  const i=e.input||{};
+  if(!i.city||!i.dist){alert('估價時沒有填縣市／行政區，無法建立房源。請改用房源管理的「新增館別」。');return;}
+  const price=Number(document.getElementById('np2-price').value)||0;
+  const type=document.getElementById('np2-type').value;
+  const svc=document.getElementById('np2-svc').value;
+  const cps=loadCPs();
+  if(cps.some(c=>c.name===nm)){alert('已經有同名的館別「'+nm+'」，請換一個名稱。');return;}
+  if(!confirm('確定建立館別「'+nm+'」與房間 '+rno+'？\n\n地址：'+(i.addr||'—')+
+    '\n房型：'+type+'\n月租金：'+(price?('$'+price.toLocaleString()):'未設定')))return;
+  const newId='cp_'+Date.now();
+  cps.push({id:newId,name:nm,address:i.addr||'',serviceType:svc,
+    district:i.dist,city:i.city,rooms:[{room:rno,type,price}],custom:true});
+  saveCPs(cps);
+  // 把這筆估價掛到剛建好的房間，房源管理才看得到 📊 估價紀錄
+  e.prop_id=newId;e.room=rno;
+  saveEstimates(all);
+  closeEst();
+  renderPM();render();
+  alert('已建立「'+nm+'」'+rno+'，估價紀錄也一併掛到這間房了。');
 }
 
 function applyEstPrice(id,season){
