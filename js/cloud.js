@@ -24,6 +24,7 @@ const Cloud = {
   myUserId: null,
   myDisplayName: '',
   myNameChangeCount: 0,
+  shareMarket: true,
   companyMembers: [],
   _pendingDisplayName: '',
 
@@ -91,6 +92,36 @@ const Cloud = {
     return true;
   },
 
+  // ── 全平台成交行情庫（跨公司共享，但看不到是誰成交的）──────────
+  // 只送出縣市／行政區／路名／社區名／房型／月租金／成交月份；
+  // 不含門牌號、房客資料與館別名稱。company_id 由資料庫端蓋章，前端偽造不了。
+  // 行情回報是附加價值，失敗不能影響訂單本身，所以只寫 console 不打擾使用者。
+  async submitMarketDeal(d) {
+    const { data, error } = await _sb.rpc('submit_market_deal', {
+      p_city: d.city, p_district: d.district, p_rtype: d.rtype,
+      p_monthly_rent: d.rent, p_deal_month: d.month,
+      p_road: d.road || null, p_building: d.building || null,
+      p_booking_id: d.dealKey || null
+    });
+    if (error) { console.error('行情回報失敗：', error.message); return null; }
+    return data;
+  },
+  // 回傳 {level:'building'|'road'|'district'|'none', n, median, p25, p75, scope}
+  async marketStats(q) {
+    const { data, error } = await _sb.rpc('market_stats', {
+      p_city: q.city, p_district: q.district, p_rtype: q.rtype,
+      p_road: q.road || null, p_building: q.building || null
+    });
+    if (error) { console.error('讀取行情失敗：', error.message); return null; }
+    return data;
+  },
+  async setShareMarket(on) {
+    const { error } = await _sb.rpc('set_share_market', { p_on: !!on });
+    if (error) { alert('設定失敗：' + error.message); return false; }
+    this.shareMarket = !!on;
+    return true;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({
@@ -116,10 +147,11 @@ const Cloud = {
     this.myRole = profile.role;
     this.myDisplayName = profile.display_name || '';
     this.myNameChangeCount = profile.name_change_count || 0;
-    const { data: comp } = await _sb.from('companies').select('name, invite_code, created_at').eq('id', this.companyId).maybeSingle();
+    const { data: comp } = await _sb.from('companies').select('name, invite_code, created_at, share_market').eq('id', this.companyId).maybeSingle();
     this.companyName = comp ? comp.name : '';
     this.inviteCode = comp ? comp.invite_code : '';
     this.companyCreatedAt = comp ? comp.created_at : null;
+    this.shareMarket = comp ? comp.share_market !== false : true;
     await this._loadKV();
     await this._loadCompanyMembers();
     this.ready = true;
@@ -137,6 +169,8 @@ const Cloud = {
     box.title = boxText;
     const inviteBtn = document.getElementById('btn-invite');
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    const marketBtn = document.getElementById('pm-market-btn');
+    if (marketBtn) marketBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const adminBtn = document.getElementById('btn-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     const siteLink = document.getElementById('btn-public-site');

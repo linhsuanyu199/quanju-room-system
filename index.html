@@ -178,7 +178,7 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   padding:20px;overflow-y:auto}
 .overlay.open{display:flex}
 /* 估價是從房源管理裡叫出來的，必須疊在它上面 */
-#estform-ov,#est-ov{z-index:1100}
+#estform-ov,#est-ov,#ms-ov{z-index:1100}
 .modal{background:var(--white);border-radius:14px;width:680px;max-width:100%;
   margin:auto;box-shadow:0 24px 70px rgba(0,0,0,.22)}
 .modal-lg{width:700px}
@@ -913,6 +913,33 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 </div>
 </div>
 
+<!-- ═══ 行情共享設定 ═══ -->
+<div class="overlay" id="ms-ov" onclick="if(event.target===this)closeMarketShare()">
+<div class="modal" style="width:480px">
+  <div class="modal-h">
+    <h2>📈 全平台行情共享</h2>
+    <button class="close-btn" onclick="closeMarketShare()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:unset;font-size:12px;line-height:1.8;color:var(--muted)">
+    <p style="margin-bottom:10px">訂單成立時，系統會把這筆成交的<strong>行政區、路名、社區／大樓名、房型、月租金、成交月份</strong>送進共用行情庫；換來的是您在估價時能看到同路段、同棟大樓的實際成交行情。</p>
+    <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-weight:800;color:var(--text);margin-bottom:4px">不會送出的資料</div>
+      門牌號碼、房客姓名／電話／任何個資、館別名稱、您的公司名稱。
+      <div style="font-weight:800;color:var(--text);margin:8px 0 4px">別人看得到什麼</div>
+      只有「這個範圍有 N 筆、中位數多少」的統計值。原始成交紀錄任何前端都讀不到，且樣本數不足（同棟少於 3 筆、同路少於 5 筆）時不會顯示。
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      <input type="checkbox" id="ms-toggle" style="width:16px;height:16px">
+      參與行情共享（關閉後也將無法查看行情）
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-ghost" onclick="closeMarketShare()">取消</button>
+    <button class="btn btn-primary" onclick="saveMarketShare()">儲存</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ 估價表單（嵌入估價站）═══ -->
 <div class="overlay" id="estform-ov" onclick="if(event.target===this)closeEstForm()">
 <div class="modal" style="max-width:760px;width:96%">
@@ -950,6 +977,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
       <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
       <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
+      <button class="btn btn-ghost sm" id="pm-market-btn" onclick="openMarketShare()" title="設定是否參與全平台匿名成交行情共享">📈 行情共享</button>
       <button class="btn btn-primary sm" onclick="scrollToAddProp()">＋ 新增館別</button>
     </div>
     <div id="pm-content"></div>
@@ -985,6 +1013,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <!-- 5. 地址（必填） -->
         <div class="field"><label>地址 <span class="req">*</span></label>
           <input id="np-addr" type="text" placeholder="路名、門號（不含縣市行政區）">
+        </div>
+        <!-- 6. 社區／大樓名（選填，用於同棟行情比對） -->
+        <div class="field"><label>社區／大樓名</label>
+          <input id="np-building" type="text" placeholder="選填，如 國美世紀（用於同棟行情比對）">
         </div>
         <div class="field" style="align-self:flex-end">
           <button class="btn btn-primary" onclick="doAddProp()">建立館別</button>
@@ -1177,6 +1209,7 @@ function getAllProps(){
     const info=pi[String(p.id)]||{};
     return {...p,
       address:info.address!==undefined?info.address:p.address,
+      building:info.building!==undefined?info.building:(p.building||''),
       code:info.code!==undefined?info.code:p.code,
       serviceType:info.serviceType||p.serviceType||'',
       district:info.district||p.district||'',
@@ -3141,6 +3174,7 @@ async function saveBk(){
   const custFields={birthday:bday,optIn:document.getElementById('g-optin').checked,email:bk.email};
   if(!getCust(bk.phone))custFields.owner=agentVal;
   setCustFields(bk.phone,custFields);
+  reportMarketDeals(bk);
   syncAutoTasks(bk);closeBk();render();
 }
 async function deleteBk(){
@@ -3873,6 +3907,54 @@ function closeCustomerDetail(){document.getElementById('custd-ov').classList.rem
 // PROPERTY MANAGER
 // ════════════════════════════════════════════════
 // ════════════════════════════════════════════════
+// 全平台成交行情庫（訂單成立時匿名回報，供估價參考）
+// ════════════════════════════════════════════════
+// 只取到路（街／大道）與段，捨棄巷弄門牌，避免行情資料被回推到特定物件
+function marketRoad(addr){
+  const s=String(addr||'').replace(/\s/g,'');
+  if(!s)return null;
+  const m=s.match(/^(.*?(?:大道|路|街))(?:([一二三四五六七八九十0-9]+)段)?/);
+  if(!m||!m[1])return null;
+  return m[1]+(m[2]?m[2]+'段':'');
+}
+// 訂單成立／更新時，把成交租金以匿名形式回報到全平台行情庫。
+// 送出的欄位只有：縣市、行政區、路名、社區名、房型、月租金、成交月份。
+// 不含門牌號、房客資料、館別名稱；其他公司也只看得到統計值，看不到單筆。
+function reportMarketDeals(bk){
+  if(!Cloud.shareMarket)return;
+  const LIVE=['reserved','pending','checkin','checkout'];
+  (bk.segments||[]).forEach(s=>{
+    if(!LIVE.includes(s.status))return;
+    const rent=Math.round(Number(s.monthlyPrice)||0);
+    if(rent<=0||!s.checkin)return;
+    const p=getProp(s.prop_id);
+    if(!p||!p.city||!p.district)return;
+    const r=p.rooms.find(x=>(x._origRoom||x.room)===s.room||x.room===s.room);
+    const rtype=(r&&r.type)||'';
+    if(!rtype)return;
+    Cloud.submitMarketDeal({
+      city:p.city,district:p.district,rtype,rent,
+      month:s.checkin.slice(0,7)+'-01',
+      road:marketRoad(p.address),building:(p.building||'').trim(),
+      dealKey:bk.id+'|'+s.prop_id+'|'+s.room
+    });
+  });
+}
+function openMarketShare(){
+  document.getElementById('ms-toggle').checked=Cloud.shareMarket!==false;
+  document.getElementById('ms-ov').classList.add('open');
+}
+function closeMarketShare(){document.getElementById('ms-ov').classList.remove('open');}
+async function saveMarketShare(){
+  const on=document.getElementById('ms-toggle').checked;
+  if(!on&&!confirm('關閉後，貴公司的成交資料不再進入行情庫，同時也將無法查看其他公司貢獻的行情參考。\n\n確定要關閉嗎？'))return;
+  if(await Cloud.setShareMarket(on)){
+    closeMarketShare();
+    alert(on?'✅ 已開啟行情共享':'已關閉行情共享');
+  }
+}
+
+// ════════════════════════════════════════════════
 // 估價模組整合（開新分頁到估價站，算完用 postMessage 回填）
 // ════════════════════════════════════════════════
 const PRICING_ORIGIN=location.hostname==='localhost'?'http://localhost:9993':'https://quanju-pricing.netlify.app';
@@ -4217,6 +4299,8 @@ function renderPM(){
               '</select></div>'+
             '<div class="field"><label style="font-size:10px">地址 <span class="req">*</span></label>'+
               '<input type="text" id="pe-addr-'+pid+'" value="'+escH(prop.address||'')+'" placeholder="路名、門號" style="height:28px;font-size:11px"></div>'+
+            '<div class="field"><label style="font-size:10px">社區／大樓名</label>'+
+              '<input type="text" id="pe-building-'+pid+'" value="'+escH(prop.building||'')+'" placeholder="選填，用於同棟行情比對" style="height:28px;font-size:11px"></div>'+
             '<div class="field" style="align-self:flex-end;flex-direction:row;gap:5px">'+
               '<button class="btn btn-primary sm" onclick="savePropEdit(\''+pid+'\')">💾 儲存</button>'+
               '<button class="btn btn-ghost sm" onclick="togglePropEdit(\''+pid+'\')">取消</button>'+
@@ -4312,12 +4396,13 @@ function savePropEdit(pid){
   if(!dist){alert('請選擇行政區');return;}
   const addr=(document.getElementById('pe-addr-'+pid).value||'').trim();
   if(!addr){alert('請填寫地址');return;}
+  const bldg=(document.getElementById('pe-building-'+pid).value||'').trim();
   const cps=loadCPs();const cp=cps.find(x=>String(x.id)===pid);
   if(cp){
-    cp.name=nm;cp.address=addr;cp.serviceType=svc;cp.district=dist;cp.city=city;saveCPs(cps);
+    cp.name=nm;cp.address=addr;cp.building=bldg;cp.serviceType=svc;cp.district=dist;cp.city=city;saveCPs(cps);
   } else {
     const pi=loadPropInfo();if(!pi[pid])pi[pid]={};
-    pi[pid].address=addr;pi[pid].serviceType=svc;pi[pid].district=dist;pi[pid].city=city;
+    pi[pid].address=addr;pi[pid].building=bldg;pi[pid].serviceType=svc;pi[pid].district=dist;pi[pid].city=city;
     pi[pid].name=nm;
     savePropInfo(pi);
   }
@@ -4340,11 +4425,12 @@ function doAddProp(){
   if(!dist){alert('請選擇行政區');return;}
   const addr=(document.getElementById('np-addr').value||'').trim();
   if(!addr){alert('請填寫地址');return;}
+  const bldg=(document.getElementById('np-building').value||'').trim();
   const newId='cp_'+Date.now();
   const cps=loadCPs();
-  cps.push({id:newId,name:nm,address:addr,serviceType:svc,district:dist,city:city,rooms:[],custom:true});
+  cps.push({id:newId,name:nm,address:addr,building:bldg,serviceType:svc,district:dist,city:city,rooms:[],custom:true});
   saveCPs(cps);
-  ['np-name','np-addr'].forEach(id=>{document.getElementById(id).value='';});
+  ['np-name','np-addr','np-building'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('np-svc').value='';
   document.getElementById('np-city').value='';
   document.getElementById('np-dist').innerHTML='<option value="">— 請先選擇縣市 —</option>';
