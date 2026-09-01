@@ -875,6 +875,18 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <label>預計完成日</label>
         <input id="tk-due" type="date">
       </div>
+      <div class="field tk-cost-only">
+        <label>維修金額 <span style="font-size:10px;color:var(--muted);font-weight:400">（元，未稅或含稅依貴公司慣例）</span></label>
+        <input id="tk-cost" type="number" min="0" step="1" placeholder="例如 3500">
+      </div>
+      <div class="field tk-cost-only">
+        <label>屋主請款狀態</label>
+        <select id="tk-billing">
+          <option value="none">不需請款（自行吸收）</option>
+          <option value="unbilled">未請款</option>
+          <option value="billed">已請款</option>
+        </select>
+      </div>
       <div class="field span2">
         <label>處理人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（可填外部廠商，例如「阿明水電 0912-345-678」）</span></label>
         <input id="tk-handler" type="text" placeholder="負責處理的人員或廠商">
@@ -2283,6 +2295,8 @@ function openTaskModal(propId,roomNo,dateS,type){
   document.getElementById('tk-start').readOnly=false;
   document.getElementById('tk-handler').value='';
   document.getElementById('tk-due').value='';
+  document.getElementById('tk-cost').value='';
+  document.getElementById('tk-billing').value='none';
   fillTkStatus('todo');
 
   // *** FIX: use direct JS event binding, not HTML attribute ***
@@ -2309,6 +2323,8 @@ function openEditTask(tk){
   document.getElementById('tk-note').value=tk.note||'';
   document.getElementById('tk-handler').value=tk.handler||'';
   document.getElementById('tk-due').value=tk.dueDate||'';
+  document.getElementById('tk-cost').value=(tk.cost||tk.cost===0)?tk.cost:'';
+  document.getElementById('tk-billing').value=tk.billing||'none';
   fillTkStatus(tk.status||'todo');
   // 館別/房號鎖定讓使用者不誤改，但開始/結束日期全部開放
   populateTkProps(String(tk.prop_id||''),isAuto);
@@ -2363,6 +2379,8 @@ function setTkType(type){
   curTkType=type;
   document.getElementById('tk-btn-clean').classList.toggle('active',type==='cleaning');
   document.getElementById('tk-btn-repair').classList.toggle('active',type==='repair');
+  // 只有維修才要記金額與屋主請款狀態
+  document.querySelectorAll('.tk-cost-only').forEach(el=>{el.style.display=type==='repair'?'':'none';});
   fillTkStatus(prev||'todo');
 }
 // 打掃沒有汰換的概念，所以兩種類型的可選狀態不同
@@ -2392,6 +2410,15 @@ function saveTk(){
   const dueDate=document.getElementById('tk-due').value;
   const status=document.getElementById('tk-status').value||'todo';
   if(dueDate&&dueDate<start){alert('預計完成日不能早於開始日期');return;}
+  let cost=0,billing='none';
+  if(curTkType==='repair'){
+    const raw=document.getElementById('tk-cost').value.trim();
+    if(raw!==''){
+      cost=Number(raw);
+      if(!isFinite(cost)||cost<0){alert('維修金額請填 0 以上的數字');return;}
+    }
+    billing=document.getElementById('tk-billing').value||'none';
+  }
   const tasks=loadTasks();
   if(editingTkId){
     const idx=tasks.findIndex(t=>t.id===editingTkId);
@@ -2401,14 +2428,15 @@ function saveTk(){
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
         start,   // 開始日期現在允許修改（含自動排程）
-        end:endAdj,note,status,handler,dueDate,
+        end:endAdj,note,status,handler,dueDate,cost,billing,
         doneAt:status==='done'||status==='replaced'?(old.doneAt||todayStr()):'',
         updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
     tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
       start,end:endAdj,note,isAuto:false,bookingId:null,
-      status,handler,dueDate,doneAt:status==='done'||status==='replaced'?todayStr():'',
+      status,handler,dueDate,cost,billing,
+      doneAt:status==='done'||status==='replaced'?todayStr():'',
       createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
   saveTasks(tasks);closeTk();render();
@@ -3364,6 +3392,10 @@ function stChip(k){
   const s=TASK_STATUS[k]||TASK_STATUS.todo;
   return '<span style="background:'+s.bg+';color:'+s.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+s.label+'</span>';
 }
+const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未請款',color:'#e67700'},billed:{label:'已請款',color:'#2f9e44'}};
+function money(n){return '$'+Math.round(n||0).toLocaleString();}
+// 維修金額只對維修單有意義，清潔單一律視為 0
+function tkCost(t){return t.type==='repair'?(Number(t.cost)||0):0;}
 function renderMaint(){
   const box=document.getElementById('mt-content');
   if(maintTab==='report'){box.innerHTML=maintReportHtml();return;}
@@ -3376,8 +3408,8 @@ function renderMaint(){
   }
   box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px">'+
     '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
-      ['類型','館別 / 房號','項目說明','處理人員','排程期間','預計完成','狀態',''].map((h,i)=>
-        '<th style="padding:8px 9px;text-align:'+(i===7?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+      ['類型','館別 / 房號','項目說明','金額 / 請款','處理人員','排程期間','預計完成','狀態',''].map((h,i)=>
+        '<th style="padding:8px 9px;text-align:'+(i===8?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
     '</tr></thead><tbody>'+
     list.map(t=>{
       const p=getProp(t.prop_id);
@@ -3390,6 +3422,9 @@ function renderMaint(){
         '<td style="padding:7px 9px;white-space:nowrap">'+(t.type==='repair'?'🔧 維修':'🧹 清潔')+(t.isAuto?'<div style="font-size:9px;color:var(--muted)">自動排程</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px">'+escH(p?p.name:'—')+'<div style="font-weight:700;color:var(--primary)">'+escH(t.room||'')+'</div></td>'+
         '<td style="padding:7px 9px;font-size:11px;max-width:190px">'+(t.note?escH(t.note):'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+(t.type==='repair'
+          ?'<strong>'+money(tkCost(t))+'</strong><div style="font-size:9.5px;color:'+(BILLING[t.billing]||BILLING.none).color+'">'+(BILLING[t.billing]||BILLING.none).label+'</div>'
+          :'<span style="color:var(--muted)">—</span>')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px">'+(t.handler?escH(t.handler):'<span style="color:var(--muted)">未指派</span>')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+(t.start||'')+'<div style="color:var(--muted)">~ '+(t.end||'')+'</div></td>'+
         '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+dueCell+'</td>'+
@@ -3423,14 +3458,23 @@ function maintReportHtml(){
   // 建議汰換積壓天數（從排程開始日算到今天）
   const pendRepl=all.filter(t=>t.status==='suggest_replace')
     .map(t=>({t,days:t.start?diffDays(t.start,tod):0})).sort((a,b)=>b.days-a.days);
-  // 房間維修次數排行
+  // 房間維修次數＋累計金額排行（決定要不要跟屋主請款、或這間房該汰換）
   const byRoom={};
   all.forEach(t=>{
     const p=getProp(t.prop_id);
     const k=(p?p.name:'?')+' / '+(t.room||'?');
-    byRoom[k]=(byRoom[k]||0)+1;
+    if(!byRoom[k])byRoom[k]={n:0,cost:0,unbilled:0};
+    byRoom[k].n++;
+    byRoom[k].cost+=tkCost(t);
+    if(t.billing==='unbilled')byRoom[k].unbilled+=tkCost(t);
   });
-  const topRooms=Object.entries(byRoom).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const topRooms=Object.entries(byRoom).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
+  const topCost=Object.entries(byRoom).filter(x=>x[1].cost>0).sort((a,b)=>b[1].cost-a[1].cost).slice(0,8);
+  const sumCost=all.reduce((s,t)=>s+tkCost(t),0);
+  const sumUnbilled=all.filter(t=>t.billing==='unbilled').reduce((s,t)=>s+tkCost(t),0);
+  const sumBilled=all.filter(t=>t.billing==='billed').reduce((s,t)=>s+tkCost(t),0);
+  const sumSelf=all.filter(t=>!t.billing||t.billing==='none').reduce((s,t)=>s+tkCost(t),0);
+  const withCost=all.filter(t=>tkCost(t)>0);
   function card(label,val,color,sub){
     return '<div style="flex:1;min-width:112px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
       '<div style="font-size:20px;font-weight:800;color:'+color+';line-height:1.2">'+val+'</div>'+
@@ -3449,7 +3493,30 @@ function maintReportHtml(){
     card('逾期未完成',overdue.length,overdue.length>0?'#c92a2a':'#2f9e44','超過預計完成日')+
     card('平均處理天數',avgDays===null?'—':avgDays+' 天','#1971c2',closed.length?'依 '+closed.length+' 筆已結案單計算':'尚無已結案資料')+
     card('未結案總數',openList.length,'#e67700','待處理＋處理中＋建議汰換')+
+  '</div>'+
+  '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">💰 維修金額累計</div>'+
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
+    card('累計維修支出',money(sumCost),'#1971c2',withCost.length?'共 '+withCost.length+' 筆有填金額':'尚無金額資料')+
+    card('未向屋主請款',money(sumUnbilled),sumUnbilled>0?'#e67700':'#868e96','可整理後向屋主請款')+
+    card('已向屋主請款',money(sumBilled),'#2f9e44','已完成請款')+
+    card('自行吸收',money(sumSelf),'#868e96','不需請款')+
   '</div>';
+
+  if(topCost.length>0){
+    html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">💸 各房間累計維修金額（金額由高到低）</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      '<thead><tr style="border-bottom:1px solid var(--border)">'+
+        ['房間','累計金額','其中未請款','維修次數','平均每次'].map((h,i)=>
+          '<th style="padding:6px 8px;text-align:'+(i===0?'left':'right')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+
+      topCost.map(([k,v])=>'<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:6px 8px">'+escH(k)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+money(v.cost)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#e67700':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+v.n+' 次</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost/v.n)+'</td>'+
+      '</tr>').join('')+'</tbody></table>';
+  }
 
   if(overdue.length>0){
     html+='<div style="font-size:12px;font-weight:700;color:#c92a2a;margin:12px 0 6px">⚠️ 已逾期未完成（'+overdue.length+' 筆）</div>'+
@@ -3481,15 +3548,18 @@ function maintReportHtml(){
     '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
     topRooms.map(([k,v])=>'<tr style="border-bottom:1px solid var(--border)">'+
       '<td style="padding:6px 8px">'+escH(k)+'</td>'+
-      '<td style="padding:6px 8px;width:60%">'+
+      '<td style="padding:6px 8px;width:55%">'+
         '<div style="background:#f1f3f5;border-radius:4px;height:12px;overflow:hidden">'+
-        '<div style="width:'+Math.round(v/topRooms[0][1]*100)+'%;height:100%;background:#c92a2a"></div></div>'+
+        '<div style="width:'+Math.round(v.n/topRooms[0][1].n*100)+'%;height:100%;background:#c92a2a"></div></div>'+
       '</td>'+
-      '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v+' 次</td>'+
+      '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v.n+' 次</td>'+
+      '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost)+'</td>'+
     '</tr>').join('')+'</table>'+
     '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.7">'+
       '平均處理天數＝各已結案維修單「開始日 → 標記完成當天」的天數平均，只計有完成日的單。<br>'+
-      '逾期＝已過預計完成日但狀態仍為待處理／處理中／建議汰換。'+
+      '逾期＝已過預計完成日但狀態仍為待處理／處理中／建議汰換。<br>'+
+      '維修金額只統計「維修」類型的排程；清潔單不計入。舊資料沒填金額者以 0 計算。<br>'+
+      '同一房間累計金額偏高又反覆維修，就是跟屋主談請款或評估汰換的依據。'+
     '</div>';
   return html;
 }
