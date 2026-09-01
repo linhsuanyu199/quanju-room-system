@@ -912,6 +912,19 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 </div>
 
 <!-- ═══ Property Manager ═══ -->
+<div class="overlay" id="est-ov" onclick="if(event.target===this)closeEst()">
+<div class="modal" style="max-width:640px">
+  <div class="modal-h">
+    <h2 id="est-title">🧮 估價結果</h2>
+    <button class="close-btn" onclick="closeEst()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:74vh;overflow-y:auto" id="est-body"></div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+    <button class="btn btn-ghost sm" onclick="closeEst()">關閉</button>
+  </div>
+</div>
+</div>
+
 <div class="overlay" id="pm-ov" onclick="if(event.target===this)closePM()">
 <div class="modal modal-pm">
   <div class="modal-h">
@@ -3844,6 +3857,176 @@ function closeCustomerDetail(){document.getElementById('custd-ov').classList.rem
 // ════════════════════════════════════════════════
 // PROPERTY MANAGER
 // ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// 估價模組整合（開新分頁到估價站，算完用 postMessage 回填）
+// ════════════════════════════════════════════════
+const PRICING_ORIGIN=location.hostname==='localhost'?'http://localhost:9993':'https://quanju-pricing.netlify.app';
+// 排房系統的房型名稱 → 估價模組的房源類型（只差「分租雅房 / 雅房」一個）
+const RTYPE_TO_EST={'分租雅房':'雅房','分租套房':'分租套房','獨立套房':'獨立套房','兩房':'兩房','三房':'三房','四房':'四房'};
+const SEASON={SP:'春季 3-4月',PK:'旺季 5-12月',OP:'淡季 1-2月'};
+
+function loadEstimates(){return Cloud.get('qj_estimates',[]);}
+function saveEstimates(a){Cloud.set('qj_estimates',a);}
+function estOf(pid,room){
+  return loadEstimates().find(e=>String(e.prop_id)===String(pid)&&e.room===room)||null;
+}
+// 估價回傳的租金是帶千分位的字串，年租案為 "-"
+function estNum(s){const n=parseInt(String(s||'').replace(/[^0-9]/g,''),10);return isNaN(n)?0:n;}
+function estBadgeHtml(pid,room){
+  const e=estOf(pid,room);
+  if(!e)return '';
+  const t=e.yearly?'建議年租':'旺季 $'+e.rentPK;
+  return '<button class="pm-icon-btn" onclick="openEstHistory(\''+pid+'\',\''+room.replace(/'/g,"\\'")+'\')" '+
+    'title="查看此房間的估價紀錄" style="background:#f3f0ff;color:#5f3dc4">📊 '+escH(t)+'</button>';
+}
+
+let estPending=null;   // {pid, room, ref}
+function openEstimate(pid,room){
+  const p=getProp(pid);
+  if(!p){alert('找不到此館別');return;}
+  const r=p.rooms.find(x=>(x._origRoom||x.room)===room);
+  const ref=genId('EST');
+  estPending={pid:String(pid),room,ref};
+  const q=new URLSearchParams({ret:location.origin,ref});
+  if(p.address)q.set('addr',p.address);
+  if(p.city)q.set('city',p.city);
+  if(p.district)q.set('dist',p.district);
+  const rt=RTYPE_TO_EST[(r&&r.type)||''];
+  if(rt)q.set('rtype',rt);
+  const w=window.open(PRICING_ORIGIN+'/?'+q.toString(),'_blank');
+  if(!w){alert('瀏覽器擋下了新分頁，請允許本站開啟彈出視窗後再試一次');estPending=null;}
+}
+
+window.addEventListener('message',function(ev){
+  if(ev.origin!==PRICING_ORIGIN)return;
+  const d=ev.data;
+  if(!d||d.source!=='quanju-pricing'||d.type!=='estimate_result')return;
+  if(!estPending||d.ref!==estPending.ref)return;   // 只收自己剛才開出去的那一筆
+  const rec={
+    id:d.ref,prop_id:estPending.pid,room:estPending.room,
+    at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail||'',
+    input:d.input||{},
+    base:d.result.base,total:d.result.total,rec:d.result.rec,cls:d.result.cls,
+    sub:d.result.sub,yearly:!!d.result.yearly,
+    rentSP:d.result.rentSP,rentPK:d.result.rentPK,rentOP:d.result.rentOP,
+    items:d.result.items||[],applied:null
+  };
+  estPending=null;
+  const all=loadEstimates();
+  all.unshift(rec);
+  saveEstimates(all.slice(0,300));
+  showEstResult(rec.id);
+});
+
+function closeEst(){document.getElementById('est-ov').classList.remove('open');}
+function showEstResult(id){
+  const e=loadEstimates().find(x=>x.id===id);
+  if(!e)return;
+  const p=getProp(e.prop_id);
+  const cur=getRoomPrice(e.prop_id,e.room);
+  const clr={ok:'#2f9e44',warn:'#e67700',bad:'#c92a2a'}[e.cls]||'#495057';
+  const bg={ok:'#ebfbee',warn:'#fff9db',bad:'#fff5f5'}[e.cls]||'#f8f9fa';
+  document.getElementById('est-title').textContent='🧮 估價結果 · '+(p?p.name:'—')+' '+e.room;
+  let h='<div style="background:'+bg+';border:1px solid '+clr+'33;border-radius:9px;padding:12px 14px;margin-bottom:12px">'+
+    '<div style="font-size:15px;font-weight:800;color:'+clr+'">'+escH(e.rec)+'</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-top:3px">'+escH(e.sub||'')+'</div>'+
+    '<div style="font-size:11px;margin-top:7px">綜合評分 <strong style="font-size:15px;color:'+clr+'">'+e.total+'</strong> 分（基礎門檻分 '+e.base+'）</div>'+
+  '</div>';
+  if(e.yearly){
+    h+='<div style="padding:14px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8">'+
+      '本物件建議年租，估價模組不提供短租租金試算，因此沒有可套用的月租金。<br>'+
+      '若仍要短租經營，請自行評估風險並手動設定租金。</div>';
+  }else{
+    h+='<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">建議短租租金（元／月）</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
+      ['SP','PK','OP'].map(k=>{
+        const v=e['rent'+k];
+        return '<div style="flex:1;min-width:150px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+          '<div style="font-size:10.5px;color:var(--muted)">'+SEASON[k]+'</div>'+
+          '<div style="font-size:20px;font-weight:800;color:var(--primary);line-height:1.3">$'+escH(v)+'</div>'+
+          '<button class="btn btn-ghost sm" style="width:100%;margin-top:6px" onclick="applyEstPrice(\''+e.id+'\',\''+k+'\')">套用為月租金</button>'+
+        '</div>';
+      }).join('')+'</div>'+
+      '<div style="font-size:10.5px;color:var(--muted);line-height:1.7;margin-bottom:12px">'+
+        '目前設定的月租金：<strong>'+(cur?('$'+cur.toLocaleString()):'（未設定）')+'</strong>。'+
+        '估價是參考值，套用前會再確認一次，原價會記在估價紀錄裡可回頭查。'+
+      '</div>';
+  }
+  if(e.applied){
+    h+='<div style="background:#ebfbee;border:1px solid #2f9e4433;border-radius:8px;padding:9px 12px;font-size:11px;color:#2f9e44;margin-bottom:12px">'+
+      '✓ 已於 '+e.applied.at.slice(0,10)+' 套用「'+SEASON[e.applied.season]+'」$'+e.applied.price.toLocaleString()+
+      '（原價 '+(e.applied.prevPrice?('$'+e.applied.prevPrice.toLocaleString()):'未設定')+'）</div>';
+  }
+  h+='<div style="font-size:11px;font-weight:700;color:var(--primary);margin:14px 0 6px">計分明細</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+    (e.items||[]).map(it=>{
+      const sc=it[1];
+      const c=sc>0?'#2f9e44':sc<0?'#c92a2a':'var(--muted)';
+      return '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:5px 8px">'+escH(it[0])+'<div style="font-size:9.5px;color:var(--muted)">'+escH(it[2]||'')+'</div></td>'+
+        '<td style="padding:5px 8px;text-align:right;font-weight:700;color:'+c+';white-space:nowrap">'+(sc>0?'+':'')+sc+'</td>'+
+      '</tr>';
+    }).join('')+
+    '<tr><td style="padding:6px 8px;font-weight:700">合計得分</td>'+
+    '<td style="padding:6px 8px;text-align:right;font-weight:800">'+e.total+'</td></tr></table>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.7">'+
+      '估價時間：'+new Date(e.at).toLocaleString('zh-TW')+'　估價人員：'+escH(e.by||'—')+'<br>'+
+      '級距、地區係數與租金基準表存放在估價模組的伺服器端，本系統只收結果。'+
+    '</div>';
+  document.getElementById('est-body').innerHTML=h;
+  document.getElementById('est-ov').classList.add('open');
+}
+
+function applyEstPrice(id,season){
+  const all=loadEstimates();
+  const e=all.find(x=>x.id===id);
+  if(!e)return;
+  const price=estNum(e['rent'+season]);
+  if(price<=0){alert('這個季節沒有可套用的租金');return;}
+  const prev=getRoomPrice(e.prop_id,e.room);
+  const p=getProp(e.prop_id);
+  if(!confirm('確定把「'+SEASON[season]+'」的 $'+price.toLocaleString()+' 設為 '+
+      (p?p.name:'')+' '+e.room+' 的月租金？\n\n目前月租金：'+(prev?('$'+prev.toLocaleString()):'未設定')))return;
+  const ovr=loadOvr();
+  if(!ovr[String(e.prop_id)])ovr[String(e.prop_id)]={};
+  ovr[String(e.prop_id)][e.room]=price;
+  saveOvr(ovr);
+  e.applied={season,price,prevPrice:prev,at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail||''};
+  saveEstimates(all);
+  renderPM();render();
+  showEstResult(id);
+}
+
+function openEstHistory(pid,room){
+  const list=loadEstimates().filter(e=>String(e.prop_id)===String(pid)&&e.room===room);
+  const p=getProp(pid);
+  document.getElementById('est-title').textContent='📊 估價紀錄 · '+(p?p.name:'—')+' '+room;
+  if(list.length===0){
+    document.getElementById('est-body').innerHTML='<div style="text-align:center;padding:36px;color:var(--muted);font-size:12px">這間房還沒有估價紀錄。</div>';
+  }else{
+    document.getElementById('est-body').innerHTML=
+      '<div style="font-size:10.5px;color:var(--muted);margin-bottom:8px">共 '+list.length+' 筆，新的在上面。點「查看」可看完整計分明細並套用租金。</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      '<thead><tr style="border-bottom:2px solid var(--border)">'+
+        ['估價日期','評分','建議','春季','旺季','淡季','套用','']
+          .map((h,i)=>'<th style="padding:6px 8px;text-align:'+(i>=3&&i<=5?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+
+      list.map(e=>'<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:6px 8px;white-space:nowrap">'+new Date(e.at).toLocaleDateString('zh-TW')+
+          '<div style="font-size:9.5px;color:var(--muted)">'+escH(e.by||'')+'</div></td>'+
+        '<td style="padding:6px 8px;font-weight:700">'+e.total+'</td>'+
+        '<td style="padding:6px 8px;white-space:nowrap">'+escH(e.rec)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+escH(e.rentSP)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:700">'+escH(e.rentPK)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+escH(e.rentOP)+'</td>'+
+        '<td style="padding:6px 8px;white-space:nowrap;font-size:10.5px;color:'+(e.applied?'#2f9e44':'var(--muted)')+'">'+
+          (e.applied?('✓ '+SEASON[e.applied.season].slice(0,2)+' $'+e.applied.price.toLocaleString()):'未套用')+'</td>'+
+        '<td style="padding:6px 8px;text-align:right"><button class="btn btn-ghost sm" onclick="showEstResult(\''+e.id+'\')">查看</button></td>'+
+      '</tr>').join('')+'</tbody></table>';
+  }
+  document.getElementById('est-ov').classList.add('open');
+}
+
 function openPropMgr(){renderPM();document.getElementById('pm-ov').classList.add('open');}
 function togglePubVis(pid){
   const vis=Cloud.get('qj_pub_vis',{});
@@ -3881,6 +4064,9 @@ function renderPM(){
           'title="'+(off?'目前停售中，點擊恢復銷售':'目前正常銷售，點擊設為停售（停售後無法新增訂單）')+'" '+
           'style="background:'+(off?'#fee2e2;color:#c92a2a':'#f1f3f5;color:#495057')+'">'+
           (off?'⛔ 停售中':'✔ 銷售中')+'</button>'+
+        estBadgeHtml(pid,origRoom)+
+        '<button class="pm-icon-btn" onclick="openEstimate(\''+pid+'\',\''+origRoom+'\')" '+
+          'title="用估價模組試算這間房的建議租金" style="background:#e7f5ff;color:#1971c2">🧮 估價</button>'+
         (isCustom?'<button class="pm-icon-del" onclick="delRoom(\''+pid+'\',\''+origRoom+'\')">🗑</button>':'')+
       '</div>';
     }).join('');
