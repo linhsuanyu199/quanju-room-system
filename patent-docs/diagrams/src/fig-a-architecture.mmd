@@ -1,0 +1,60 @@
+flowchart TB
+  subgraph CLIENT[使用者端 Client]
+    A1[排房管理主系統 index.html<br/>企業內部人員使用]
+    A2[公開房源官網 public.html<br/>外部房客瀏覽]
+  end
+
+  subgraph EDGE[部署/邊緣層]
+    B1[Vercel 靜態網站託管]
+    B2[GitHub Actions 保活排程]
+  end
+
+  subgraph APPLAYER[前端應用邏輯層]
+    C1[Cloud.js 統一資料存取介面<br/>取代原本 LocalStorage 讀寫]
+    C2[訂單/房源衝突偵測模組 機制一]
+    C3[彈性排房資料結構模組 機制二]
+    C4[自動化清潔/維修排程模組 機制三]
+    C5[統計運算模組<br/>入住率/可售天數/營收]
+    C6[編輯覆蓋偵測模組 機制五]
+    C7[客戶列表 CRM 模組<br/>依電話彙整歷次訂單]
+  end
+
+  subgraph BACKEND[Supabase 後端服務]
+    D1[Auth 身份驗證服務]
+    D2[PostgreSQL 資料庫]
+    D3[RPC 安全定義函式<br/>create_company / join_company / get_my_company_id]
+    D4[列級安全原則 RLS<br/>依 company_id 隔離]
+  end
+
+  subgraph DB[資料表]
+    E1[profiles 使用者設定檔<br/>id/company_id/role/display_name]
+    E2[companies 企業資料<br/>id/name/invite_code]
+    E3[company_kv 業務資料鍵值表 機制四<br/>company_id/key/value]
+  end
+
+  A1 --> C1
+  A2 -.唯讀公開資料.-> C1
+  A1 --> D1
+  C1 --> C2
+  C1 --> C3
+  C1 --> C4
+  C1 --> C5
+  C1 --> C6
+  C1 --> C7
+  C2 --> D2
+  C3 --> D2
+  C4 --> D2
+  C5 --> D2
+  C6 --> D2
+  C7 --> D2
+  D1 --> D3
+  D3 --> E1
+  D3 --> E2
+  D2 --> D4
+  D4 --> E1
+  D4 --> E2
+  D4 --> E3
+  C1 --> E3
+  B1 --> A1
+  B1 --> A2
+  B2 -.定期喚醒防休眠.-> D2

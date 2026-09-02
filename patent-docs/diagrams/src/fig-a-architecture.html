@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>附圖A 系統架構圖</title>
+<style>
+/* A4 橫向 297x210mm，以 150dpi 換算為 1754x1240 px；輸出時再用 2 倍縮放取得 300dpi */
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1754px;height:1240px;background:#fff;overflow:hidden;
+  font-family:"PingFang TC","Heiti TC","Noto Sans CJK TC",sans-serif;color:#12233b}
+.page{width:100%;height:100%;padding:26px 30px;display:flex;flex-direction:column}
+
+.hd{display:flex;align-items:baseline;gap:14px;border-bottom:3px solid #1a56a0;padding-bottom:9px;flex-shrink:0}
+.hd h1{font-size:27px;font-weight:800;letter-spacing:.5px}
+.hd .sub{font-size:14px;color:#5b6b85}
+.hd .fig{margin-left:auto;font-size:15px;font-weight:800;color:#1a56a0;
+  border:2px solid #1a56a0;border-radius:6px;padding:3px 12px}
+
+.flow{flex:1;display:flex;align-items:stretch;gap:0;padding-top:16px;min-height:0}
+.col{flex:1;display:flex;flex-direction:column;min-width:0}
+.gut{width:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.gut svg{width:34px;height:22px}
+
+.ctitle{font-size:16px;font-weight:800;color:#fff;background:#1a56a0;border-radius:7px 7px 0 0;
+  padding:9px 9px;text-align:center;letter-spacing:.4px}
+.ctitle .en{display:block;font-size:10.5px;font-weight:600;opacity:.72;letter-spacing:.2px}
+.cbody{flex:1;border:2px solid #1a56a0;border-top:none;border-radius:0 0 7px 7px;
+  background:#f6f9fe;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+/* 每個方塊平均分配欄位剩餘高度，避免內容集中在頁面上半而下半留白 */
+.box{background:#fff;border:1.6px solid #b9c9e2;border-radius:7px;padding:8px 10px;
+  flex:1 1 0;display:flex;flex-direction:column;justify-content:center}
+.box b{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:14px;font-weight:800;line-height:1.35}
+.box span{display:block;font-size:11px;color:#5b6b85;line-height:1.55;margin-top:3px}
+.box.k{border-color:#1a56a0;border-width:2px;background:#eaf1fc}
+.box.sec{border-color:#c92a2a;background:#fff5f5}
+.box.sec b{color:#a31616}
+.box.ext{border-color:#e8940c;background:#fff9ef}
+.box.ext b{color:#9c5c00}
+
+.grp{border:1.6px dashed #93a8c8;border-radius:7px;padding:7px;display:flex;flex-direction:column;
+  gap:6px;background:#fff;flex:1.6 1 0}
+.grp>.lbl{font-size:10.5px;font-weight:800;color:#42597d;letter-spacing:.3px;flex-shrink:0}
+.mini{background:#fff;border:1.4px solid #cdd9ec;border-radius:5px;padding:5px 8px;font-size:11.5px;
+  line-height:1.4;flex:1 1 0;display:flex;flex-direction:column;justify-content:center}
+.mini b{font-weight:800}
+.mini i{font-style:normal;color:#5b6b85;font-size:10.5px}
+
+.tag{flex:0 0 auto;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;
+  background:#1a56a0;color:#fff;white-space:nowrap}
+.tag.r{background:#c92a2a}
+.tag.o{background:#e8940c}
+
+.ft{flex-shrink:0;margin-top:12px;border-top:1.6px solid #ccd7e8;padding-top:8px;
+  display:flex;gap:22px;align-items:flex-start;font-size:10.5px;color:#42597d;line-height:1.6}
+.lg{display:flex;gap:14px;flex-shrink:0}
+.lg i{font-style:normal;display:flex;align-items:center;gap:5px;font-weight:700}
+.sw{width:15px;height:11px;border-radius:3px;border:1.6px solid #1a56a0;background:#eaf1fc;display:inline-block}
+.sw.r{border-color:#c92a2a;background:#fff5f5}
+.sw.o{border-color:#e8940c;background:#fff9ef}
+.sw.g{border:1.6px dashed #93a8c8;background:#fff}
+.note{flex:1}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hd">
+    <h1>短租排房系統　系統架構圖</h1>
+    <div class="sub">多租戶雲端 SaaS · 資料庫層級企業隔離</div>
+    <div class="fig">附圖 A</div>
+  </div>
+
+  <div class="flow">
+
+    <!-- 1 使用者端 -->
+    <div class="col">
+      <div class="ctitle">使用者端<span class="en">Client / Actors</span></div>
+      <div class="cbody">
+        <div class="box k"><b>排房管理主系統</b><span>index.html<br>企業內部人員（管理員／業務）</span></div>
+        <div class="box"><b>公開房源官網</b><span>public.html<br>外部房客瀏覽可租房源</span></div>
+        <div class="box"><b>官網預約詢問</b><span>inquiry.html<br>訪客免登入送出詢問單</span></div>
+        <div class="box ext"><b>物件估價問卷</b><span>獨立站台（跨網域）<br>級距與係數表僅存於後端</span></div>
+        <div class="grp">
+          <div class="lbl">角色權限</div>
+          <div class="mini"><b>admin</b> <i>邀請成員／行情共享開關</i></div>
+          <div class="mini"><b>member</b> <i>日常排房與訂單操作</i></div>
+          <div class="mini"><b>platform</b> <i>平台方帳號白名單</i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gut"><svg viewBox="0 0 34 22"><path d="M0 11h24" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M24 4l9 7-9 7z" fill="#1a56a0"/></svg></div>
+
+    <!-- 2 部署層 -->
+    <div class="col">
+      <div class="ctitle">部署與傳輸層<span class="en">Delivery / Edge</span></div>
+      <div class="cbody">
+        <div class="box k"><b>Vercel 靜態託管</b><span>主系統與官網頁面<br>Git push 觸發自動部署</span></div>
+        <div class="box ext"><b>Netlify Functions</b><span>估價運算後端<br>營業秘密不落前端</span></div>
+        <div class="box"><b>GitHub Actions</b><span>排程保活工作<br>避免後端閒置休眠</span></div>
+        <div class="grp">
+          <div class="lbl">跨站整合機制</div>
+          <div class="mini"><b>window.open + postMessage</b><br><i>估價結果回填排房系統</i></div>
+          <div class="mini"><b>來源網域白名單</b><br><i>驗證 origin 後才接受資料</i></div>
+          <div class="mini"><b>frame-ancestors</b><br><i>限定可內嵌之站台</i></div>
+        </div>
+        <div class="box"><b>HTTPS / TLS</b><span>全程加密傳輸</span></div>
+      </div>
+    </div>
+
+    <div class="gut"><svg viewBox="0 0 34 22"><path d="M0 11h24" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M24 4l9 7-9 7z" fill="#1a56a0"/></svg></div>
+
+    <!-- 3 應用邏輯層 -->
+    <div class="col" style="flex:1.32">
+      <div class="ctitle">前端應用邏輯層<span class="en">Application Logic</span></div>
+      <div class="cbody">
+        <div class="box k"><b>訂單／房源衝突偵測<span class="tag">機制一</span></b><span>同房同時段重疊即時攔截</span></div>
+        <div class="box k"><b>彈性分段排房結構<span class="tag">機制二</span></b><span>單筆訂單可含多段換房區間</span></div>
+        <div class="box k"><b>清潔／維修自動排程<span class="tag">機制三</span></b><span>退房後自動產生待辦並鎖房</span></div>
+        <div class="box k"><b>編輯覆蓋偵測<span class="tag">機制五</span></b><span>多人同時編輯前先比對版本</span></div>
+        <div class="grp">
+          <div class="lbl">營運與經營模組</div>
+          <div class="mini"><b>統計運算</b> <i>入住率／可售天數／營收</i></div>
+          <div class="mini"><b>客戶彙整 CRM</b> <i>以電話串接歷次訂單</i></div>
+          <div class="mini"><b>祝福提醒</b> <i>生日與節日名單，需同意行銷</i></div>
+          <div class="mini"><b>維修成本與請款</b> <i>屋主請款狀態追蹤</i></div>
+          <div class="mini"><b>估價結果管理</b> <i>回填、套用為月租</i></div>
+          <div class="mini"><b>行情查詢介面</b> <i>只取彙總值，不取單筆</i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gut"><svg viewBox="0 0 34 22"><path d="M0 11h24" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M24 4l9 7-9 7z" fill="#1a56a0"/></svg></div>
+
+    <!-- 4 資料存取介面 -->
+    <div class="col" style="flex:.86">
+      <div class="ctitle">資料存取介面<span class="en">Access Layer</span></div>
+      <div class="cbody">
+        <div class="box k"><b>Cloud 統一存取物件</b><span>取代原生前端儲存，<br>所有讀寫收斂於單一入口</span></div>
+        <div class="box"><b>記憶體快取</b><span>同步讀取以維持畫面流暢</span></div>
+        <div class="box"><b>寫入前重取最新值</b><span>避免以過期快照覆蓋<br>他人同時新增的資料</span></div>
+        <div class="box"><b>操作歷程記錄</b><span>訂單修改前保留舊值</span></div>
+        <div class="box sec"><b>企業識別由伺服器蓋章</b><span>前端無法指定他企業<br>之識別碼</span></div>
+      </div>
+    </div>
+
+    <div class="gut"><svg viewBox="0 0 34 22"><path d="M0 11h24" stroke="#c92a2a" stroke-width="2.4" fill="none"/><path d="M24 4l9 7-9 7z" fill="#c92a2a"/></svg></div>
+
+    <!-- 5 安全層 -->
+    <div class="col" style="flex:1.02">
+      <div class="ctitle" style="background:#c92a2a">後端安全控制層<span class="en">Auth / RLS / RPC</span></div>
+      <div class="cbody" style="border-color:#c92a2a;background:#fff7f7">
+        <div class="box sec"><b>身分驗證服務</b><span>電子郵件帳號登入<br>密碼單向雜湊保存</span></div>
+        <div class="box sec"><b>列級安全原則 RLS</b><span>每列資料綁定企業識別，<br>跨企業查詢一律回傳空集合</span></div>
+        <div class="grp" style="border-color:#e0a0a0">
+          <div class="lbl" style="color:#a31616">安全定義函式（唯一出入口）</div>
+          <div class="mini"><b>建立企業／加入企業</b> <i>邀請碼綁定</i></div>
+          <div class="mini"><b>取得本人企業識別</b> <i>避免遞迴</i></div>
+          <div class="mini"><b>公開詢問單寫入</b> <i>訪客免登入</i></div>
+          <div class="mini"><b>成交資料申報</b> <i>去識別化後寫入</i></div>
+          <div class="mini"><b>行情彙總查詢</b> <i>樣本不足即不回傳</i></div>
+        </div>
+        <div class="box sec"><b>權限最小化</b><span>內部彙總函式對前端角色<br>明確收回執行權</span></div>
+      </div>
+    </div>
+
+    <div class="gut"><svg viewBox="0 0 34 22"><path d="M0 11h24" stroke="#c92a2a" stroke-width="2.4" fill="none"/><path d="M24 4l9 7-9 7z" fill="#c92a2a"/></svg></div>
+
+    <!-- 6 資料表 -->
+    <div class="col" style="flex:.92">
+      <div class="ctitle" style="background:#2b6a3f">資料儲存層<span class="en">PostgreSQL</span></div>
+      <div class="cbody" style="border-color:#2b6a3f;background:#f4fbf6">
+        <div class="box" style="border-color:#2b6a3f;background:#e8f6ec"><b>企業資料表</b><span>企業名稱／邀請碼／<br>行情共享參與狀態</span></div>
+        <div class="box" style="border-color:#2b6a3f;background:#e8f6ec"><b>使用者設定檔</b><span>所屬企業／角色／顯示名稱</span></div>
+        <div class="box k" style="border-color:#2b6a3f;background:#e8f6ec"><b>業務資料鍵值表<span class="tag" style="background:#2b6a3f">機制四</span></b><span>房源／訂單／清潔維修／<br>客戶／估價紀錄集中存放，<br>以企業識別加鍵名為主鍵</span></div>
+        <div class="box" style="border-color:#2b6a3f;background:#e8f6ec"><b>訂單異動歷程</b><span>保留修改前內容供追溯</span></div>
+        <div class="box" style="border-color:#2b6a3f;background:#e8f6ec"><b>預約詢問單</b><span>官網訪客送出之詢問</span></div>
+        <div class="box sec"><b>跨企業成交行情池</b><span>已開啟安全原則但不設任何<br>讀取政策，前端無法直接讀取</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="ft">
+    <div class="lg">
+      <i><span class="sw"></span>核心機制</i>
+      <i><span class="sw r"></span>安全控制</i>
+      <i><span class="sw o"></span>跨站整合</i>
+      <i><span class="sw g"></span>功能群組</i>
+    </div>
+    <div class="note">
+      架構要點：前端不直接觸碰資料表，所有寫入與敏感查詢均須經過後端安全定義函式；企業識別碼由伺服器端取得並蓋章，
+      前端無法偽造。跨企業共享之成交行情僅以彙總統計形式輸出，樣本數不足門檻時不予回傳，藉此在共享行情與保護個別交易之間取得平衡。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

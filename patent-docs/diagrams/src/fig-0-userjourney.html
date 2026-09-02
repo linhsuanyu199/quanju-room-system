@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>附圖零 使用者路徑流程圖</title>
+<style>
+/* A4 橫向 297x210mm，以 150dpi 換算為 1754x1240 px；輸出時再用 2 倍縮放取得 300dpi */
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1754px;height:1240px;background:#fff;overflow:hidden;
+  font-family:"PingFang TC","Heiti TC","Noto Sans CJK TC",sans-serif;color:#12233b}
+.page{width:100%;height:100%;padding:26px 30px;display:flex;flex-direction:column}
+
+.hd{display:flex;align-items:baseline;gap:14px;border-bottom:3px solid #1a56a0;padding-bottom:9px;flex-shrink:0}
+.hd h1{font-size:27px;font-weight:800;letter-spacing:.5px}
+.hd .sub{font-size:14px;color:#5b6b85}
+.hd .fig{margin-left:auto;font-size:15px;font-weight:800;color:#1a56a0;
+  border:2px solid #1a56a0;border-radius:6px;padding:3px 12px}
+
+.body{flex:1;display:flex;flex-direction:column;gap:12px;padding-top:14px;min-height:0}
+
+/* 兩條泳道共用同一組欄寬與間隙寬度，欄位才會上下對齊 */
+.row{display:flex;align-items:stretch;min-height:0}
+.row.user{flex:1}
+.row.sys{flex:0 0 214px}
+.col{flex:1;display:flex;flex-direction:column;min-width:0}
+.gut{width:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.gut svg{width:30px;height:20px}
+
+.laneLbl{flex:0 0 96px;display:flex;flex-direction:column;justify-content:center;
+  border-radius:7px;padding:8px;text-align:center;margin-right:12px}
+.laneLbl b{font-size:15px;font-weight:800;line-height:1.3}
+.laneLbl span{display:block;font-size:10px;margin-top:4px;line-height:1.4}
+.laneLbl.u{background:#eaf1fc;border:2px solid #1a56a0;color:#12365f}
+.laneLbl.u span{color:#4a6285}
+.laneLbl.s{background:#f0f7f2;border:2px solid #2b6a3f;color:#1d4c2c}
+
+.stitle{font-size:15px;font-weight:800;color:#fff;background:#1a56a0;border-radius:7px 7px 0 0;
+  padding:8px 8px;text-align:center;letter-spacing:.4px;flex-shrink:0}
+.stitle i{font-style:normal;display:inline-block;background:#fff;color:#1a56a0;
+  border-radius:99px;width:19px;height:19px;line-height:19px;font-size:12px;margin-right:6px}
+.sbody{flex:1;border:2px solid #1a56a0;border-top:none;border-radius:0 0 7px 7px;
+  background:#f6f9fe;padding:9px;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+.step{background:#fff;border:1.6px solid #b9c9e2;border-radius:7px;padding:7px 9px;
+  flex:1 1 0;display:flex;flex-direction:column;justify-content:center}
+.step b{display:block;font-size:13px;font-weight:800;line-height:1.35}
+.step span{display:block;font-size:10.5px;color:#5b6b85;line-height:1.5;margin-top:3px}
+.step.k{border-color:#1a56a0;border-width:2px;background:#eaf1fc}
+.step.br{border-color:#e8940c;background:#fff9ef}
+.step.br b{color:#9c5c00}
+
+.sysCell{flex:1;display:flex;flex-direction:column;border:2px solid #2b6a3f;
+  border-radius:7px;background:#f4fbf6;padding:9px 10px;justify-content:center}
+.sysCell b{display:flex;align-items:center;flex-wrap:wrap;gap:5px;
+  font-size:12.5px;font-weight:800;line-height:1.35;color:#1d4c2c}
+.sysCell span{display:block;font-size:10.5px;color:#3d6b4f;line-height:1.55;margin-top:4px}
+.tag{flex:0 0 auto;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;
+  background:#2b6a3f;color:#fff;white-space:nowrap}
+
+.ft{flex-shrink:0;margin-top:10px;border-top:1.6px solid #ccd7e8;padding-top:8px;
+  display:flex;gap:22px;align-items:flex-start;font-size:10.5px;color:#42597d;line-height:1.6}
+.lg{display:flex;gap:14px;flex-shrink:0}
+.lg i{font-style:normal;display:flex;align-items:center;gap:5px;font-weight:700}
+.sw{width:15px;height:11px;border-radius:3px;border:2px solid #1a56a0;background:#eaf1fc;display:inline-block}
+.sw.n{border:1.6px solid #b9c9e2;background:#fff}
+.sw.o{border-color:#e8940c;background:#fff9ef}
+.sw.g{border-color:#2b6a3f;background:#f4fbf6}
+.note{flex:1}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hd">
+    <h1>短租排房系統　使用者路徑流程圖</h1>
+    <div class="sub">自帳號開通至營運回饋之完整作業流程</div>
+    <div class="fig">附圖零</div>
+  </div>
+
+  <div class="body">
+
+    <!-- 使用者操作泳道 -->
+    <div class="row user">
+      <div class="laneLbl u"><b>使用者<br>操作</b><span>企業內部人員<br>與外部房客</span></div>
+
+      <div class="col">
+        <div class="stitle"><i>1</i>開通與加入</div>
+        <div class="sbody">
+          <div class="step k"><b>註冊帳號</b><span>以電子郵件與密碼建立個人帳號</span></div>
+          <div class="step br"><b>分支：建立新企業</b><span>成為管理員並取得專屬邀請碼</span></div>
+          <div class="step br"><b>分支：加入既有企業</b><span>輸入邀請碼即與同事共用資料</span></div>
+          <div class="step"><b>設定顯示名稱</b><span>作為訂單負責業務之識別</span></div>
+        </div>
+      </div>
+
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#1a56a0"/></svg></div>
+
+      <div class="col">
+        <div class="stitle"><i>2</i>建置房源</div>
+        <div class="sbody">
+          <div class="step"><b>新增館別</b><span>填寫縣市、行政區與地址</span></div>
+          <div class="step"><b>逐間設定房間</b><span>房號、房型與月租金</span></div>
+          <div class="step"><b>或以試算表批次匯入</b><span>大量房源一次建檔</span></div>
+          <div class="step br"><b>選用：開啟估價問卷</b><span>試算合理租金後回填</span></div>
+        </div>
+      </div>
+
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#1a56a0"/></svg></div>
+
+      <div class="col">
+        <div class="stitle"><i>3</i>對外曝光</div>
+        <div class="sbody">
+          <div class="step"><b>勾選公開房間</b><span>逐間決定是否對外顯示</span></div>
+          <div class="step"><b>複製官網連結</b><span>分享至社群或通訊軟體</span></div>
+          <div class="step"><b>房客瀏覽公開官網</b><span>免登入查看可租房源</span></div>
+          <div class="step k"><b>房客送出預約詢問</b><span>留下聯絡方式與需求時段</span></div>
+        </div>
+      </div>
+
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#1a56a0"/></svg></div>
+
+      <div class="col">
+        <div class="stitle"><i>4</i>成立訂單</div>
+        <div class="sbody">
+          <div class="step"><b>接收詢問並聯繫</b><span>於收件匣標記處理狀態</span></div>
+          <div class="step k"><b>選擇房間與住退日期</b><span>送出前即時檢查是否衝突</span></div>
+          <div class="step k"><b>需換房則新增分段</b><span>同一訂單可含多段不同房間</span></div>
+          <div class="step"><b>填寫房客與收款資訊</b><span>來源、負責業務、付款方式</span></div>
+        </div>
+      </div>
+
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#1a56a0"/></svg></div>
+
+      <div class="col">
+        <div class="stitle"><i>5</i>住中與退房</div>
+        <div class="sbody">
+          <div class="step k"><b>推進訂單狀態</b><span>預定中 → 已付款待入住 →<br>入住中 → 已退房</span></div>
+          <div class="step"><b>處理清潔任務</b><span>指派負責人並回報完成</span></div>
+          <div class="step"><b>登錄維修事項</b><span>填寫金額與屋主請款狀態</span></div>
+          <div class="step"><b>續約或換房</b><span>於原訂單延長或新增分段</span></div>
+        </div>
+      </div>
+
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#1a56a0" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#1a56a0"/></svg></div>
+
+      <div class="col">
+        <div class="stitle"><i>6</i>經營與決策</div>
+        <div class="sbody">
+          <div class="step"><b>檢視營運報表</b><span>入住率、營收與維修成本</span></div>
+          <div class="step"><b>經營既有客戶</b><span>客戶列表與生日、節日祝福</span></div>
+          <div class="step k"><b>查詢同區行情</b><span>參考彙總統計調整訂價</span></div>
+          <div class="step"><b>匯出資料備份</b><span>房源與訂單清單試算表</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 系統自動處理泳道 -->
+    <div class="row sys">
+      <div class="laneLbl s"><b>系統<br>自動處理</b><span>使用者無須<br>額外操作</span></div>
+
+      <div class="col"><div class="sysCell">
+        <b>企業識別由伺服器蓋章</b>
+        <span>建立或加入企業後，該使用者之企業識別由後端核發；此後所有讀寫皆自動綁定該識別，前端無從指定他企業。</span>
+      </div></div>
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#2b6a3f" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#2b6a3f"/></svg></div>
+
+      <div class="col"><div class="sysCell">
+        <b>估價結果跨站回填</b>
+        <span>估價站以指定來源網域回傳結果，主系統驗證來源後存檔；套用為月租時保留原價，可隨時還原。</span>
+      </div></div>
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#2b6a3f" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#2b6a3f"/></svg></div>
+
+      <div class="col"><div class="sysCell">
+        <b>詢問單即時進線提示</b>
+        <span>訪客免登入送出之詢問，經後端安全函式寫入指定企業；主系統選單即時顯示未讀數量紅點。</span>
+      </div></div>
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#2b6a3f" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#2b6a3f"/></svg></div>
+
+      <div class="col"><div class="sysCell">
+        <b>衝突偵測與覆蓋防護<span class="tag">機制一・五</span></b>
+        <span>同房重疊區間即時攔截並指出衝突訂單；儲存前重新取回最新資料，避免覆蓋他人同時新增之訂單。</span>
+      </div></div>
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#2b6a3f" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#2b6a3f"/></svg></div>
+
+      <div class="col"><div class="sysCell">
+        <b>退房後自動排程<span class="tag">機制三</span></b>
+        <span>訂單轉為已退房即自動產生清潔待辦並鎖定該房間，任務回報完成後才恢復為可售，同步留存異動歷程。</span>
+      </div></div>
+      <div class="gut"><svg viewBox="0 0 30 20"><path d="M0 10h21" stroke="#2b6a3f" stroke-width="2.4" fill="none"/><path d="M21 3.5l8 6.5-8 6.5z" fill="#2b6a3f"/></svg></div>
+
+      <div class="col"><div class="sysCell">
+        <b>去識別化行情回饋</b>
+        <span>成交資料去除門牌與房客資訊後彙入跨企業行情池；查詢僅回傳樣本數達門檻之彙總統計，不揭露單筆來源。</span>
+      </div></div>
+    </div>
+
+  </div>
+
+  <div class="ft">
+    <div class="lg">
+      <i><span class="sw"></span>關鍵步驟</i>
+      <i><span class="sw n"></span>一般操作</i>
+      <i><span class="sw o"></span>分支或選用</i>
+      <i><span class="sw g"></span>系統自動</i>
+    </div>
+    <div class="note">
+      流程說明：上排為使用者實際操作之步驟，下排為系統於同一階段自動完成之處理，兩排上下對應。
+      使用者僅需依序填寫業務資料，衝突攔截、退房後排程、跨站資料回填、企業資料隔離與行情去識別化均由系統自動執行，無須額外操作。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
