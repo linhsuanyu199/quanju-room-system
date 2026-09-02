@@ -6,8 +6,6 @@
 // ════════════════════════════════════════════════
 const _sb = supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
 
-const TRIAL_DAYS = 14;
-const SHOW_TRIAL_BADGE = false; // demo期間暫時關閉試用期倒數徽章顯示，之後要恢復請改回 true
 const NAME_CHANGE_LIMIT = 2; // 顯示名稱最多可修改次數
 // 平台管理者白名單（僅供企業管理後台存取判斷用，實際安全檢查同時在資料庫 RPC 內做一次）
 const PLATFORM_ADMIN_EMAILS = ['linhsuanyu199@gmail.com'];
@@ -17,7 +15,6 @@ const Cloud = {
   ready: false,
   companyId: null,
   companyName: '',
-  companyCreatedAt: null,
   inviteCode: '',
   myRole: 'member',
   myEmail: '',
@@ -147,10 +144,9 @@ const Cloud = {
     this.myRole = profile.role;
     this.myDisplayName = profile.display_name || '';
     this.myNameChangeCount = profile.name_change_count || 0;
-    const { data: comp } = await _sb.from('companies').select('name, invite_code, created_at, share_market').eq('id', this.companyId).maybeSingle();
+    const { data: comp } = await _sb.from('companies').select('name, invite_code, share_market').eq('id', this.companyId).maybeSingle();
     this.companyName = comp ? comp.name : '';
     this.inviteCode = comp ? comp.invite_code : '';
-    this.companyCreatedAt = comp ? comp.created_at : null;
     this.shareMarket = comp ? comp.share_market !== false : true;
     await this._loadKV();
     await this._loadCompanyMembers();
@@ -167,15 +163,14 @@ const Cloud = {
     const boxText = this.companyName + ' · ' + (this.myDisplayName || '未顯示');
     box.textContent = boxText;
     box.title = boxText;
-    const inviteBtn = document.getElementById('btn-invite');
+    const inviteBtn = document.getElementById('more-invite');
     if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const marketBtn = document.getElementById('pm-market-btn');
     if (marketBtn) marketBtn.style.display = this.myRole === 'admin' ? '' : 'none';
-    const adminBtn = document.getElementById('btn-platform-admin');
+    const adminBtn = document.getElementById('more-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     const siteLink = document.getElementById('btn-public-site');
     if (siteLink && this.companyId) siteLink.href = this.getPublicUrl();
-    this._renderTrialBadge();
   },
 
   // ── 對外公開房源頁連結（可分享給房客）──────────
@@ -185,35 +180,6 @@ const Cloud = {
   copyPublicLink() {
     if (!this.companyId) return;
     navigator.clipboard.writeText(this.getPublicUrl()).then(() => alert('✅ 公開房源連結已複製，可直接分享給房客：\n' + this.getPublicUrl()));
-  },
-
-  // 試用期倒數提示：只顯示一個小徽章「試用」，滑鼠移上去才用 title 顯示剩餘天數，
-  // 避免長文字佔用版面。未來如串接付費訂閱狀態，可將 textContent 改為「專業」等文字。
-  _renderTrialBadge() {
-    const el = document.getElementById('trial-badge');
-    if (!el) return;
-    if (!SHOW_TRIAL_BADGE) { el.style.display = 'none'; return; }
-    if (!this.companyCreatedAt) { el.style.display = 'none'; return; }
-    const createdMs = new Date(this.companyCreatedAt).getTime();
-    const daysUsed = Math.floor((Date.now() - createdMs) / 86400000);
-    const daysLeft = TRIAL_DAYS - daysUsed;
-    el.style.display = '';
-    if (daysLeft > 3) {
-      el.textContent = '試用';
-      el.title = '試用期剩 ' + daysLeft + ' 天';
-      el.style.background = 'rgba(255,255,255,.15)';
-      el.style.color = '#fff';
-    } else if (daysLeft > 0) {
-      el.textContent = '試用';
-      el.title = '試用期剩 ' + daysLeft + ' 天，即將到期，請盡快聯繫我們續約';
-      el.style.background = '#ffcf5c';
-      el.style.color = '#7a4b00';
-    } else {
-      el.textContent = '已到期';
-      el.title = '試用期已到期，請聯繫我們續約';
-      el.style.background = '#ff8a8a';
-      el.style.color = '#5c0000';
-    }
   },
 
   async _loadCompanyMembers() {
@@ -445,16 +411,14 @@ const Cloud = {
     if (error) { body.innerHTML = '<div style="color:#ff8a8a">讀取失敗：' + error.message + '</div>'; return; }
     if (!data || !data.length) { body.innerHTML = '<div>目前沒有企業資料</div>'; return; }
     let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-      '<tr style="text-align:left;border-bottom:1px solid #ddd"><th style="padding:6px 8px">企業名稱</th><th style="padding:6px 8px">邀請碼</th><th style="padding:6px 8px">成員數</th><th style="padding:6px 8px">館別數</th><th style="padding:6px 8px">建立時間</th><th style="padding:6px 8px">試用剩餘</th></tr>';
+      '<tr style="text-align:left;border-bottom:1px solid #ddd"><th style="padding:6px 8px">企業名稱</th><th style="padding:6px 8px">邀請碼</th><th style="padding:6px 8px">成員數</th><th style="padding:6px 8px">館別數</th><th style="padding:6px 8px">建立時間</th></tr>';
     for (const c of data) {
-      const daysLeft = TRIAL_DAYS - Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
       html += '<tr style="border-bottom:1px solid #eee">' +
         '<td style="padding:6px 8px">' + c.name + '</td>' +
         '<td style="padding:6px 8px">' + c.invite_code + '</td>' +
         '<td style="padding:6px 8px">' + c.member_count + '</td>' +
         '<td style="padding:6px 8px">' + c.room_count + '</td>' +
         '<td style="padding:6px 8px">' + new Date(c.created_at).toLocaleDateString('zh-TW') + '</td>' +
-        '<td style="padding:6px 8px">' + (daysLeft > 0 ? daysLeft + ' 天' : '已到期') + '</td>' +
         '</tr>';
     }
     html += '</table>';

@@ -45,6 +45,19 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
   display:flex;align-items:center;gap:3px;transition:opacity .15s;flex-shrink:0}
 .btn-top:hover{opacity:.85}
+.more-menu{position:relative}
+.more-panel{display:none;position:absolute;top:36px;right:0;min-width:180px;z-index:210;
+  background:var(--white);border:1px solid var(--border);border-radius:9px;padding:5px;
+  box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.more-menu.open .more-panel{display:block}
+.more-item{display:flex;align-items:center;width:100%;gap:6px;height:32px;padding:0 9px;
+  border:none;background:none;border-radius:6px;font-size:12px;color:var(--text);
+  cursor:pointer;white-space:nowrap;text-align:left}
+.more-item:hover{background:var(--primary-light)}
+.more-sep{height:1px;background:var(--border);margin:4px 6px}
+.more-badge-inline{display:none;margin-left:auto;min-width:16px;height:16px;padding:0 4px;
+  border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;
+  font-weight:700;text-align:center}
 .btn-add-top{background:#fff;color:var(--primary)}
 .btn-mgt-top{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-task-top{background:#e67700;color:#fff}
@@ -70,7 +83,8 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .sel{height:26px;border:1px solid var(--border);border-radius:5px;
   padding:0 6px;font-size:11px;background:var(--white);cursor:pointer}
 .search{height:26px;border:1px solid var(--border);border-radius:5px;
-  padding:0 8px;font-size:11px;width:140px;outline:none}
+  padding:0 8px;font-size:11px;width:140px;outline:none;flex-shrink:0}
+@media (max-width:1100px){.search{width:100px}}
 .search:focus{border-color:var(--primary)}
 
 /* ─── Grid ─── */
@@ -468,7 +482,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div id="co-panel-create">
       <div class="login-field">
         <label>企業／公司名稱</label>
-        <input type="text" id="co-name" placeholder="例如：全居資產管理">
+        <input type="text" id="co-name" placeholder="例如：○○資產管理">
       </div>
       <button class="login-btn" onclick="Cloud.doCreateCompany()">🏢 建立企業</button>
     </div>
@@ -495,7 +509,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="logo-main">短租排房系統</div>
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
-  <div id="trial-badge" class="tleg" style="margin-left:8px;display:none" title=""></div>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
@@ -504,9 +517,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
-    <button class="btn-top btn-mgt-top" onclick="openCustomers()" title="依電話彙整所有訂單，查看客戶入住次數與歷史">客戶列表</button>
-    <button class="btn-top btn-mgt-top" onclick="openGreet()" title="本月壽星與近期節日祝福提醒">祝福提醒</button>
-    <button class="btn-top btn-mgt-top" onclick="openInq()" title="官網預約詢問單收件匣" style="position:relative">詢問單<span id="inq-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
     <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
     <a class="btn-top" id="btn-public-site" href="./public.html" target="_blank"
@@ -515,9 +525,19 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">官網連結</button>
   </div>
   <div class="topbar-fixed">
-    <button class="btn-top btn-mgt-top" id="btn-invite" onclick="Cloud.openInvite()" title="邀請企業成員" style="background:rgba(255,255,255,.1);display:none">邀請成員</button>
-    <button class="btn-top btn-mgt-top" id="btn-platform-admin" onclick="Cloud.openPlatformAdmin()" title="平台管理後台" style="background:rgba(255,255,255,.1);display:none">後台</button>
-    <button class="btn-top btn-mgt-top" onclick="exportCompanyData()" title="匯出資料（Excel）" style="background:rgba(255,255,255,.1)">匯出</button>
+    <!-- 次要功能收進下拉選單，避免頂列按鈕過多而被橫向捲動截斷 -->
+    <div class="more-menu">
+      <button class="btn-top btn-mgt-top" id="btn-more" onclick="toggleMoreMenu(event)" title="其他功能" style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span id="more-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
+      <div class="more-panel" id="more-panel">
+        <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表</button>
+        <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
+        <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
+        <button class="more-item" id="more-invite" style="display:none" onclick="pickMore(()=>Cloud.openInvite())">✉️ 邀請成員</button>
+        <div class="more-sep"></div>
+        <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
+        <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
+      </div>
+    </div>
     <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
     <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
   </div>
@@ -544,7 +564,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <select class="sel" id="f-svc" onchange="render()" title="服務類型篩選">
       <option value="">全部類型</option>
       <option value="包租">包租</option>
-      <option value="合作拆帳">合作拆帳</option>
+      <option value="代租代管">代租代管</option>
     </select>
     <select class="sel" id="f-dist" onchange="render()" title="行政區篩選">
       <option value="">全部行政區</option>
@@ -561,9 +581,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <select class="sel" id="f-agent" onchange="render()" title="業務篩選">
       <option value="">全部業務</option>
     </select>
-    <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
   </div>
   <div class="toolbar-fixed">
+    <!-- 搜尋是高頻操作，放在固定區才不會在視窗變窄時被捲動裁掉 -->
+    <input class="search" id="f-search" type="text" placeholder="搜尋房客 / 訂單…" oninput="render()">
     <button class="btn-top btn-task-top" onclick="openTaskModal()">清潔/維修</button>
     <button class="btn-top btn-add-top" onclick="openNewBk()">＋ 新增預定</button>
   </div>
@@ -693,7 +714,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <div class="field"><label>付款方式 <span class="req">*</span></label>
         <select id="g-payment">
           <option value="">— 請選擇 —</option>
-          <option>國泰(全居)</option><option>Paypal(全居)</option>
+          <option>國泰</option><option>Paypal</option>
           <option>藍新</option><option>綠界</option><option>現金</option><option>其他</option>
         </select>
       </div>
@@ -963,7 +984,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <h2 id="estform-title">🧮 估價</h2>
     <button class="close-btn" onclick="closeEstForm()">✕</button>
   </div>
-  <iframe id="estform-frame" title="全居短租物件估價問卷"
+  <iframe id="estform-frame" title="短租物件估價問卷"
     style="width:100%;height:76vh;border:0;display:block;background:#f4f6fa"></iframe>
 </div>
 </div>
@@ -1005,7 +1026,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <select id="np-svc">
             <option value="">— 請選擇 —</option>
             <option value="包租">📦 包租</option>
-            <option value="合作拆帳">🤝 合作拆帳</option>
+            <option value="代租代管">🤝 代租代管</option>
           </select>
         </div>
         <!-- 2. 館別名稱（必填） -->
@@ -1113,6 +1134,20 @@ function togglePwField(id,btn){
   else{el.type='password';btn.innerHTML=EYE_ICON_CLOSED;}
 }
 
+// ── 頂列「⚙️ 更多」下拉選單 ────────────────────
+function closeMoreMenu(){
+  const m=document.querySelector('.more-menu');
+  if(m)m.classList.remove('open');
+}
+function toggleMoreMenu(ev){
+  ev.stopPropagation();
+  const m=document.querySelector('.more-menu');
+  if(m)m.classList.toggle('open');
+}
+function pickMore(fn){closeMoreMenu();fn();}
+document.addEventListener('click',closeMoreMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMoreMenu();});
+
 // ════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════
@@ -1148,13 +1183,18 @@ async function saveBkAtomic(mutate,{bookingId=null,checkConflict=false,baseUpdat
   saveBks(result);
   return result;
 }
+// 舊資料相容：付款方式與服務類型都會被 <select> 直接比對字串，
+// 舊值（國泰(全居)／合作拆帳）不轉換的話，編輯舊資料時選單會變成空白。
+const LEGACY_PAYMENT={'國泰(全居)':'國泰','Paypal(全居)':'Paypal'};
 function migBk(b){
+  if(LEGACY_PAYMENT[b.payment])b={...b,payment:LEGACY_PAYMENT[b.payment]};
   if(b.segments&&b.segments.length>0)return b;
   return{...b,segments:[{seg_id:(b.id||'')+'_S0',
     prop_id:b.prop_id,room:b.room,checkin:b.checkin,checkout:b.checkout,
     monthlyPrice:b.monthlyPrice||0,totalRent:b.totalRent||0,status:b.status||'reserved'}]};
 }
-function loadCPs(){return Cloud.get('qj_cps',[]);}
+function migCP(p){return p.serviceType==='合作拆帳'?{...p,serviceType:'代租代管'}:p;}
+function loadCPs(){return (Cloud.get('qj_cps',[])).map(migCP);}
 function saveCPs(a){Cloud.set('qj_cps',a);}
 function loadOvr(){return Cloud.get('qj_ovr',{});}
 function saveOvr(o){Cloud.set('qj_ovr',o);}
@@ -2545,7 +2585,7 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('g-optin').checked=false;
   document.getElementById('g-phone-hint').style.display='none';
   document.getElementById('g-deposit').value='';
-  document.getElementById('g-payment').value='國泰(全居)';
+  document.getElementById('g-payment').value='國泰';
   populateAgentOptions();
   document.getElementById('g-agent').value=Cloud.myDisplayName||'';
   document.getElementById('g-source').value='';
@@ -2581,7 +2621,7 @@ function openEditBk(bk){
   document.getElementById('g-phone').value=bk.phone||'';
   document.getElementById('g-email').value=bk.email||'';
   document.getElementById('g-deposit').value=bk.deposit||'';
-  document.getElementById('g-payment').value=bk.payment||'國泰(全居)';
+  document.getElementById('g-payment').value=bk.payment||'國泰';
   document.getElementById('g-agent').value=bk.agent||'';
   document.getElementById('g-source').value=bk.source||'';
   document.getElementById('g-ctype').value=bk.ctype||'';
@@ -3310,21 +3350,21 @@ function birthdayThisMonth(c,y,m){
 function greetMailto(c,subject,body){
   return 'mailto:'+encodeURIComponent(c.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
 }
-function bdaySubject(c){return '生日快樂！全居短租誠摯祝福 '+c.name+' 先生/小姐';}
+function bdaySubject(c){return '生日快樂！短租團隊誠摯祝福 '+c.name+' 先生/小姐';}
 function bdayBody(c){
   return c.name+' 您好：\n\n'+
-    '在這個特別的日子，全居短租團隊祝您生日快樂、平安順心。\n'+
+    '在這個特別的日子，短租團隊祝您生日快樂、平安順心。\n'+
     '感謝您一直以來對我們的支持與信任。\n\n'+
     '若有任何住宿需求，隨時與我們聯繫，很樂意為您服務。\n\n'+
-    '全居短租　'+(Cloud.myDisplayName||'')+' 敬上\n';
+    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n';
 }
-function festSubject(c,f){return f.name+'祝福｜全居短租敬賀';}
+function festSubject(c,f){return f.name+'祝福｜短租團隊敬賀';}
 function festBody(c,f){
   return c.name+' 您好：\n\n'+
-    f.name+'將至，全居短租團隊在此向您與家人獻上誠摯的祝福，願您佳節愉快、身體健康。\n'+
+    f.name+'將至，短租團隊在此向您與家人獻上誠摯的祝福，願您佳節愉快、身體健康。\n'+
     '感謝您一直以來對我們的支持。\n\n'+
     '若有任何住宿需求，隨時與我們聯繫。\n\n'+
-    '全居短租　'+(Cloud.myDisplayName||'')+' 敬上\n';
+    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n';
 }
 function copyGreetText(kind,phone,fkey){
   const c=buildCustomerIndex().find(x=>x.phone===phone);
@@ -3703,6 +3743,9 @@ async function refreshInqBadge(){
   const n=await Cloud.countNewInquiries();
   el.textContent=n>0?n:'';
   el.style.display=n>0?'':'none';
+  // 詢問單已收進「⚙️ 更多」選單，選單收合時看不到紅點，所以同步標在按鈕上
+  const outer=document.getElementById('more-badge');
+  if(outer){outer.textContent=n>0?n:'';outer.style.display=n>0?'':'none';}
 }
 async function openInq(){
   document.getElementById('inq-ov').classList.add('open');
@@ -4201,7 +4244,7 @@ function newPropFormHtml(e){
         '<input id="np2-room" type="text" value="101"></div>'+
       '<div class="field"><label>服務類型</label>'+
         '<select id="np2-svc"><option value="包租">📦 包租</option>'+
-        '<option value="合作拆帳">🤝 合作拆帳</option></select></div>'+
+        '<option value="代租代管">🤝 代租代管</option></select></div>'+
       '<div class="field"><label>房型</label>'+
         '<select id="np2-type">'+
           ROOM_TYPES.map(t=>'<option value="'+escH(t)+'"'+(t===rt?' selected':'')+'>'+escH(t)+'</option>').join('')+
@@ -4374,7 +4417,7 @@ function renderPM(){
               '<select id="pe-svc-'+pid+'" style="'+sel2+'">'+
                 '<option value="">— 請選擇 —</option>'+
                 '<option value="包租" '+(prop.serviceType==='包租'?'selected':'')+'>📦 包租</option>'+
-                '<option value="合作拆帳" '+(prop.serviceType==='合作拆帳'?'selected':'')+'>🤝 合作拆帳</option>'+
+                '<option value="代租代管" '+(prop.serviceType==='代租代管'?'selected':'')+'>🤝 代租代管</option>'+
               '</select></div>'+
             '<div class="field"><label style="font-size:10px">館別名稱 <span class="req">*</span></label>'+
               '<input type="text" id="pe-nm-'+pid+'" value="'+escH(prop.name)+'" style="height:28px;font-size:11px"></div>'+
@@ -4570,7 +4613,8 @@ function processImportRows(rows){
   rows.forEach((row,i)=>{
     const rn=i+2;
     const name=String(row['館別名稱']||'').trim();
-    const svc=String(row['服務類型']||'').trim();
+    // 舊版範本寫「合作拆帳」，一併接受並轉成現在的名稱
+    const svc=String(row['服務類型']||'').trim().replace(/^合作拆帳$/,'代租代管');
     const city=String(row['縣市']||'').trim();
     const dist=String(row['行政區']||'').trim();
     const addr=String(row['地址']||'').trim();
@@ -4580,7 +4624,7 @@ function processImportRows(rows){
     if(!name||!svc||!city||!dist||!addr||!rno||!rtypeRaw||priceRaw===''||priceRaw===undefined){
       errors.push('第'+rn+'列：欄位不可空白');return;
     }
-    if(svc!=='包租'&&svc!=='合作拆帳'){errors.push('第'+rn+'列：服務類型須為「包租」或「合作拆帳」');return;}
+    if(svc!=='包租'&&svc!=='代租代管'){errors.push('第'+rn+'列：服務類型須為「包租」或「代租代管」');return;}
     if(!CITY_DISTRICTS[city]){errors.push('第'+rn+'列：縣市「'+city+'」不支援（僅支援台北市/新北市）');return;}
     if(!CITY_DISTRICTS[city].includes(dist)){errors.push('第'+rn+'列：行政區「'+dist+'」不屬於'+city);return;}
     const rtype=normalizeRoomType(rtypeRaw);
