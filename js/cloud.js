@@ -169,6 +169,8 @@ const Cloud = {
     if (marketBtn) marketBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const cleanCfgBtn = document.getElementById('more-cleancfg');
     if (cleanCfgBtn) cleanCfgBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    const vendorBtn = document.getElementById('more-vendors');
+    if (vendorBtn) vendorBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const adminBtn = document.getElementById('more-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     const siteLink = document.getElementById('btn-public-site');

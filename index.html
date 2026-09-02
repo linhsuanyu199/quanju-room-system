@@ -536,6 +536,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
         <button class="more-item" id="more-invite" style="display:none" onclick="pickMore(()=>Cloud.openInvite())">✉️ 邀請成員</button>
         <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
+        <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
         <div class="more-sep"></div>
         <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
         <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
@@ -921,9 +922,17 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <option value="occupied">可續住 — 如換燈泡、小修繕，不影響訂單</option>
         </select>
       </div>
-      <div class="field span2">
-        <label>處理人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（可填外部廠商，例如「阿明水電 0912-345-678」）</span></label>
-        <input id="tk-handler" type="text" placeholder="負責處理的人員或廠商">
+      <div class="field tk-cost-only">
+        <label>維修類別 <span style="font-size:10px;color:var(--muted);font-weight:400">（選了之後只會列出該專長的廠商）</span></label>
+        <select id="tk-cat" onchange="fillTkVendors('')"></select>
+      </div>
+      <div class="field">
+        <label>處理人員 <span style="font-size:10px;color:var(--muted);font-weight:400">（從廠商主檔挑選，或選「自行輸入」手動填寫）</span></label>
+        <select id="tk-vendor" onchange="onTkVendorChange()"></select>
+      </div>
+      <div class="field span2" id="tk-handler-wrap">
+        <label>處理人員（自行輸入）</label>
+        <input id="tk-handler" type="text" placeholder="負責處理的人員或廠商，例如「阿明水電 0912-345-678」">
       </div>
       <div class="field span2">
         <label>備註說明</label>
@@ -1136,6 +1145,25 @@ const FESTIVALS=[
   {key:'moon',   name:'中秋節',dates:{2026:'09-25',2027:'09-15',2028:'10-03',2029:'09-22',2030:'09-12',2031:'10-01',2032:'09-19'}},
 ];
 const FESTIVAL_TABLE_LAST_YEAR=2032;
+// 廠商專長類別。維修單選了類別後，廠商下拉只會列出該類別的廠商，
+// 避免叫水電來做油漆。「其他」是未分類廠商的收容類別，任何類別都會列出它。
+const VENDOR_CATS=['水電','木工','油漆','冷氣','鎖具','家電','網路','清潔','搬運','其他'];
+// 業務寄祝福信時要用哪個信箱。這是「這台電腦怎麼寄信」的偏好，
+// 不同業務用不同電腦、甚至同一人在公司與家裡用不同信箱，
+// 所以存 localStorage（跟著裝置）而非雲端（跟著帳號）。
+const MAIL_CLIENTS={
+  local:{label:'本機信箱程式',note:'開啟 Mac 郵件／Outlook 桌面版'},
+  gmail:{label:'Gmail 網頁',note:'在瀏覽器開啟 Gmail 撰寫視窗'},
+  outlook:{label:'Outlook 網頁',note:'在瀏覽器開啟 Outlook 撰寫視窗'},
+};
+function getMailClient(){
+  const v=localStorage.getItem('qj_mailclient');
+  return MAIL_CLIENTS[v]?v:'local';
+}
+function setMailClient(v){
+  localStorage.setItem('qj_mailclient',MAIL_CLIENTS[v]?v:'local');
+  renderGreet();
+}
 const EYE_ICON_CLOSED='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 const EYE_ICON_OPEN='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 function togglePwField(id,btn){
@@ -1333,6 +1361,71 @@ function saveCleanCfgUI(){
   alert('清潔排程設定已儲存');
 }
 
+// ── 廠商管理 modal ────────────────────────────
+let vdRows=[];
+function openVendors(){
+  vdRows=loadVendors();
+  renderVendorRows();
+  document.getElementById('vd-ov').classList.add('open');
+}
+function closeVendors(){document.getElementById('vd-ov').classList.remove('open');}
+function addVendorRow(){
+  vdRows.push({id:genId('VD'),name:'',phone:'',cats:[],props:[],note:'',active:true});
+  renderVendorRows();
+}
+function removeVendorRow(i){vdRows.splice(i,1);renderVendorRows();}
+function renderVendorRows(){
+  const props=getAllProps();
+  const box=document.getElementById('vd-rows');
+  if(vdRows.length===0){
+    box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px;border:1px dashed var(--border);border-radius:7px;text-align:center">尚未建立廠商，維修單的處理人員仍可自行輸入。</div>';
+    return;
+  }
+  const inpS='height:28px;border:1px solid var(--border);border-radius:5px;padding:0 7px;font-size:12px';
+  box.innerHTML=vdRows.map((v,i)=>
+    '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:7px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px dashed var(--border)">'+
+      '<input class="vd-name" type="text" placeholder="廠商／師傅名稱" value="'+escH(v.name||'')+'" style="flex:0 0 130px;'+inpS+'">'+
+      '<input class="vd-phone" type="text" placeholder="聯絡電話" value="'+escH(v.phone||'')+'" style="flex:0 0 120px;'+inpS+'">'+
+      '<select class="vd-cats" multiple size="3" title="專長類別（可複選）" '+
+        'style="flex:0 0 110px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:3px">'+
+        VENDOR_CATS.map(c=>'<option value="'+escH(c)+'"'+
+          (v.cats&&v.cats.includes(c)?' selected':'')+'>'+escH(c)+'</option>').join('')+
+      '</select>'+
+      '<select class="vd-props" multiple size="3" title="可服務館別（可複選，留空＝全部）" '+
+        'style="flex:1;min-width:140px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:3px">'+
+        props.map(p=>'<option value="'+escH(String(p.id))+'"'+
+          (v.props&&v.props.includes(String(p.id))?' selected':'')+'>'+escH(p.name)+'</option>').join('')+
+      '</select>'+
+      '<input class="vd-note" type="text" placeholder="備註" value="'+escH(v.note||'')+'" style="flex:1;min-width:110px;'+inpS+'">'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;height:28px;white-space:nowrap">'+
+        '<input class="vd-act" type="checkbox"'+(v.active!==false?' checked':'')+'>啟用</label>'+
+      '<button class="btn sm btn-ghost" onclick="removeVendorRow('+i+')" title="移除">✕</button>'+
+    '</div>').join('')+
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">欄位依序為：名稱 · 電話 · 專長類別 · 可服務館別 · 備註 · 是否啟用</div>';
+}
+function collectVendors(){
+  const box=document.getElementById('vd-rows');
+  const names=[...box.querySelectorAll('.vd-name')];
+  return names.map((el,i)=>({
+    id:vdRows[i]?vdRows[i].id:genId('VD'),
+    name:el.value.trim(),
+    phone:box.querySelectorAll('.vd-phone')[i].value.trim(),
+    cats:[...box.querySelectorAll('.vd-cats')[i].selectedOptions].map(o=>o.value),
+    props:[...box.querySelectorAll('.vd-props')[i].selectedOptions].map(o=>o.value),
+    note:box.querySelectorAll('.vd-note')[i].value.trim(),
+    active:box.querySelectorAll('.vd-act')[i].checked,
+  })).filter(v=>v.name);
+}
+function saveVendorsUI(){
+  const list=collectVendors();
+  const seen=new Set();
+  const dup=list.find(v=>{const k=v.name+'|'+v.phone;if(seen.has(k))return true;seen.add(k);return false;});
+  if(dup){alert('「'+dup.name+'」有重複的名稱與電話，請合併或修改後再儲存。');return;}
+  saveVendors(list);
+  closeVendors();
+  alert('廠商資料已儲存（共 '+list.length+' 家）');
+}
+
 // ── 頂列「⚙️ 更多」下拉選單 ────────────────────
 function closeMoreMenu(){
   const m=document.querySelector('.more-menu');
@@ -1429,6 +1522,29 @@ function loadCleanCfg(){
 function saveCleanCfg(c){Cloud.set('qj_clean_cfg',c);}
 function loadCleaners(){return Cloud.get('qj_cleaners',[]);}
 function saveCleaners(a){Cloud.set('qj_cleaners',a);}
+
+// ── 廠商主檔 ──────────────────────────────────
+// 維修單原本的「處理人員」是純文字，每次叫修都要重打一次廠商名稱與電話，
+// 打錯字就變成另一家廠商，導致無法統計「這半年到底叫了哪家幾次、花了多少」。
+// 這裡建立廠商主檔，維修單改用下拉選單挑選，但仍保留自行輸入的退路
+// （臨時找的師傅不必為了一次叫修就建檔，舊的純文字資料也不會壞掉）。
+function loadVendors(){return (Cloud.get('qj_vendors',[])).map(v=>({...v,props:(v.props||[]).map(String)}));}
+function saveVendors(a){Cloud.set('qj_vendors',a);}
+function getVendor(id){return loadVendors().find(v=>v.id===id)||null;}
+// 廠商在下拉選單中的顯示字串。這個字串同時會寫進 task.handler，
+// 讓既有的報表／匯出／班表完全不必改就能繼續顯示處理人員。
+function vendorLabel(v){return v.phone?(v.name+' '+v.phone):v.name;}
+// 依「維修類別」與「館別」篩出可用廠商：
+// - cats 留空＝什麼都做，或含「其他」＝未分類，任何類別都列出來，避免建檔不完整就消失
+// - props 留空＝全區服務；有指定就只在該館別的維修單出現（跨區廠商不會誤選）
+function vendorsFor(cat,propId){
+  return loadVendors().filter(v=>{
+    if(v.active===false)return false;
+    if(cat&&v.cats&&v.cats.length&&!v.cats.includes(cat)&&!v.cats.includes('其他'))return false;
+    if(propId&&v.props&&v.props.length&&!v.props.includes(String(propId)))return false;
+    return true;
+  });
+}
 function hm2min(s){const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||''));return m?(+m[1])*60+(+m[2]):0;}
 function min2hm(n){n=Math.max(0,Math.round(n));return pad(Math.floor(n/60))+':'+pad(n%60);}
 function fmtHrs(h){return (Math.round(h*10)/10)+' 小時';}
@@ -2796,6 +2912,8 @@ function openTaskModal(propId,roomNo,dateS,type){
   }else{
     resetTkRooms();
   }
+  fillTkCats('');
+  fillTkVendors('');
   document.getElementById('tk-ov').classList.add('open');
 }
 
@@ -2820,6 +2938,10 @@ function openEditTask(tk){
   // 館別/房號鎖定讓使用者不誤改，但開始/結束日期全部開放
   populateTkProps(String(tk.prop_id||''),isAuto);
   fillTkRooms(String(tk.prop_id||''),tk.room||'',isAuto);
+  fillTkCats(tk.cat||'');
+  // 舊維修單只有純文字 handler、沒有 vendorId，一律以「自行輸入」模式開啟，
+  // 原本打的字照樣留著；廠商已被停用或刪除時也走同一條路，不會遺失紀錄。
+  fillTkVendors(tk.vendorId&&getVendor(tk.vendorId)?tk.vendorId:(tk.handler?TK_VENDOR_MANUAL:''));
   document.getElementById('tk-ov').classList.add('open');
 }
 
@@ -2838,7 +2960,42 @@ function populateTkProps(selectedPid,disabled){
     ps.appendChild(o);
   });
   // Bind change event directly (most reliable)
-  ps.onchange=function(){fillTkRooms(this.value,'');};
+  // 換館別時廠商清單要跟著重篩：跨區廠商不該出現在別館的維修單。
+  // 保留目前已選的廠商值，只有當它在新館別不適用時才會落回未指定。
+  ps.onchange=function(){
+    fillTkRooms(this.value,'');
+    fillTkVendors(document.getElementById('tk-vendor').value);
+  };
+}
+
+// ── 維修單的廠商下拉 ──────────────────────────
+const TK_VENDOR_MANUAL='__manual__';
+function fillTkCats(cur){
+  const sel=document.getElementById('tk-cat');
+  sel.innerHTML='<option value="">— 不指定 —</option>'+
+    VENDOR_CATS.map(c=>'<option value="'+escH(c)+'"'+(c===cur?' selected':'')+'>'+escH(c)+'</option>').join('');
+}
+// selVal 可以是廠商 id、TK_VENDOR_MANUAL（自行輸入）或空字串（未指定）。
+// 若原本選的廠商因為換了類別/館別而被篩掉，會自動退回「自行輸入」並保留已填的文字，
+// 而不是靜默清空——維修單上的處理人員不該因為改個下拉就不見。
+function fillTkVendors(selVal){
+  const sel=document.getElementById('tk-vendor');
+  if(!sel)return;
+  const cat=curTkType==='repair'?(document.getElementById('tk-cat').value||''):'';
+  const pid=document.getElementById('tk-prop').value||'';
+  const list=vendorsFor(cat,pid);
+  const keep=list.some(v=>v.id===selVal)?selVal:
+    (selVal&&selVal!==TK_VENDOR_MANUAL?TK_VENDOR_MANUAL:selVal);
+  sel.innerHTML='<option value="">— 未指定 —</option>'+
+    list.map(v=>'<option value="'+escH(v.id)+'"'+(v.id===keep?' selected':'')+'>'+
+      escH(vendorLabel(v))+(v.cats&&v.cats.length?'（'+escH(v.cats.join('/'))+'）':'')+'</option>').join('')+
+    '<option value="'+TK_VENDOR_MANUAL+'"'+(keep===TK_VENDOR_MANUAL?' selected':'')+'>✎ 自行輸入…</option>';
+  sel.value=keep||'';
+  onTkVendorChange();
+}
+function onTkVendorChange(){
+  const v=document.getElementById('tk-vendor').value;
+  document.getElementById('tk-handler-wrap').style.display=v===TK_VENDOR_MANUAL?'':'none';
 }
 
 function fillTkRooms(propId,selRoom,disabled){
@@ -2873,6 +3030,8 @@ function setTkType(type){
   // 只有維修才要記金額與屋主請款狀態
   document.querySelectorAll('.tk-cost-only').forEach(el=>{el.style.display=type==='repair'?'':'none';});
   fillTkStatus(prev||'todo');
+  // 切成清潔時類別欄位被隱藏，等同「不指定類別」，廠商清單要重新以全類別列出
+  fillTkVendors(document.getElementById('tk-vendor').value);
 }
 // 打掃沒有汰換的概念，所以兩種類型的可選狀態不同
 function fillTkStatus(cur){
@@ -2897,12 +3056,19 @@ function saveTk(){
   // 若開始=結束（同一天），自動延伸為 1 天
   const endAdj=start===end?addDays(start,1):end;
   const note=document.getElementById('tk-note').value.trim();
-  const handler=document.getElementById('tk-handler').value.trim();
+  // 選了廠商就以主檔名稱＋電話為準寫進 handler，讓既有報表／匯出／班表完全不必改；
+  // vendorId 另外存一份，才能做「同一家廠商累計叫了幾次、花了多少」的統計
+  // （純比對名稱字串會因為打錯字而拆成兩家）。
+  const vsel=document.getElementById('tk-vendor').value;
+  const vend=vsel&&vsel!==TK_VENDOR_MANUAL?getVendor(vsel):null;
+  const vendorId=vend?vend.id:'';
+  const handler=vend?vendorLabel(vend):document.getElementById('tk-handler').value.trim();
   const dueDate=document.getElementById('tk-due').value;
   const status=document.getElementById('tk-status').value||'todo';
   if(dueDate&&dueDate<start){alert('預計完成日不能早於開始日期');return;}
-  let cost=0,billing='none',blocking='exclusive';
+  let cost=0,billing='none',blocking='exclusive',cat='';
   if(curTkType==='repair'){
+    cat=document.getElementById('tk-cat').value||'';
     const raw=document.getElementById('tk-cost').value.trim();
     if(raw!==''){
       cost=Number(raw);
@@ -2920,14 +3086,14 @@ function saveTk(){
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
         start,   // 開始日期現在允許修改（含自動排程）
-        end:endAdj,note,status,handler,dueDate,cost,billing,blocking,
+        end:endAdj,note,status,handler,vendorId,cat,dueDate,cost,billing,blocking,
         doneAt:status==='done'||status==='replaced'?(old.doneAt||todayStr()):'',
         updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
     tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
       start,end:endAdj,note,isAuto:false,bookingId:null,
-      status,handler,dueDate,cost,billing,blocking,
+      status,handler,vendorId,cat,dueDate,cost,billing,blocking,
       doneAt:status==='done'||status==='replaced'?todayStr():'',
       createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
@@ -3739,16 +3905,28 @@ function birthdayThisMonth(c,y,m){
   const maxD=dim(y,m);
   return ds(y,m,Math.min(bd,maxD)); // 2/29 生日在平年顯示為 2/28
 }
-function greetMailto(c,subject,body){
-  return 'mailto:'+encodeURIComponent(c.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+// 依業務自選的寄件方式產生「開啟撰寫視窗」的網址。
+// 三種都只是把信件內容預先填好給業務過目，系統本身永遠不會自動送出，
+// 也因此不需要後端寄信服務、不必驗證寄件網域、不會有退信與黑名單問題。
+// 寄件人一律是業務自己信箱裡的帳號，與登入本系統的帳號無關（兩者可以不同）。
+function greetMailUrl(c,subject,body){
+  const to=encodeURIComponent(c.email||''),su=encodeURIComponent(subject),bd=encodeURIComponent(body);
+  switch(getMailClient()){
+    case 'gmail':return 'https://mail.google.com/mail/?view=cm&fs=1&to='+to+'&su='+su+'&body='+bd;
+    case 'outlook':return 'https://outlook.office.com/mail/deeplink/compose?to='+to+'&subject='+su+'&body='+bd;
+    default:return 'mailto:'+to+'?subject='+su+'&body='+bd;
+  }
 }
+// 個資法第 20 條：首次利用個資行銷時，應提供當事人表示拒絕的方式並負擔所需費用。
+// 每封祝福信都附上退出方式，回信即可，對客戶零成本。
+const GREET_OPTOUT='\n\n─────────────\n若不希望再收到祝福或活動訊息，請直接回覆本信告知「取消訂閱」，我們會立即停止發送。\n';
 function bdaySubject(c){return '生日快樂！短租團隊誠摯祝福 '+c.name+' 先生/小姐';}
 function bdayBody(c){
   return c.name+' 您好：\n\n'+
     '在這個特別的日子，短租團隊祝您生日快樂、平安順心。\n'+
     '感謝您一直以來對我們的支持與信任。\n\n'+
     '若有任何住宿需求，隨時與我們聯繫，很樂意為您服務。\n\n'+
-    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n';
+    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n'+GREET_OPTOUT;
 }
 function festSubject(c,f){return f.name+'祝福｜短租團隊敬賀';}
 function festBody(c,f){
@@ -3756,8 +3934,23 @@ function festBody(c,f){
     f.name+'將至，短租團隊在此向您與家人獻上誠摯的祝福，願您佳節愉快、身體健康。\n'+
     '感謝您一直以來對我們的支持。\n\n'+
     '若有任何住宿需求，隨時與我們聯繫。\n\n'+
-    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n';
+    '短租團隊　'+(Cloud.myDisplayName||'')+' 敬上\n'+GREET_OPTOUT;
 }
+// ── 已寄送紀錄 ────────────────────────────────
+// 存雲端而非 localStorage：同一位客戶可能由不同業務、不同裝置操作，
+// 記在本機會導致換台電腦就重複祝福同一個人（同一個節日祝兩次比不祝更失禮）。
+// key 帶年份，所以明年同一個節日會重新視為未寄。
+function greetKey(c,kind,fkey){
+  const y=String(new Date().getFullYear());
+  return (c.phone||'')+'|'+(kind==='bday'?'bday':'fest:'+(fkey||''))+'|'+y;
+}
+function loadGreetLog(){return Cloud.get('qj_greetlog',{});}
+function markGreetSent(c,kind,fkey){
+  const log=loadGreetLog();
+  log[greetKey(c,kind,fkey)]={at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail};
+  Cloud.set('qj_greetlog',log);
+}
+function greetSentInfo(c,kind,fkey){return loadGreetLog()[greetKey(c,kind,fkey)]||null;}
 function copyGreetText(kind,phone,fkey){
   const c=buildCustomerIndex().find(x=>x.phone===phone);
   if(!c)return;
@@ -3787,12 +3980,15 @@ function renderGreet(){
 
   function custRow(c,kind,f,prefix){
     const canMail=c.optIn&&c.email;
+    const sent=greetSentInfo(c,kind,f?f.key:'');
     const why=!c.optIn?'未勾選同意接收，不建議主動發送'
       :(!c.email?'已同意但沒有 Email，可改用電話或 LINE 聯繫':'');
-    const subject=kind==='bday'?bdaySubject(c):festSubject(c,f);
-    const body=kind==='bday'?bdayBody(c):festBody(c,f);
     const ph=escH(c.phone).replace(/'/g,"\\'");
+    const fk=f?f.key:'';
     return '<tr style="border-bottom:1px solid var(--border)'+(canMail?'':';opacity:.62')+'">'+
+      '<td style="padding:7px 4px 7px 9px;width:26px">'+
+        (canMail?'<input type="checkbox" class="gr-ck" data-phone="'+escH(c.phone)+'" data-kind="'+kind+'" data-fkey="'+escH(fk)+'"'+
+          (sent?'':' checked')+' onchange="updGreetSel()">':'')+'</td>'+
       '<td style="padding:7px 9px">'+(prefix||'')+'<strong>'+escH(c.name)+'</strong>'+
         '<div style="font-size:10px;color:var(--muted)">'+escH(c.phone)+'</div></td>'+
       '<td style="padding:7px 9px;font-size:11px">'+escH(c.owner||'—')+'</td>'+
@@ -3800,23 +3996,40 @@ function renderGreet(){
       '<td style="padding:7px 9px;font-size:11px">'+
         (c.optIn?'<span style="color:#2f9e44;font-weight:700">✔ 已同意</span>':'<span style="color:#c92a2a;font-weight:700">✕ 未同意</span>')+
         (why?'<div style="font-size:9.5px;color:var(--muted);margin-top:2px">'+why+'</div>':'')+'</td>'+
+      '<td style="padding:7px 9px;font-size:10.5px;white-space:nowrap">'+
+        (sent?'<span style="color:#2f9e44;font-weight:700">✔ 今年已寄</span><div style="color:var(--muted);font-size:9.5px">'+
+          escH((sent.at||'').slice(0,10))+' '+escH(sent.by||'')+'</div>'
+        :'<span style="color:var(--muted)">尚未寄送</span>')+'</td>'+
       '<td style="padding:7px 9px;text-align:right;white-space:nowrap">'+
         (canMail
-          ?'<a class="btn btn-primary sm" style="text-decoration:none" href="'+escH(greetMailto(c,subject,body))+'">✉️ 寄祝福</a> '
+          ?'<button class="btn btn-primary sm" onclick="sendOneGreet(\''+ph+'\',\''+kind+'\',\''+escH(fk)+'\')">✉️ 寄祝福</button> '
           :'')+
-        '<button class="btn btn-ghost sm" onclick="copyGreetText(\''+kind+'\',\''+ph+'\',\''+(f?f.key:'')+'\')">複製文案</button>'+
+        '<button class="btn btn-ghost sm" onclick="copyGreetText(\''+kind+'\',\''+ph+'\',\''+fk+'\')">複製文案</button>'+
       '</td>'+
     '</tr>';
   }
   function tableWrap(rows){
     return '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
       '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">'+
-        ['客戶','歸屬業務','Email','祝福同意',''].map((h,i)=>
-          '<th style="padding:7px 9px;text-align:'+(i===4?'right':'left')+';color:var(--muted);font-size:10px">'+h+'</th>').join('')+
+        ['','客戶','歸屬業務','Email','祝福同意','寄送狀態',''].map((h,i)=>
+          '<th style="padding:7px 9px;text-align:'+(i===6?'right':'left')+';color:var(--muted);font-size:10px">'+h+'</th>').join('')+
       '</tr></thead><tbody>'+rows+'</tbody></table>';
   }
 
   let html='';
+  // 寄件方式列＋批次寄送列。放在最上方，因為業務通常是「先確認用哪個信箱、再一次處理完一整批」。
+  html+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--primary-light);border-radius:8px;padding:9px 12px;margin-bottom:12px">'+
+    '<span style="font-size:11.5px;font-weight:700;color:var(--primary-d)">寄件方式</span>'+
+    '<select onchange="setMailClient(this.value)" style="height:28px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:0 6px;background:#fff">'+
+      Object.keys(MAIL_CLIENTS).map(k=>'<option value="'+k+'"'+(getMailClient()===k?' selected':'')+'>'+
+        escH(MAIL_CLIENTS[k].label)+'</option>').join('')+
+    '</select>'+
+    '<span style="font-size:10.5px;color:var(--muted)">'+escH(MAIL_CLIENTS[getMailClient()].note)+'　（此設定只記在這台電腦）</span>'+
+    '<span style="flex:1"></span>'+
+    '<button class="btn btn-ghost sm" onclick="toggleGreetAll(true)">全選</button>'+
+    '<button class="btn btn-ghost sm" onclick="toggleGreetAll(false)">全不選</button>'+
+    '<button class="btn btn-primary sm" onclick="startGreetQueue()">📤 批次寄送 <span id="gr-selcount"></span></button>'+
+  '</div>';
   html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin-bottom:7px">🎂 '+m+' 月壽星（'+stars.length+' 位）</div>';
   if(stars.length===0){
     html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted);margin-bottom:16px">'+
@@ -3848,12 +4061,126 @@ function renderGreet(){
 
   html+='<div style="margin-top:16px;padding:11px 13px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
     '<strong style="color:var(--text)">關於發送方式</strong><br>'+
-    '「✉️ 寄祝福」會用您電腦預設的信箱程式開啟一封已寫好的信，您可以修改後再送出，系統不會自動寄信。<br>'+
+    '「✉️ 寄祝福」會依上方選的寄件方式，開啟一封<strong>已經填好收件人、主旨與內文</strong>的信件撰寫視窗，您過目或修改後再按送出。'+
+    '寄件人是您自己信箱裡的帳號（與登入本系統的帳號無關），<strong>系統本身不會自動寄信</strong>。<br>'+
+    '「📤 批次寄送」會把勾選的客戶排成佇列，一次開一封、寄完再開下一封，並記錄誰已經寄過，避免同一個節日重複祝福同一位客戶。<br>'+
     '「複製文案」可把同一段內容複製起來，貼到 LINE 或簡訊發送。<br>'+
-    '<strong style="color:var(--text)">個資法提醒</strong>：只有勾選「同意接收活動與祝福訊息」的客戶才會顯示寄信按鈕，未同意者僅供內部查看，請勿主動發送行銷內容。<br>'+
+    '<strong style="color:var(--text)">個資法提醒</strong>：只有勾選「同意接收活動與祝福訊息」的客戶才會顯示寄信按鈕，未同意者僅供內部查看，請勿主動發送行銷內容。'+
+    '信件內文已自動附上「回覆本信即可取消訂閱」的退出方式（個資法第 20 條要求提供免費的拒絕管道）。<br>'+
     '春節／端午／中秋為農曆節日，系統內建國曆對照表至 '+FESTIVAL_TABLE_LAST_YEAR+' 年。'+
   '</div>';
   box.innerHTML=html;
+  updGreetSel();
+}
+
+// ── 祝福寄送（單封 / 批次佇列）──────────────────
+function greetCust(phone){return buildCustomerIndex().find(x=>x.phone===phone)||null;}
+function greetContent(c,kind,fkey){
+  if(kind==='bday')return{subject:bdaySubject(c),body:bdayBody(c)};
+  const f=FESTIVALS.find(x=>x.key===fkey)||FESTIVALS[0];
+  return{subject:festSubject(c,f),body:festBody(c,f)};
+}
+// mailto: 要用 location.href 才會交給本機信箱程式；用 window.open 會先開出一個空白分頁再閃退。
+// 網頁版信箱則相反，必須開新分頁，否則會把排房系統整個導走、未存的編輯就沒了。
+function openMailUrl(url){
+  if(url.indexOf('mailto:')===0)window.location.href=url;
+  else window.open(url,'_blank','noopener');
+}
+function sendOneGreet(phone,kind,fkey){
+  const c=greetCust(phone);
+  if(!c)return;
+  const{subject,body}=greetContent(c,kind,fkey);
+  openMailUrl(greetMailUrl(c,subject,body));
+  markGreetSent(c,kind,fkey);
+  renderGreet();
+}
+function toggleGreetAll(on){
+  document.querySelectorAll('#gr-content .gr-ck').forEach(el=>{el.checked=on;});
+  updGreetSel();
+}
+function greetSelected(){
+  return [...document.querySelectorAll('#gr-content .gr-ck')].filter(el=>el.checked)
+    .map(el=>({phone:el.dataset.phone,kind:el.dataset.kind,fkey:el.dataset.fkey}));
+}
+function updGreetSel(){
+  const el=document.getElementById('gr-selcount');
+  if(el)el.textContent='('+greetSelected().length+')';
+}
+
+// 批次寄送刻意採「逐封佇列」而非一次群發（副本／密件副本）：
+// 群發會讓每位客戶收到內容完全相同的信，祝福的意義大打折扣；
+// 密件副本一旦誤用成副本更會外洩全部客戶的 Email，是實務上最常見的個資事故。
+// 佇列方式仍是一位客戶一封信，只是把「找名單、開信、填內容」的重複動作自動化。
+let gqList=[],gqIdx=0;
+function startGreetQueue(){
+  const sel=greetSelected();
+  if(sel.length===0){alert('請先勾選要寄送的客戶。');return;}
+  gqList=sel.map(s=>{
+    const c=greetCust(s.phone);
+    return{...s,name:c?c.name:s.phone,email:c?c.email:'',done:false,skipped:false};
+  }).filter(x=>x.email);
+  if(gqList.length===0){alert('勾選的客戶都沒有 Email，無法寄送。');return;}
+  gqIdx=0;
+  renderGreetQueue();
+  document.getElementById('gq-ov').classList.add('open');
+}
+function closeGreetQueue(){
+  document.getElementById('gq-ov').classList.remove('open');
+  renderGreet();
+}
+function gqOpenCurrent(){
+  const it=gqList[gqIdx];
+  if(!it)return;
+  const c=greetCust(it.phone);
+  if(c){
+    const{subject,body}=greetContent(c,it.kind,it.fkey);
+    openMailUrl(greetMailUrl(c,subject,body));
+    markGreetSent(c,it.kind,it.fkey);
+  }
+  it.done=true;
+  gqIdx++;
+  renderGreetQueue();
+}
+function gqSkip(){
+  if(gqList[gqIdx])gqList[gqIdx].skipped=true;
+  gqIdx++;
+  renderGreetQueue();
+}
+function renderGreetQueue(){
+  const done=gqList.filter(x=>x.done).length;
+  const skipped=gqList.filter(x=>x.skipped).length;
+  const cur=gqList[gqIdx]||null;
+  document.getElementById('gq-title').textContent='📤 批次寄送（'+Math.min(gqIdx+(cur?1:0),gqList.length)+' / '+gqList.length+'）';
+  const rows=gqList.map((x,i)=>{
+    const st=x.done?'<span style="color:#2f9e44;font-weight:700">✅ 已開啟</span>'
+      :x.skipped?'<span style="color:var(--muted)">⏭ 已跳過</span>'
+      :i===gqIdx?'<span style="color:#1971c2;font-weight:700">▶ 目前這封</span>'
+      :'<span style="color:var(--muted)">⬜ 待寄</span>';
+    return '<tr style="border-bottom:1px solid var(--border)'+(i===gqIdx?';background:#e7f5ff':'')+'">'+
+      '<td style="padding:6px 9px;width:34px;color:var(--muted);font-size:10.5px">'+(i+1)+'</td>'+
+      '<td style="padding:6px 9px"><strong>'+escH(x.name)+'</strong></td>'+
+      '<td style="padding:6px 9px;font-size:11px;color:var(--muted)">'+escH(x.email)+'</td>'+
+      '<td style="padding:6px 9px;font-size:11px;white-space:nowrap">'+st+'</td>'+
+    '</tr>';
+  }).join('');
+  document.getElementById('gq-list').innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+    '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">'+
+      ['#','客戶','Email','狀態'].map(h=>'<th style="padding:6px 9px;text-align:left;color:var(--muted);font-size:10px">'+h+'</th>').join('')+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+  const bar=document.getElementById('gq-bar');
+  if(cur){
+    bar.innerHTML='<div style="font-size:12px">下一封要寄給 <strong>'+escH(cur.name)+'</strong>'+
+      '<span style="color:var(--muted)">（'+escH(cur.email)+'）</span></div>'+
+      '<span style="flex:1"></span>'+
+      '<button class="btn btn-ghost sm" onclick="gqSkip()">跳過</button>'+
+      '<button class="btn btn-primary sm" onclick="gqOpenCurrent()">開啟這封 ▶</button>';
+  }else{
+    bar.innerHTML='<div style="font-size:12px;font-weight:700;color:#2f9e44">✅ 全部處理完畢：已開啟 '+done+' 封'+
+      (skipped?'、跳過 '+skipped+' 位':'')+'</div>'+
+      '<span style="flex:1"></span>'+
+      '<button class="btn btn-primary sm" onclick="closeGreetQueue()">完成</button>';
+  }
 }
 
 // ════════════════════════════════════════════════
@@ -4097,6 +4424,22 @@ function maintReportHtml(){
     byRoom[k].cost+=tkCost(t);
     if(t.billing==='unbilled')byRoom[k].unbilled+=tkCost(t);
   });
+  // 各廠商叫修次數與累計金額。以 vendorId 為主鍵，沒有 vendorId 的舊單（純文字 handler）
+  // 才退而以名稱字串歸戶，兩者不會互相污染；完全沒填處理人員的單一律排除，
+  // 否則會出現一個名為「未指派」的假廠商佔據排行榜第一名。
+  const byVendor={};
+  all.forEach(t=>{
+    const key=t.vendorId||(t.handler?'名稱|'+t.handler:'');
+    if(!key)return;
+    const v=t.vendorId?getVendor(t.vendorId):null;
+    const label=v?vendorLabel(v):t.handler;
+    if(!byVendor[key])byVendor[key]={label,n:0,cost:0,unbilled:0,open:0,linked:!!t.vendorId};
+    byVendor[key].n++;
+    byVendor[key].cost+=tkCost(t);
+    if(t.billing==='unbilled')byVendor[key].unbilled+=tkCost(t);
+    if(OPEN_STATUS_KEYS.includes(t.status))byVendor[key].open++;
+  });
+  const topVendors=Object.values(byVendor).sort((a,b)=>b.cost-a.cost||b.n-a.n).slice(0,10);
   const topRooms=Object.entries(byRoom).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
   const topCost=Object.entries(byRoom).filter(x=>x[1].cost>0).sort((a,b)=>b[1].cost-a[1].cost).slice(0,8);
   const sumCost=all.reduce((s,t)=>s+tkCost(t),0);
@@ -4145,6 +4488,25 @@ function maintReportHtml(){
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+v.n+' 次</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost/v.n)+'</td>'+
       '</tr>').join('')+'</tbody></table>';
+  }
+
+  if(topVendors.length>0){
+    html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">🔧 各廠商叫修次數與累計金額</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      '<thead><tr style="border-bottom:1px solid var(--border)">'+
+        ['廠商 / 處理人員','叫修次數','未結案','累計金額','其中未請款','平均每次'].map((h,i)=>
+          '<th style="padding:6px 8px;text-align:'+(i===0?'left':'right')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+
+      topVendors.map(v=>'<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:6px 8px">'+escH(v.label)+
+          (v.linked?'':'<span style="font-size:9.5px;color:var(--muted);margin-left:5px">（未建檔）</span>')+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v.n+' 次</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.open>0?'#e67700':'var(--muted)')+'">'+v.open+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+money(v.cost)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#e67700':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost/v.n)+'</td>'+
+      '</tr>').join('')+'</tbody></table>'+
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:5px">標示「未建檔」者是以手動輸入的文字歸戶，名稱打法不同會被算成不同廠商；建議到「⚙️ 更多 → 🔧 廠商管理」建檔後改用下拉選單。</div>';
   }
 
   if(overdue.length>0){
@@ -5403,6 +5765,36 @@ init();
 </div>
 </div>
 
+<!-- ═══ Vendor Master Modal ═══ -->
+<div class="overlay" id="vd-ov" onclick="if(event.target===this)closeVendors()">
+<div class="modal" style="width:820px;max-width:98vw">
+  <div class="modal-h">
+    <h2>🔧 廠商管理</h2>
+    <button class="close-btn" onclick="closeVendors()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--primary-light);border-radius:8px;padding:10px 12px;margin-bottom:14px">
+      建檔後，維修單的「處理人員」就能直接從下拉選單挑選，不必每次重打廠商名稱與電話。
+      系統會依維修單選的<strong>類別</strong>與<strong>館別</strong>自動篩選，只列出做得了這件事、也跑得到那個地點的廠商。
+      維修報表則會統計各廠商的叫修次數與累計金額。
+    </div>
+    <div style="font-weight:800;font-size:13px;margin:0 0 8px;display:flex;align-items:center;gap:8px">
+      廠商清單
+      <button class="btn sm btn-ghost" onclick="addVendorRow()">＋ 新增廠商</button>
+    </div>
+    <div id="vd-rows"></div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px">
+      「專長類別」留空或選「其他」＝任何維修類別都會列出；「可服務館別」留空＝全區皆可服務。
+      停用的廠商不會出現在下拉選單，但過去的維修紀錄與金額統計都會保留。
+    </div>
+  </div>
+  <div style="padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+    <button class="btn btn-ghost" onclick="closeVendors()">取消</button>
+    <button class="btn btn-primary" onclick="saveVendorsUI()">儲存廠商</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ Maintenance Tracking Modal ═══ -->
 <div class="overlay" id="mt-ov" onclick="if(event.target===this)closeMaint()">
 <div class="modal" style="width:940px;max-width:98vw">
@@ -5450,7 +5842,7 @@ init();
 
 <!-- ═══ Greeting Reminder Modal ═══ -->
 <div class="overlay" id="gr-ov" onclick="if(event.target===this)closeGreet()">
-<div class="modal" style="width:820px;max-width:98vw">
+<div class="modal" style="width:1000px;max-width:98vw">
   <div class="modal-h">
     <h2 id="gr-title">🎉 祝福提醒</h2>
     <button class="close-btn" onclick="closeGreet()">✕</button>
@@ -5461,6 +5853,24 @@ init();
   <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
     <button class="btn btn-ghost" onclick="closeGreet()">關閉</button>
   </div>
+</div>
+</div>
+
+<!-- ═══ Greeting Batch Queue Modal ═══ -->
+<div class="overlay" id="gq-ov" onclick="if(event.target===this)closeGreetQueue()">
+<div class="modal" style="width:640px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="gq-title">📤 批次寄送</h2>
+    <button class="close-btn" onclick="closeGreetQueue()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:58vh;overflow-y:auto">
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--primary-light);border-radius:8px;padding:9px 12px;margin-bottom:11px">
+      按「開啟這封」會開啟一封已填好內容的信件視窗，您<strong>確認後自行按送出</strong>，接著回到這裡開下一封。
+      每位客戶都是獨立一封信，不會用副本或密件副本群發，也不會外洩其他客戶的 Email。
+    </div>
+    <div id="gq-list"></div>
+  </div>
+  <div id="gq-bar" style="padding:11px 17px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px"></div>
 </div>
 </div>
 
