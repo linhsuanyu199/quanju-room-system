@@ -525,6 +525,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">官網連結</button>
   </div>
   <div class="topbar-fixed">
+    <button class="btn-top btn-mgt-top" id="btn-todo" onclick="openTodo()" title="今日待辦提醒"
+      style="background:rgba(255,255,255,.1);position:relative">🔔<span id="todo-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
     <!-- 次要功能收進下拉選單，避免頂列按鈕過多而被橫向捲動截斷 -->
     <div class="more-menu">
       <button class="btn-top btn-mgt-top" id="btn-more" onclick="toggleMoreMenu(event)" title="其他功能" style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span id="more-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
@@ -533,6 +535,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
         <button class="more-item" id="more-invite" style="display:none" onclick="pickMore(()=>Cloud.openInvite())">✉️ 邀請成員</button>
+        <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
         <div class="more-sep"></div>
         <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
         <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
@@ -874,7 +877,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       </div>
       <div class="field span2">
         <label>館別 <span class="req">*</span></label>
-        <select id="tk-prop" onchange="onTkProp()">
+        <!-- change 事件由 populateTkProps() 以 ps.onchange 綁定，此處不放 inline handler -->
+        <select id="tk-prop">
           <option value="">— 請選擇館別 —</option>
         </select>
       </div>
@@ -908,6 +912,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <option value="none">不需請款（自行吸收）</option>
           <option value="unbilled">未請款</option>
           <option value="billed">已請款</option>
+        </select>
+      </div>
+      <div class="field span2 tk-cost-only">
+        <label>維修期間房間狀態 <span style="font-size:10px;color:var(--muted);font-weight:400">（決定是否擋下該時段的新訂單）</span></label>
+        <select id="tk-blocking">
+          <option value="exclusive">需淨空 — 施工期間不可住人，擋下該時段訂單</option>
+          <option value="occupied">可續住 — 如換燈泡、小修繕，不影響訂單</option>
         </select>
       </div>
       <div class="field span2">
@@ -1134,6 +1145,194 @@ function togglePwField(id,btn){
   else{el.type='password';btn.innerHTML=EYE_ICON_CLOSED;}
 }
 
+// ── 今日待辦提醒 ────────────────────────────────
+// 系統原本只有「清潔逾期」看得到，訂單那側完全沒有時間到期的提醒：
+// 入住日到了卻還停在「預定中」（＝尚未收款）不會有任何訊號，房間可能就這樣被住走。
+// 這裡把三類「日期已到但狀態沒跟上」的情況集中成一份待辦清單。
+function todoAlerts(){
+  const tod=todayStr();
+  const unpaid=[],lateOut=[];
+  loadBks().forEach(b=>{
+    (b.segments||[]).forEach((s,i)=>{
+      if(!s.checkin||!s.checkout)return;
+      const st=s.status||'reserved';
+      // 入住日已到、退房日還沒過，卻仍是「預定中」＝人要住進來了但款項還沒確認
+      if(st==='reserved'&&s.checkin<=tod&&s.checkout>tod)
+        unpaid.push({bk:b,seg:s,idx:i,days:diffDays(s.checkin,tod)});
+      // 退房日已過卻仍掛「入住中」＝沒辦退房，房態與帳都不準
+      if(st==='checkin'&&s.checkout<tod)
+        lateOut.push({bk:b,seg:s,idx:i,days:diffDays(s.checkout,tod)});
+    });
+  });
+  const tasks=loadTasks().filter(t=>OPEN_STATUS_KEYS.includes(t.status)&&t.dueDate&&t.dueDate<tod);
+  unpaid.sort((a,b)=>b.days-a.days);
+  lateOut.sort((a,b)=>b.days-a.days);
+  tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
+  return{unpaid,lateOut,tasks,total:unpaid.length+lateOut.length+tasks.length,tod};
+}
+function refreshTodoBadge(){
+  const el=document.getElementById('todo-badge');
+  if(!el)return;
+  const n=Cloud.isLoggedIn&&Cloud.isLoggedIn()?todoAlerts().total:0;
+  el.textContent=n>99?'99+':n;
+  el.style.display=n>0?'':'none';
+}
+function openTodo(){
+  const a=todoAlerts();
+  const props=getAllProps();
+  const pn=pid=>{const p=props.find(x=>String(x.id)===String(pid));return p?p.name:'（已刪除館別）';};
+  const sec=(title,color,n,note,rows)=>n===0?'':
+    '<div style="margin-top:14px"><div style="font-weight:800;font-size:12.5px;color:'+color+'">'+title+'（'+n+'）</div>'+
+    '<div style="font-size:10.5px;color:var(--muted);margin:3px 0 6px;line-height:1.7">'+note+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+rows+'</table></div>';
+  let h='';
+  if(a.total===0){
+    h='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有逾期待辦</div>'+
+      '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、退房日已過仍未辦退房、清潔／維修已過預計完成日。</div>';
+  }else{
+    h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
+      '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
+      a.unpaid.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk(\''+escH(x.bk.id)+'\')" style="color:#1a56a0">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">入住 '+x.seg.checkin+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">已逾 '+x.days+' 天</td>'+
+      '</tr>').join(''));
+    h+=sec('🚪 退房日已過但尚未辦理退房','#e67700',a.lateOut.length,
+      '狀態仍是「入住中」，房間在系統上被佔用、營收也還沒結算。請確認客人是否已離開並辦理退房。',
+      a.lateOut.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk(\''+escH(x.bk.id)+'\')" style="color:#1a56a0">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">應退 '+x.seg.checkout+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#e67700;font-weight:700">已逾 '+x.days+' 天</td>'+
+      '</tr>').join(''));
+    h+=sec('🧹 清潔／維修已過預計完成日','#7048e8',a.tasks.length,
+      '狀態仍是待處理／處理中。系統不會因為日期過了就自動標記完成，需由執行人員回報。',
+      a.tasks.map(t=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700">'+(t.type==='repair'?'🔧 維修':'🧹 清潔')+'</td>'+
+        '<td style="padding:5px 6px">'+escH(pn(t.prop_id))+' '+escH(t.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">預計 '+t.dueDate+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#7048e8;font-weight:700">已逾 '+diffDays(t.dueDate,a.tod)+' 天</td>'+
+      '</tr>').join(''));
+  }
+  document.getElementById('td-body').innerHTML=h;
+  document.getElementById('td-ov').classList.add('open');
+}
+function closeTodo(){document.getElementById('td-ov').classList.remove('open');refreshTodoBadge();}
+function todoOpenBk(id){
+  const bk=loadBks().find(b=>String(b.id)===String(id));
+  closeTodo();
+  if(!bk){alert('這筆訂單已不存在，可能已被其他成員刪除。');return;}
+  openEditBk(bk);
+}
+
+// ── 清潔排程設定 ────────────────────────────────
+let ccRows=[];
+function openCleanCfg(){
+  const cfg=loadCleanCfg();
+  document.getElementById('cc-out').value=cfg.checkoutTime;
+  document.getElementById('cc-in').value=cfg.checkinTime;
+  document.getElementById('cc-buf').value=cfg.bufferMin;
+  document.getElementById('cc-hours').innerHTML=ROOM_TYPES.map(t=>
+    '<div class="field"><label>'+escH(t)+'</label>'+
+    '<input class="cc-h" data-type="'+escH(t)+'" type="number" min="0" step="0.5" value="'+
+    (cfg.hoursByType[t]!==undefined?cfg.hoursByType[t]:FALLBACK_CLEAN_HOURS)+'"></div>').join('');
+  ccRows=loadCleaners().map(c=>({...c,props:(c.props||[]).map(String)}));
+  renderCleanerRows();
+  renderCcPreview();
+  document.getElementById('cc-hours').oninput=renderCcPreview;
+  document.getElementById('cc-out').oninput=renderCcPreview;
+  document.getElementById('cc-in').oninput=renderCcPreview;
+  document.getElementById('cc-buf').oninput=renderCcPreview;
+  document.getElementById('cc-ov').classList.add('open');
+}
+function closeCleanCfg(){document.getElementById('cc-ov').classList.remove('open');}
+function addCleanerRow(){
+  ccRows.push({id:genId('CW'),name:'',hoursPerDay:8,props:[],active:true});
+  renderCleanerRows();
+}
+function removeCleanerRow(i){ccRows.splice(i,1);renderCleanerRows();}
+function renderCleanerRows(){
+  const props=getAllProps();
+  const box=document.getElementById('cc-cleaners');
+  if(ccRows.length===0){
+    box.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px;border:1px dashed var(--border);border-radius:7px;text-align:center">尚未建立清潔人員，班表無法自動派工。</div>';
+    return;
+  }
+  box.innerHTML=ccRows.map((c,i)=>
+    '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:7px;flex-wrap:wrap">'+
+      '<input class="cc-name" type="text" placeholder="姓名" value="'+escH(c.name||'')+'" '+
+        'style="flex:0 0 110px;height:28px;border:1px solid var(--border);border-radius:5px;padding:0 7px;font-size:12px">'+
+      '<input class="cc-hpd" type="number" min="0" step="0.5" value="'+(c.hoursPerDay||0)+'" title="每日可用工時" '+
+        'style="flex:0 0 72px;height:28px;border:1px solid var(--border);border-radius:5px;padding:0 7px;font-size:12px">'+
+      '<select class="cc-props" multiple size="'+Math.min(4,Math.max(2,props.length))+'" '+
+        'style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:3px">'+
+        props.map(p=>'<option value="'+escH(String(p.id))+'"'+
+          (c.props&&c.props.includes(String(p.id))?' selected':'')+'>'+escH(p.name)+'</option>').join('')+
+      '</select>'+
+      '<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;height:28px;white-space:nowrap">'+
+        '<input class="cc-act" type="checkbox"'+(c.active!==false?' checked':'')+'>在職</label>'+
+      '<button class="btn sm btn-ghost" onclick="removeCleanerRow('+i+')" title="移除">✕</button>'+
+    '</div>').join('')+
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">欄位依序為：姓名 · 每日可用工時 · 可服務館別（可複選，留空＝全部）· 是否在職</div>';
+}
+function collectCcCleaners(){
+  const box=document.getElementById('cc-cleaners');
+  const names=[...box.querySelectorAll('.cc-name')];
+  return names.map((el,i)=>({
+    id:ccRows[i]?ccRows[i].id:genId('CW'),
+    name:el.value.trim(),
+    hoursPerDay:Number(box.querySelectorAll('.cc-hpd')[i].value)||0,
+    props:[...box.querySelectorAll('.cc-props')[i].selectedOptions].map(o=>o.value),
+    active:box.querySelectorAll('.cc-act')[i].checked,
+  })).filter(c=>c.name);
+}
+function collectCcCfg(){
+  const hours={};
+  document.querySelectorAll('.cc-h').forEach(el=>{
+    const v=Number(el.value);
+    hours[el.dataset.type]=(isFinite(v)&&v>0)?v:FALLBACK_CLEAN_HOURS;
+  });
+  return{checkoutTime:document.getElementById('cc-out').value||'11:00',
+    checkinTime:document.getElementById('cc-in').value||'16:00',
+    bufferMin:Math.max(0,Number(document.getElementById('cc-buf').value)||0),
+    hoursByType:hours};
+}
+// 即時預覽哪些房型當日換房來得及、哪些來不及，設定時就看得到影響
+function renderCcPreview(){
+  const cfg=collectCcCfg();
+  const outM=hm2min(cfg.checkoutTime),inM=hm2min(cfg.checkinTime);
+  const rows=ROOM_TYPES.map(t=>{
+    const ready=outM+cfg.hoursByType[t]*60+cfg.bufferMin;
+    const ok=ready<=inM;
+    return '<tr><td style="padding:4px 8px">'+escH(t)+'</td>'+
+      '<td style="padding:4px 8px">'+fmtHrs(cfg.hoursByType[t])+'</td>'+
+      '<td style="padding:4px 8px">'+min2hm(ready)+'</td>'+
+      '<td style="padding:4px 8px;font-weight:700;color:'+(ok?'#2f9e44':'#c92a2a')+'">'+
+        (ok?'✔ 可當日換房':'✕ 需隔日或加派人手')+'</td></tr>';
+  }).join('');
+  document.getElementById('cc-preview').innerHTML=
+    '<div style="font-weight:800;font-size:13px;margin:0 0 6px">同日換房可行性預覽</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+    '<thead><tr style="background:var(--primary-light);color:var(--primary-d)">'+
+    '<th style="padding:5px 8px;text-align:left">房型</th><th style="padding:5px 8px;text-align:left">清潔工時</th>'+
+    '<th style="padding:5px 8px;text-align:left">最快可入住</th><th style="padding:5px 8px;text-align:left">判定</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function saveCleanCfgUI(){
+  const cfg=collectCcCfg();
+  if(hm2min(cfg.checkinTime)<=hm2min(cfg.checkoutTime)){
+    alert('最早入住時間必須晚於退房時間');return;
+  }
+  const cleaners=collectCcCleaners();
+  const bad=cleaners.find(c=>!(c.hoursPerDay>0));
+  if(bad){alert('「'+bad.name+'」的每日可用工時請填大於 0 的數字');return;}
+  saveCleanCfg(cfg);saveCleaners(cleaners);
+  closeCleanCfg();render();
+  alert('清潔排程設定已儲存');
+}
+
 // ── 頂列「⚙️ 更多」下拉選單 ────────────────────
 function closeMoreMenu(){
   const m=document.querySelector('.more-menu');
@@ -1200,13 +1399,39 @@ function loadOvr(){return Cloud.get('qj_ovr',{});}
 function saveOvr(o){Cloud.set('qj_ovr',o);}
 function loadExtras(){return Cloud.get('qj_ext',{});}
 function saveExtras(o){Cloud.set('qj_ext',o);}
-// 舊資料沒有 status/handler/dueDate，讀取時補上預設值，避免下游到處寫 null 判斷
+// 舊資料沒有 status/handler/dueDate，讀取時補上預設值，避免下游到處寫 null 判斷。
+// 自動排程的清潔任務早期沒有寫 dueDate，導致維修報表的逾期偵測（需要 dueDate）
+// 永遠抓不到它們，漏打掃的房間在報表上完全隱形；這裡一併以結束日回補。
 function migTk(t){
-  if(t.status)return t;
-  return{...t,status:'todo',handler:t.handler||'',dueDate:t.dueDate||''};
+  let o=t;
+  if(!o.status)o={...o,status:'todo',handler:o.handler||'',dueDate:o.dueDate||''};
+  // 回補用 start（＝退房日）而非 end（＝退房日+1），才與新產生的任務同一基準，
+  // 否則同樣是漏打掃，舊資料會晚一天才被判定逾期。
+  if(o.isAuto&&!o.dueDate&&o.start)o={...o,dueDate:o.start};
+  return o;
 }
 function loadTasks(){return (Cloud.get('qj_tasks',[])).map(migTk);}
 function saveTasks(a){Cloud.set('qj_tasks',a);}
+
+// ── 清潔排程參數（機制一緩衝時間、機制三排程共用）──────────
+// 清潔工時依房型而異，四房打掃 6 小時與雅房 1 小時不可能適用同一條「退房當日即可入住」規則，
+// 因此把工時、退房時間、入住時間都參數化，由這些參數推算「最早可再入住時點」。
+// 四房設 4.5 小時（而非依坪數線性外推的 6 小時）：11:00 退房 + 4.5 小時 + 30 分緩衝 = 16:00，
+// 剛好趕上預設入住時刻，使四房仍可當日換房。各企業可於清潔排程設定中自行調整。
+const DEFAULT_CLEAN_HOURS={'分租套房':1.5,'分租雅房':1,'獨立套房':1.5,'兩房':3,'三房':4.5,'四房':4.5};
+const FALLBACK_CLEAN_HOURS=1.5;
+const DEFAULT_CLEAN_CFG={checkoutTime:'11:00',checkinTime:'16:00',bufferMin:30};
+function loadCleanCfg(){
+  const c=Cloud.get('qj_clean_cfg',null)||{};
+  return{...DEFAULT_CLEAN_CFG,...c,
+    hoursByType:{...DEFAULT_CLEAN_HOURS,...(c.hoursByType||{})}};
+}
+function saveCleanCfg(c){Cloud.set('qj_clean_cfg',c);}
+function loadCleaners(){return Cloud.get('qj_cleaners',[]);}
+function saveCleaners(a){Cloud.set('qj_cleaners',a);}
+function hm2min(s){const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||''));return m?(+m[1])*60+(+m[2]):0;}
+function min2hm(n){n=Math.max(0,Math.round(n));return pad(Math.floor(n/60))+':'+pad(n%60);}
+function fmtHrs(h){return (Math.round(h*10)/10)+' 小時';}
 // ── 客戶記錄（獨立於訂單，以電話號碼為識別）──────────
 // 訂單上的 agent（負責業務）是當下的歷史紀錄、永遠不會被改寫；
 // 這裡的 owner（歸屬業務）才是「這位客戶現在歸誰」，客戶轉移只改這個值。
@@ -1283,6 +1508,27 @@ function isRoomOffSale(pid,rno){
   const p=getProp(pid);if(!p)return false;
   const r=p.rooms.find(x=>x.room===rno);return !!(r&&r.offSale);
 }
+function getRoomType(pid,rno){
+  const p=getProp(pid);if(!p)return '';
+  const r=p.rooms.find(x=>x.room===rno);return r?(r.type||''):'';
+}
+// 該房間打掃一次所需工時；房型未設定時退回通用預設值，不讓排程因缺參數而中斷
+function cleanHoursFor(pid,rno){
+  const h=loadCleanCfg().hoursByType[getRoomType(pid,rno)];
+  return (typeof h==='number'&&h>0)?h:FALLBACK_CLEAN_HOURS;
+}
+// 退房後最早可再入住的時點（當日 00:00 起算之分鐘數）＝ 退房時間 ＋ 清潔工時 ＋ 安全緩衝
+function earliestReadyMin(pid,rno){
+  const cfg=loadCleanCfg();
+  return hm2min(cfg.checkoutTime)+cleanHoursFor(pid,rno)*60+(+cfg.bufferMin||0);
+}
+// 同日退房又入住是否來得及打掃完
+function sameDayTurnover(pid,rno){
+  const cfg=loadCleanCfg();
+  const ready=earliestReadyMin(pid,rno);
+  return{ok:ready<=hm2min(cfg.checkinTime),readyAt:min2hm(ready),
+    checkinAt:cfg.checkinTime,hours:cleanHoursFor(pid,rno),type:getRoomType(pid,rno)};
+}
 // 該房間目前尚未結案的「建議汰換」維修單（用於提醒，不擋單）
 function roomReplaceAlert(pid,rno){
   return loadTasks().find(t=>String(t.prop_id)===String(pid)&&t.room===rno&&
@@ -1326,14 +1572,22 @@ function checkConflicts(segs,excludeBkId){
   const out=[];
   segs.forEach((seg,i)=>{
     if(!seg.prop_id||!seg.room||!seg.checkin||!seg.checkout)return;
-    const ct=tasks.filter(t=>{
-      if(String(t.prop_id)!==String(seg.prop_id)||t.room!==seg.room)return false;
-      if(!t.start||!t.end||t.start>=seg.checkout||t.end<=seg.checkin)return false;
+    const ct=[];
+    tasks.forEach(t=>{
+      if(String(t.prop_id)!==String(seg.prop_id)||t.room!==seg.room)return;
+      if(!t.start||!t.end||t.start>=seg.checkout||t.end<=seg.checkin)return;
       // 已完成/已汰換的排程不必再提醒
-      if(t.status==='done'||t.status==='replaced')return false;
-      // 打掃：退房當日=入住當日允許（11點退/打掃/16點入住），只有維修才硬擋
-      if(t.type==='cleaning'&&t.start===seg.checkin)return false;
-      return true;
+      if(t.status==='done'||t.status==='replaced')return;
+      // 維修：可續住型（換燈泡之類）不影響入住，只有需淨空型才擋
+      if(t.type==='repair'&&t.blocking==='occupied')return;
+      // 打掃：退房當日又入住時，依房型清潔工時推算是否來得及，而非一律放行
+      if(t.type==='cleaning'&&t.start===seg.checkin){
+        const tn=sameDayTurnover(seg.prop_id,seg.room);
+        if(tn.ok)return;
+        ct.push({...t,_late:tn});
+        return;
+      }
+      ct.push(t);
     });
     if(ct.length>0)out.push({segIdx:i,tasks:ct});
   });
@@ -1357,6 +1611,25 @@ function checkBookingConflicts(segs,excludeBkId){
       });
     });
   });
+  // 同一張訂單內部的段落也要互比。原本只跟「別張訂單」比，
+  // 導致同一訂單開兩個並行段指到同一間房、日期又重疊時完全沒有攔截，
+  // 等於自己把自己的房間重複賣掉。
+  // 判斷式與跨訂單完全相同，不需要知道段落是換房型還是並行型：
+  // 換房型的接續是「前段退房日＝後段入住日」，在半開區間比較下不構成重疊，自然放行；
+  // 並行型若指到不同房號則鍵值不同，也自然放行；只有真正重疊的同房號才會被抓出來。
+  for(let i=0;i<segs.length;i++){
+    const a=segs[i];
+    if(!a.prop_id||!a.room||!a.checkin||!a.checkout)continue;
+    if(!BLOCK_STATUSES.includes(a.status))continue;
+    for(let j=i+1;j<segs.length;j++){
+      const b2=segs[j];
+      if(!b2.prop_id||!b2.room||!b2.checkin||!b2.checkout)continue;
+      if(!BLOCK_STATUSES.includes(b2.status))continue;
+      if(String(a.prop_id)!==String(b2.prop_id)||a.room!==b2.room)continue;
+      if(a.checkin<b2.checkout&&a.checkout>b2.checkin)
+        conflicts.push({segIdx:j,selfIdx:i,existSeg:a});
+    }
+  }
   return conflicts;
 }
 function syncAutoTasks(bk){
@@ -1365,19 +1638,116 @@ function syncAutoTasks(bk){
   bk.segments.forEach((seg,i)=>{
     if(!seg.checkout||!seg.prop_id||!seg.room)return;
     const nextSeg=i+1<bk.segments.length?bk.segments[i+1]:null;
-    if(nextSeg&&nextSeg.segType==='switch'){
-      // 換房中間：在本段退房日排清潔（客人換去另一間，此間需打掃）
-      tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-        start:seg.checkout,end:addDays(seg.checkout,1),
-        note:'換房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
-    } else {
-      // 所有其他情況：退房當天起排 1 天打掃
-      tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
-        start:seg.checkout,end:addDays(seg.checkout,1),
-        note:'退房清潔（自動）— '+bk.guest,isAuto:true,bookingId:bk.id});
-    }
+    const end=addDays(seg.checkout,1);
+    tasks.push({id:genId('AT'),prop_id:seg.prop_id,room:seg.room,type:'cleaning',
+      start:seg.checkout,end,
+      // dueDate 是逾期偵測的依據，自動任務也必須有，否則漏打掃在報表上看不見
+      status:'todo',dueDate:seg.checkout,handler:'',
+      estHours:cleanHoursFor(seg.prop_id,seg.room),
+      note:(nextSeg&&nextSeg.segType==='switch'?'換房清潔（自動）— ':'退房清潔（自動）— ')+bk.guest,
+      isAuto:true,bookingId:bk.id});
   });
   saveTasks(tasks);
+}
+
+// ════════════════════════════════════════════════
+// 機制三：清潔人力受限排程（EDF ＋ 容量裝箱）
+// ════════════════════════════════════════════════
+// 該房間自 fromDate（含）起最近一筆會佔用房間的訂單入住日，作為清潔工作的截止日
+function nextCheckinAfter(pid,rno,fromDate,bks){
+  const BLOCK=['reserved','pending','checkin'];
+  let best=null;
+  (bks||loadBks()).forEach(b=>{
+    (b.segments||[]).forEach(s=>{
+      if(String(s.prop_id)!==String(pid)||s.room!==rno)return;
+      if(!BLOCK.includes(s.status||'reserved'))return;
+      if(!s.checkin||s.checkin<fromDate)return;
+      if(!best||s.checkin<best)best=s.checkin;
+    });
+  });
+  return best;
+}
+// 產生 startDate 起 days 天內的清潔班表。
+// 排序採最早截止優先（EDF）：越早有下一位房客要入住的房間越先派工；
+// 同一天內優先指派給「當天已在同館別工作」的人員以減少往返移動。
+function buildCleanSchedule(startDate,days){
+  const endDate=addDays(startDate,days);
+  const cleaners=loadCleaners().filter(c=>c.active!==false&&c.name);
+  const bks=loadBks();
+  const props=getAllProps();
+  const pname=pid=>{const p=props.find(x=>String(x.id)===String(pid));return p?p.name:'（已刪除館別）';};
+  const items=loadTasks()
+    // 不排除 start 早於 startDate 的任務：那些是已逾期還沒打掃的房間，
+    // 若把它們濾掉，班表上就永遠看不到，房間會一直髒著卻沒人被指派。
+    .filter(t=>t.type==='cleaning'&&OPEN_STATUS_KEYS.includes(t.status)&&
+      t.start&&t.start<endDate)
+    .map(t=>{
+      const deadline=nextCheckinAfter(t.prop_id,t.room,t.start,bks);
+      // 工時以「目前設定」為準，任務上存的 estHours 只當房型已被刪除時的退路。
+      // 若優先採用存檔值，管理者調整了房型工時後，既有任務仍會沿用舊工時，
+      // 班表算出來的容量就跟實際情況對不上。
+      const live=getRoomType(t.prop_id,t.room)?cleanHoursFor(t.prop_id,t.room):null;
+      const hours=live!==null?live
+        :((typeof t.estHours==='number'&&t.estHours>0)?t.estHours:FALLBACK_CLEAN_HOURS);
+      return{task:t,propName:pname(t.prop_id),hours,
+        deadline:deadline||t.end||t.start,hardDeadline:!!deadline};
+    });
+  // 截止日早的先排；同一天則有房客在等的優先
+  items.sort((a,b)=>a.deadline!==b.deadline?(a.deadline<b.deadline?-1:1)
+    :(a.hardDeadline===b.hardDeadline?0:(a.hardDeadline?-1:1)));
+
+  const used={};                       // used[cleanerId][day] = 已排工時
+  const atProp={};                     // atProp[cleanerId][day] = Set(館別)
+  const remain=(c,d)=>(+c.hoursPerDay||0)-((used[c.id]||{})[d]||0);
+  const assigned=[],unassigned=[],deferred=[];
+
+  items.forEach(it=>{
+    const t=it.task;
+    // 可執行的日子：退房當天起，到下一位房客入住當天為止（含當天，因為當天打掃完仍可入住）。
+    // 已逾期的任務不可能回到過去執行，起算日拉到班表起始日。
+    const firstDay=t.start>startDate?t.start:startDate;
+    const lastDay=it.deadline>firstDay?it.deadline:firstDay;
+    const cands=[];
+    for(let d=firstDay;d<=lastDay;d=addDays(d,1)){
+      if(d>=endDate)break;
+      cands.push(d);
+      if(cands.length>14)break;        // 護欄：截止日異常遙遠時不要無限展開
+    }
+    let placed=null;
+    for(const day of cands){
+      const pool=cleaners
+        .filter(c=>(!c.props||c.props.length===0||c.props.map(String).includes(String(t.prop_id))))
+        .filter(c=>remain(c,day)>=it.hours)
+        .sort((a,b)=>{
+          const aAt=((atProp[a.id]||{})[day]||new Set()).has(String(t.prop_id))?0:1;
+          const bAt=((atProp[b.id]||{})[day]||new Set()).has(String(t.prop_id))?0:1;
+          return aAt!==bAt?aAt-bAt:remain(b,day)-remain(a,day);
+        });
+      if(pool.length>0){placed={cleaner:pool[0],day};break;}
+    }
+    if(placed){
+      const{cleaner:c,day}=placed;
+      used[c.id]=used[c.id]||{};used[c.id][day]=(used[c.id][day]||0)+it.hours;
+      atProp[c.id]=atProp[c.id]||{};atProp[c.id][day]=atProp[c.id][day]||new Set();
+      atProp[c.id][day].add(String(t.prop_id));
+      assigned.push({...it,cleaner:c,day,late:day>t.start});
+    }else if(it.deadline>=endDate&&cleaners.length>0){
+      // 期限落在查詢區間之後，本區間排不下不代表真的做不完（後面還有好幾天可用）。
+      // 這種情況報「人力不足」是假警報，只列為「本期間未排入」。
+      deferred.push(it);
+    }else{
+      // 排不進去要講清楚是哪一種不足，調度人員才知道加派還是延後
+      const servers=cleaners.filter(c=>!c.props||c.props.length===0||c.props.map(String).includes(String(t.prop_id)));
+      // 單筆工時就超過所有人的每日上限時，再怎麼延後都排不進去，
+      // 講成「工時都已排滿」會讓人以為只是今天忙，實際上要拆工或調高上限。
+      const fitsAnyone=servers.some(c=>(+c.hoursPerDay||0)>=it.hours);
+      unassigned.push({...it,reason:cleaners.length===0?'尚未建立清潔人員名單'
+        :servers.length===0?'沒有人員可服務此館別'
+        :!fitsAnyone?'單次工時 '+fmtHrs(it.hours)+' 超過所有可服務人員的每日工時上限'
+        :'截止前所有可服務人員的每日工時都已排滿'});
+    }
+  });
+  return{assigned,unassigned,deferred,cleaners,startDate,endDate,days};
 }
 // Schedule 2-day cleaning for a segment after checkout
 function scheduleCheckoutCleaning(seg,bkGuest){
@@ -2297,6 +2667,7 @@ function render(){
 // 統計房間數/入住率/訂單數/實收營收/可售天數，捲動跨月時debounce觸發
 // ════════════════════════════════════════════════
 function updateStats(){
+  refreshTodoBadge();
   const vms=ds(curY,curM,1),vme=ds(curY,curM,dim(curY,curM)),td=dim(curY,curM);
   function ov(ci,co){return ci<=vme&&co>vms;}
   const fs=document.getElementById('f-status').value;
@@ -2414,6 +2785,7 @@ function openTaskModal(propId,roomNo,dateS,type){
   document.getElementById('tk-due').value='';
   document.getElementById('tk-cost').value='';
   document.getElementById('tk-billing').value='none';
+  document.getElementById('tk-blocking').value='exclusive';
   fillTkStatus('todo');
 
   // *** FIX: use direct JS event binding, not HTML attribute ***
@@ -2442,6 +2814,8 @@ function openEditTask(tk){
   document.getElementById('tk-due').value=tk.dueDate||'';
   document.getElementById('tk-cost').value=(tk.cost||tk.cost===0)?tk.cost:'';
   document.getElementById('tk-billing').value=tk.billing||'none';
+  // 舊維修單沒有 blocking，沿用原本「維修一律擋房」的行為
+  document.getElementById('tk-blocking').value=tk.blocking||'exclusive';
   fillTkStatus(tk.status||'todo');
   // 館別/房號鎖定讓使用者不誤改，但開始/結束日期全部開放
   populateTkProps(String(tk.prop_id||''),isAuto);
@@ -2527,7 +2901,7 @@ function saveTk(){
   const dueDate=document.getElementById('tk-due').value;
   const status=document.getElementById('tk-status').value||'todo';
   if(dueDate&&dueDate<start){alert('預計完成日不能早於開始日期');return;}
-  let cost=0,billing='none';
+  let cost=0,billing='none',blocking='exclusive';
   if(curTkType==='repair'){
     const raw=document.getElementById('tk-cost').value.trim();
     if(raw!==''){
@@ -2535,6 +2909,7 @@ function saveTk(){
       if(!isFinite(cost)||cost<0){alert('維修金額請填 0 以上的數字');return;}
     }
     billing=document.getElementById('tk-billing').value||'none';
+    blocking=document.getElementById('tk-blocking').value||'exclusive';
   }
   const tasks=loadTasks();
   if(editingTkId){
@@ -2545,14 +2920,14 @@ function saveTk(){
         prop_id:old.isAuto?old.prop_id:pid,
         room:old.isAuto?old.room:rno,
         start,   // 開始日期現在允許修改（含自動排程）
-        end:endAdj,note,status,handler,dueDate,cost,billing,
+        end:endAdj,note,status,handler,dueDate,cost,billing,blocking,
         doneAt:status==='done'||status==='replaced'?(old.doneAt||todayStr()):'',
         updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
     tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
       start,end:endAdj,note,isAuto:false,bookingId:null,
-      status,handler,dueDate,cost,billing,
+      status,handler,dueDate,cost,billing,blocking,
       doneAt:status==='done'||status==='replaced'?todayStr():'',
       createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
@@ -3044,6 +3419,17 @@ function updateTotal(){
     rentEl.textContent='$0';
   }
 }
+// 衝突排程的說明文字。同日換房來不及打掃時要講清楚差在哪，
+// 使用者才知道該調整入住時間還是加派人手，而不是只看到一句「衝突」。
+function tkConflLabel(t,emoji){
+  const kind=t.type==='repair'?(emoji?'🔧維修':'維修'):(emoji?'🧹打掃':'打掃');
+  if(t._late){
+    const L=t._late;
+    return kind+'（'+L.type+'需 '+fmtHrs(L.hours)+'，最快 '+L.readyAt+
+      ' 才能入住，貴公司設定的入住時間為 '+L.checkinAt+'）';
+  }
+  return kind+'('+t.start+'~'+t.end+')';
+}
 function checkConflWarn(){
   const STATUS_LABEL={reserved:'預定中',pending:'已付款待入住',checkin:'入住中'};
   const bkCf=checkBookingConflicts(curSegs,editingBkId);
@@ -3055,13 +3441,16 @@ function checkConflWarn(){
     warn.style.borderColor='#c92a2a';warn.style.background='#fff5f5';
     bkCf.forEach(c=>{
       const s=curSegs[c.segIdx];const es=c.existSeg;
-      parts.push('❌ 第'+(c.segIdx+1)+'段['+s.room+'] 衝突訂單「'+c.bk.guest+'」'+(STATUS_LABEL[es.status]||es.status)+'('+es.checkin+'~'+es.checkout+')');
+      parts.push('❌ 第'+(c.segIdx+1)+'段['+s.room+'] 衝突'+
+        (c.selfIdx!==undefined
+          ? '本訂單第'+(c.selfIdx+1)+'段（同一間房日期重疊）('+es.checkin+'~'+es.checkout+')'
+          : '訂單「'+(c.bk.guest||'(未命名)')+'」'+(STATUS_LABEL[es.status]||es.status)+'('+es.checkin+'~'+es.checkout+')'));
     });
   }
   if(cf.length>0){
     cf.forEach(c=>{
       const s=curSegs[c.segIdx];
-      parts.push('⚠️ 第'+(c.segIdx+1)+'段['+s.room+']：'+c.tasks.map(t=>(t.type==='repair'?'維修':'打掃')+'('+t.start+'~'+t.end+')').join('、'));
+      parts.push('⚠️ 第'+(c.segIdx+1)+'段['+s.room+']：'+c.tasks.map(t=>tkConflLabel(t,false)).join('、'));
     });
   }
   if(parts.length>0){
@@ -3191,9 +3580,12 @@ async function saveBk(){
     const msg=bkCf.map(c=>{
       const s=curSegs[c.segIdx];
       const es=c.existSeg;
-      return '第'+(c.segIdx+1)+'段 ['+s.room+']：已有「'+c.bk.guest+'」'+(STATUS_LABEL[es.status]||es.status)+' ('+es.checkin+' ~ '+es.checkout+')';
+      return '第'+(c.segIdx+1)+'段 ['+s.room+']：'+
+        (c.selfIdx!==undefined
+          ? '與本訂單第'+(c.selfIdx+1)+'段是同一間房且日期重疊 ('+es.checkin+' ~ '+es.checkout+')'
+          : '已有「'+(c.bk.guest||'(未命名)')+'」'+(STATUS_LABEL[es.status]||es.status)+' ('+es.checkin+' ~ '+es.checkout+')');
     }).join('\n');
-    alert('❌ 無法儲存：以下房間已有衝突訂單，請等客人退房或打掃完畢後再安排。\n\n'+msg);
+    alert('❌ 無法儲存：以下房間有衝突，請調整日期或改派其他房號。\n\n'+msg);
     return;
   }
   // ── Task conflicts (soft warn) ──
@@ -3201,7 +3593,7 @@ async function saveBk(){
   if(cf.length>0){
     const msg=cf.map(c=>{
       const s=curSegs[c.segIdx];
-      return '第'+(c.segIdx+1)+'段['+s.room+']：'+c.tasks.map(t=>(t.type==='repair'?'🔧維修':'🧹打掃')+'('+t.start+'~'+t.end+')').join('、');
+      return '第'+(c.segIdx+1)+'段['+s.room+']：'+c.tasks.map(t=>tkConflLabel(t,true)).join('、');
     }).join('\n');
     if(!confirm('⚠️ 以下時段已排定清潔/維修，確定仍要儲存？\n\n'+msg))return;
   }
@@ -3480,6 +3872,7 @@ function setMaintTab(tab){
   maintTab=tab;
   document.getElementById('mt-tab-list').className='btn sm '+(tab==='list'?'btn-primary':'btn-ghost');
   document.getElementById('mt-tab-report').className='btn sm '+(tab==='report'?'btn-primary':'btn-ghost');
+  document.getElementById('mt-tab-sched').className='btn sm '+(tab==='sched'?'btn-primary':'btn-ghost');
   document.getElementById('mt-filters').style.display=tab==='list'?'flex':'none';
   renderMaint();
 }
@@ -3516,9 +3909,125 @@ const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未�
 function money(n){return '$'+Math.round(n||0).toLocaleString();}
 // 維修金額只對維修單有意義，清潔單一律視為 0
 function tkCost(t){return t.type==='repair'?(Number(t.cost)||0):0;}
+// ── 清潔班表（機制三排程結果檢視）──────────────
+let schedDays=7;
+function setSchedDays(n){schedDays=n;renderMaint();}
+function cleanSchedHtml(){
+  const start=todayStr();
+  const r=buildCleanSchedule(start,schedDays);
+  const btn=n=>'<button class="btn sm '+(schedDays===n?'btn-primary':'btn-ghost')+'" onclick="setSchedDays('+n+')">未來 '+n+' 天</button>';
+  let html='<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'+
+    btn(7)+btn(14)+btn(30)+
+    '<span style="font-size:11px;color:var(--muted);margin-left:6px">依「最早有房客要入住」的順序派工，同日優先派給已在該館別的人員</span></div>';
+
+  if(r.cleaners.length===0){
+    return html+'<div style="padding:16px;background:#fff9db;border:1px solid #ffe066;border-radius:8px;font-size:12px;line-height:1.8">'+
+      '尚未建立清潔人員名單，無法自動派工。<br>請由管理員至「⚙️ 更多 → 🧹 清潔排程設定」新增人員與每日可用工時。</div>';
+  }
+
+  // 依日期 → 人員分組
+  const byDay={};
+  r.assigned.forEach(a=>{(byDay[a.day]=byDay[a.day]||[]).push(a);});
+  const days=Object.keys(byDay).sort();
+
+  if(r.unassigned.length>0){
+    html+='<div style="border:2px solid #c92a2a;background:#fff5f5;border-radius:8px;padding:11px 13px;margin-bottom:14px">'+
+      '<div style="font-weight:800;font-size:12.5px;color:#c92a2a;margin-bottom:7px">⚠️ 人力不足，'+r.unassigned.length+' 筆排不進去</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      r.unassigned.map(u=>'<tr style="border-top:1px solid #ffc9c9">'+
+        '<td style="padding:5px 6px;white-space:nowrap">'+u.task.start+'</td>'+
+        '<td style="padding:5px 6px">'+escH(u.propName)+' '+escH(u.task.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">'+fmtHrs(u.hours)+'</td>'+
+        '<td style="padding:5px 6px;color:#c92a2a">'+escH(u.reason)+'</td>'+
+        '<td style="padding:5px 6px;color:var(--muted)">'+
+          (u.hardDeadline?'房客 '+u.deadline+' 要入住':'無後續訂單')+'</td>'+
+      '</tr>').join('')+'</table>'+
+      '<div style="font-size:10.5px;color:#a31616;margin-top:8px;line-height:1.7">'+
+        '可行的處理方式：增加人員或調高該人員每日工時、把該筆訂單的入住日往後移一天、或改由外部清潔廠商支援。</div>'+
+    '</div>';
+  }
+
+  if(r.deferred.length>0){
+    html+='<div style="border:1px solid #ffd8a8;background:#fff9db;border-radius:8px;padding:10px 12px;margin-bottom:14px">'+
+      '<div style="font-weight:800;font-size:12px;color:#e67700;margin-bottom:6px">本期間未排入 '+r.deferred.length+' 筆（期限在 '+schedDays+' 天之後，尚有餘裕）</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      r.deferred.map(u=>'<tr style="border-top:1px solid #ffe8b8">'+
+        '<td style="padding:4px 6px;white-space:nowrap">'+u.task.start+'</td>'+
+        '<td style="padding:4px 6px">'+escH(u.propName)+' '+escH(u.task.room)+'</td>'+
+        '<td style="padding:4px 6px;white-space:nowrap">'+fmtHrs(u.hours)+'</td>'+
+        '<td style="padding:4px 6px;color:var(--muted)">'+
+          (u.hardDeadline?'房客 '+u.deadline+' 才入住':'無後續訂單')+'</td>'+
+      '</tr>').join('')+'</table>'+
+      '<div style="font-size:10.5px;color:#a5730a;margin-top:7px;line-height:1.7">'+
+        '這些不是人力不足，只是本期間人力已先給更急的房間。把天數切換到更長的區間就會排進去。</div>'+
+    '</div>';
+  }
+
+  if(days.length===0&&r.unassigned.length===0&&r.deferred.length===0){
+    return html+'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">未來 '+schedDays+' 天沒有待處理的清潔任務。</div>';
+  }
+
+  days.forEach(d=>{
+    const list=byDay[d].slice().sort((a,b)=>(a.cleaner.name||'').localeCompare(b.cleaner.name||''));
+    const total=list.reduce((s,a)=>s+a.hours,0);
+    html+='<div style="font-weight:800;font-size:12.5px;color:var(--primary-d);margin:12px 0 5px">'+
+      d+'（'+WD[new Date(d+'T00:00:00').getDay()]+'）　共 '+list.length+' 間 · '+fmtHrs(total)+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      '<thead><tr style="background:#f8fafc;color:var(--muted)">'+
+        ['人員','館別','房號','房型','工時','備註'].map(h=>'<th style="padding:5px 7px;text-align:left;font-size:10px">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+
+      list.map(a=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 7px;font-weight:700">'+escH(a.cleaner.name)+'</td>'+
+        '<td style="padding:5px 7px">'+escH(a.propName)+'</td>'+
+        '<td style="padding:5px 7px;font-weight:600;color:var(--primary)">'+escH(a.task.room)+'</td>'+
+        '<td style="padding:5px 7px">'+escH(getRoomType(a.task.prop_id,a.task.room)||'—')+'</td>'+
+        '<td style="padding:5px 7px;white-space:nowrap">'+fmtHrs(a.hours)+'</td>'+
+        '<td style="padding:5px 7px;color:var(--muted)">'+
+          (a.late?'<span style="color:#e67700;font-weight:700">順延自 '+a.task.start+'</span> ':'')+
+          (a.hardDeadline?'房客 '+a.deadline+' 入住':'')+'</td>'+
+      '</tr>').join('')+'</tbody></table>';
+  });
+
+  // 人員負荷摘要
+  const load={};
+  // 先把所有在職人員列進來，沒被派到工的人才會以 0% 出現；
+  // 只列有派工的人會讓調度者以為某人不在名單上，反而看不出還有誰有餘力。
+  r.cleaners.forEach(c=>{load[c.id]={name:c.name,cap:c.hoursPerDay,hrs:0,rooms:0};});
+  r.assigned.forEach(a=>{
+    load[a.cleaner.id]=load[a.cleaner.id]||{name:a.cleaner.name,cap:a.cleaner.hoursPerDay,hrs:0,rooms:0};
+    load[a.cleaner.id].hrs+=a.hours;load[a.cleaner.id].rooms++;
+  });
+  const ids=Object.keys(load);
+  if(ids.length>0){
+    html+='<div style="font-weight:800;font-size:12.5px;margin:18px 0 5px">期間人員負荷</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+      '<thead><tr style="background:#f8fafc;color:var(--muted)">'+
+        ['人員','間數','總工時','每日可用','平均日負荷'].map(h=>'<th style="padding:5px 7px;text-align:left;font-size:10px">'+h+'</th>').join('')+
+      '</tr></thead><tbody>'+
+      ids.map(id=>{
+        const l=load[id];const avg=l.hrs/schedDays;
+        const pct=l.cap>0?Math.round(avg/l.cap*100):0;
+        return '<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:5px 7px;font-weight:700">'+escH(l.name)+'</td>'+
+          '<td style="padding:5px 7px">'+l.rooms+' 間</td>'+
+          '<td style="padding:5px 7px">'+fmtHrs(l.hrs)+'</td>'+
+          '<td style="padding:5px 7px">'+fmtHrs(l.cap)+'/日</td>'+
+          '<td style="padding:5px 7px;font-weight:700;color:'+(pct>85?'#c92a2a':pct>60?'#e67700':'#2f9e44')+'">'+pct+'%</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table>';
+  }
+  html+='<div style="margin-top:14px;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
+    '班表是依目前訂單與人力即時算出來的建議，不會寫回任務資料；訂單一改，重開此頁就會重算。<br>'+
+    '任務的實際完成狀態仍由清潔人員在「追蹤清單」回報，系統不會因為日期過了就自動標記完成。</div>';
+  return html;
+}
 function renderMaint(){
   const box=document.getElementById('mt-content');
   if(maintTab==='report'){box.innerHTML=maintReportHtml();return;}
+  if(maintTab==='sched'){
+    document.getElementById('mt-title').textContent='🧹 清潔班表';
+    box.innerHTML=cleanSchedHtml();return;
+  }
   const list=maintFiltered();
   const tod=todayStr();
   document.getElementById('mt-title').textContent='🔧 維修追蹤 — 共 '+list.length+' 筆';
@@ -4838,6 +5347,62 @@ init();
 </div>
 </div>
 
+<!-- ═══ 清潔排程設定 Modal ═══ -->
+<!-- ═══ 今日待辦提醒 ═══ -->
+<div class="overlay" id="td-ov" onclick="if(event.target===this)closeTodo()">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-h">
+      <h2>🔔 今日待辦提醒</h2>
+      <button class="modal-x" onclick="closeTodo()">✕</button>
+    </div>
+    <div style="padding:0 18px 16px;max-height:70vh;overflow-y:auto" id="td-body"></div>
+    <div class="modal-f"><button class="btn btn-primary" onclick="closeTodo()">關閉</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="cc-ov" onclick="if(event.target===this)closeCleanCfg()">
+<div class="modal" style="width:720px;max-width:98vw">
+  <div class="modal-h">
+    <h2>🧹 清潔排程設定</h2>
+    <button class="close-btn" onclick="closeCleanCfg()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--primary-light);border-radius:8px;padding:10px 12px;margin-bottom:14px">
+      這裡的參數同時決定兩件事：<strong>同日退房又入住時系統要不要擋單</strong>（退房時間＋清潔工時＋緩衝＞入住時間就會擋），
+      以及<strong>清潔班表怎麼派工</strong>（依工時計算每位人員每天排得下多少間）。
+    </div>
+
+    <div style="font-weight:800;font-size:13px;margin:0 0 8px">一、作息時間</div>
+    <div class="form-grid">
+      <div class="field"><label>退房時間</label><input id="cc-out" type="time"></div>
+      <div class="field"><label>最早入住時間</label><input id="cc-in" type="time"></div>
+      <div class="field span2">
+        <label>安全緩衝（分鐘）<span style="font-size:10px;color:var(--muted);font-weight:400">（備品補充、驗收、交通往返等預留時間）</span></label>
+        <input id="cc-buf" type="number" min="0" step="5">
+      </div>
+    </div>
+
+    <div style="font-weight:800;font-size:13px;margin:18px 0 8px">二、各房型清潔工時（小時）</div>
+    <div id="cc-hours" class="form-grid"></div>
+
+    <div style="font-weight:800;font-size:13px;margin:18px 0 8px;display:flex;align-items:center;gap:8px">
+      三、清潔人員
+      <button class="btn sm btn-ghost" onclick="addCleanerRow()">＋ 新增人員</button>
+    </div>
+    <div id="cc-cleaners"></div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:8px">
+      「可服務館別」留空代表所有館別都能支援。每日工時是該人員一天實際能打掃的時數，排程會據此裝箱，排不下的會列在班表的人力不足清單。
+    </div>
+
+    <div id="cc-preview" style="margin-top:16px"></div>
+  </div>
+  <div style="padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+    <button class="btn btn-ghost" onclick="closeCleanCfg()">取消</button>
+    <button class="btn btn-primary" onclick="saveCleanCfgUI()">儲存設定</button>
+  </div>
+</div>
+</div>
+
 <!-- ═══ Maintenance Tracking Modal ═══ -->
 <div class="overlay" id="mt-ov" onclick="if(event.target===this)closeMaint()">
 <div class="modal" style="width:940px;max-width:98vw">
@@ -4846,6 +5411,7 @@ init();
     <div style="display:flex;gap:5px;margin-right:8px">
       <button id="mt-tab-list" class="btn btn-primary sm" onclick="setMaintTab('list')">追蹤清單</button>
       <button id="mt-tab-report" class="btn btn-ghost sm" onclick="setMaintTab('report')">維修報表</button>
+      <button id="mt-tab-sched" class="btn btn-ghost sm" onclick="setMaintTab('sched')">清潔班表</button>
     </div>
     <button class="close-btn" onclick="closeMaint()">✕</button>
   </div>
