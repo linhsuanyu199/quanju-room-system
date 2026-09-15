@@ -255,6 +255,12 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 .seg-del-btn{background:#fee2e2;border:1px solid #fca5a5;color:#c92a2a;
   border-radius:4px;padding:1px 7px;font-size:9px;cursor:pointer;transition:background .12s}
 .seg-del-btn:hover{background:#fca5a5}
+.seg-ck-btn{background:#fff3bf;border:1px solid #f0c000;color:#8a6100;
+  border-radius:4px;padding:1px 7px;font-size:9px;cursor:pointer;
+  white-space:nowrap;transition:background .12s}
+.seg-ck-btn:hover{background:#ffe066}
+.seg-ck-btn.ck-done{background:#ebfbee;border-color:#8ce99a;color:#2b8a3e}
+.seg-ck-btn.ck-done:hover{background:#b2f2bb}
 .seg-body{padding:9px 11px}
 .seg-calc{padding:6px 11px;background:#f0f7ff;font-size:11px;
   border-top:1px solid var(--border);display:flex;gap:12px;align-items:center}
@@ -534,6 +540,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表</button>
         <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
+        <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
         <button class="more-item" id="more-invite" style="display:none" onclick="pickMore(()=>Cloud.openInvite())">✉️ 邀請成員</button>
         <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
         <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
@@ -1148,6 +1155,213 @@ const FESTIVAL_TABLE_LAST_YEAR=2032;
 // 廠商專長類別。維修單選了類別後，廠商下拉只會列出該類別的廠商，
 // 避免叫水電來做油漆。「其他」是未分類廠商的收容類別，任何類別都會列出它。
 const VENDOR_CATS=['水電','木工','油漆','冷氣','鎖具','家電','網路','清潔','搬運','其他'];
+// ── 客訴詞庫 ────────────────────────────────────
+// 每個項目帶「可能成因」與「建議處置」，登錄客訴時自動顯示，
+// 讓第一線人員不必憑經驗判斷就知道該派什麼廠商、多久內要到場。
+// 結構：類別 → [[項目, 可能成因, 建議處置, 預設嚴重度], ...]
+const COMPLAINT_LIB={
+  "設備故障－空調":[
+    ["冷氣不冷／不運轉","長期未使用管線堵塞、冷媒不足、濾網堵塞、壓縮機故障","24h 內到場檢測，需外修者先安排替代降溫設備","重"],
+    ["冷氣漏水／滴水","排水管堵塞、排水坡度不足","清通排水管並確認室內無泡水","中"],
+    ["冷氣異音／異味","風扇異物、濾網髒污、黴菌","清洗濾網與蒸發器，必要時除黴","中"],
+  ],
+  "設備故障－熱水":[
+    ["熱水不熱／忽冷忽熱","熱水器故障、水壓不足、瓦斯／電熱故障","當日到場檢修，無法當日修復須提供替代方案","重"],
+    ["熱水出水量不足","水管阻塞、濾網結垢","清洗出水口與管路","中"],
+  ],
+  "設備故障－衛浴":[
+    ["馬桶堵塞／不沖水","異物堵塞、水箱零件老化","當日疏通或更換零件","重"],
+    ["浴室排水不良／積水","毛髮油垢堵塞、地排坡度","疏通地排並清潔","中"],
+    ["蓮蓬頭／水龍頭漏水","墊片老化、接頭鬆脫","更換墊片或五金","輕"],
+    ["排風扇不運轉","馬達故障、開關線路","更換排風扇","中"],
+  ],
+  "設備故障－冰箱":[
+    ["冰箱不冷／異常結霜","長期未除霜、門封條老化、溫控故障","除霜並檢測溫控，必要時更換","中"],
+    ["冰箱異味／漏水","食物殘留、排水盤堵塞","清潔除臭並清通排水盤","輕"],
+  ],
+  "設備故障－網路":[
+    ["Wi-Fi 無法連線","路由器斷線、ISP 故障、設備過熱","遠端重啟，2h 內無法恢復即到場","重"],
+    ["網路速度過慢／頻繁斷線","頻寬不足、多人共用、訊號死角","調整頻道或加裝訊號延伸器","中"],
+  ],
+  "設備故障－電視":[
+    ["電視無訊號／開不了機","線路鬆脫、機上盒故障","到場檢測或更換機上盒","中"],
+    ["遙控器故障／遺失","電池耗盡、客戶遺失","補發遙控器，遺失依備品賠償處理","輕"],
+  ],
+  "設備故障－廚房":[
+    ["快煮壺／爐具故障","加熱片燒壞、開關損壞","更換設備","中"],
+    ["微波爐故障／未配置","設備老化、該房未配置（SOP 列為期望項）","維修或補配，未配置者納入採購清單","輕"],
+    ["抽油煙機／排風異常","油垢堵塞、馬達故障","清洗或更換","輕"],
+  ],
+  "設備故障－洗衣":[
+    ["洗衣機不運轉／漏水","進排水管阻塞、離合器故障","當日檢修，無法修復提供替代洗衣方案","重"],
+  ],
+  "設備故障－電力":[
+    ["跳電／電箱無電","同時用電過載、漏電斷路器跳脫","到場復歸並檢查迴路，勿由客戶自行操作電箱","重"],
+    ["照明不亮／燈具閃爍","燈泡壽命、安定器故障","更換燈具","輕"],
+    ["插座無電／延長線故障","線路鬆脫、延長線老化","更換延長線或檢修插座","中"],
+  ],
+  "設備故障－門禁":[
+    ["門鎖無法開啟／卡鎖","鎖芯磨損、鑰匙變形","立即到場協助進入並更換鎖芯","重"],
+    ["磁扣失效（大門／電梯）","磁扣消磁、系統未授權","重新寫卡或補發磁扣","中"],
+    ["鑰匙／磁扣遺失","客戶遺失","依生活公約賠償 $800 起，並評估換鎖","中"],
+  ],
+  "設備故障－其他":[
+    ["吹風機故障","過熱保護、線材斷裂","更換吹風機","輕"],
+    ["窗戶／紗窗破損、無法關閉","五金老化、紗網破孔","修復五金或換紗網（與蚊蟲問題常連動）","中"],
+    ["家具／床架損壞、異音","結構鬆脫、使用磨損","鎖固或更換","中"],
+  ],
+  "環境品質":[
+    ["蚊蟲孳生","紗窗破損、地排未封、環境潮濕、食物殘留","噴藥除蟲並封堵源頭；若屬客戶衛生因素依規定辦理","重"],
+    ["黴菌／壁癌","通風不良、濕度過高、外牆滲水","除黴處理並改善通風，結構性滲水需房東處理","重"],
+    ["室內濕度過高","季節性潮濕、通風不足","配置除濕設備並建議使用方式","中"],
+    ["異味（菸味／霉味／下水道味）","前手客戶吸菸、地排乾涸、通風不良","除味處理；菸味依生活公約向責任客戶追償","中"],
+    ["清潔不佳／灰塵堆積","空置過久未複查、清潔未落實","重新清潔並檢討清潔驗收","中"],
+    ["漏水／滲水（天花板、牆面）","樓上漏水、管線破裂、外牆","立即止漏並通知房東，嚴重者停售","重"],
+    ["噪音（鄰居／工程／設備）","鄰房施工、管道共振、設備老化","協調並告知安靜時段 22:00–08:00，必要時換房","中"],
+    ["公共區域堆放雜物／垃圾","住戶未依規定處理","張貼告示並逐戶提醒，必要時清運","輕"],
+  ],
+  "備品缺漏":[
+    ["寢具不足／污損（枕頭、床包、棉被、保潔墊）","未依人數配置、洗滌週期不足","當日補齊並檢討備品庫存","中"],
+    ["衛浴備品缺漏（馬桶刷、腳踏墊、垃圾桶）","前手帶走、未補齊","當日補齊","輕"],
+    ["廚房備品缺漏（廚具、馬克杯、餐具）","未依人數配置","當日補齊","輕"],
+    ["垃圾桶數量不符（廁／廚／客廳／臥室各 1）","未依 SOP 配置","補足 4 處垃圾桶","輕"],
+    ["延長線／轉接插座缺漏","前手帶走","當日補齊","輕"],
+    ["清潔用品缺漏","未補齊","當日補齊","輕"],
+  ],
+  "安全事項":[
+    ["偵煙器缺失／電池耗盡","未安裝、電池未更換","立即補裝並納入季檢","重"],
+    ["滅火器缺失／過期","未配置、未定期換藥","立即補足並記錄換藥日期","重"],
+    ["警示貼紙缺漏","未張貼","補貼（玻璃門、階梯、電箱）","輕"],
+    ["逃生動線受阻／逃生出口不明","雜物堆放、標示不清","清除障礙並補標示","重"],
+    ["電箱外露／客戶自行操作","未說明、無警示","加註警示並重新說明電箱安全","中"],
+  ],
+  "服務流程":[
+    ["入住前未完成現場複查","空置超過 7 天未複查（違反 SOP 一）","補做複查並檢討排程","中"],
+    ["交屋／點交延遲","人員調度、交接不完整","檢討窗口備援與交接紀錄","中"],
+    ["設備操作未示範／說明不足","入住 SOP 未落實","補行說明並留存紀錄","輕"],
+    ["窗口未回覆／回覆過慢","窗口休假未設備援","啟動備援窗口機制（SOP 五）","中"],
+    ["影像紀錄不完整","未依 SOP 四拍攝設備／備品／電箱","補拍並建檔","輕"],
+  ],
+  "費用爭議":[
+    ["電費結算爭議","電表讀數未現場確認、計價未說明","調閱電表照片並重新對帳","中"],
+    ["押金退還爭議","損壞賠償認定不一致、點交紀錄不足","依入住／退房點交照片認定","中"],
+    ["租金／合約爭議","合約條款理解不同","轉客服處理（SOP 六之 3）","中"],
+    ["設備／備品賠償爭議","損壞責任歸屬不清","依點交照片與現場紀錄認定，必要時自押金扣除","中"],
+  ],
+  "退訂":[
+    ["客戶要求退訂／提前退租","房況不符期待、個人因素","釐清原因並登錄，房況因素須連動房源檢討","重"],
+  ],
+  "其他":[
+    ["其他（請於備註說明）","—","登錄後由月會討論","輕"],
+  ],
+};
+
+// 客訴類別對應到廠商專長，轉維修單時自動帶入，省去再選一次。
+// 沒對應的（費用爭議、服務流程、退訂）本來就不需要叫廠商。
+const COMPLAINT_CAT_TO_VENDOR={
+  '設備故障－空調':'冷氣','設備故障－熱水':'水電','設備故障－衛浴':'水電',
+  '設備故障－冰箱':'家電','設備故障－網路':'網路','設備故障－電視':'家電',
+  '設備故障－廚房':'家電','設備故障－洗衣':'家電','設備故障－電力':'水電',
+  '設備故障－門禁':'鎖具','設備故障－其他':'其他',
+  '環境品質':'清潔','備品缺漏':'其他','安全事項':'其他',
+};
+const COMPLAINT_SRC=['現場口頭','電話','LINE／通訊軟體','Email','官網詢問','訂房平台評論','其他'];
+const COMPLAINT_SEV={輕:{color:'#495057',bg:'#f1f3f5'},中:{color:'#e67700',bg:'#fff3bf'},重:{color:'#c92a2a',bg:'#ffe3e3'}};
+
+// ── 入住前複查清單 ──────────────────────────────
+// 結構：[[群組名稱, [[檢查項目, SOP 編號], ...]], ...]
+const PRECHECK_LIB=[
+  ["一、房源及設備檢查",[
+    ["室內所有設備皆可正常使用","SOP 一-1-A"],
+    ["無蚊蟲孳生","SOP 一-1-B"],
+    ["無黴菌或壁癌","SOP 一-1-B"],
+    ["室內濕度正常","SOP 一-1-C"],
+    ["空氣品質正常、無異味","SOP 一-1-C"],
+    ["無灰塵堆積、清潔到位","SOP 一-1-D"],
+    ["冷氣已開啟送風測試（避免管線堵塞）","SOP 一-1-E"],
+    ["冷氣製冷正常、無漏水異音","SOP 一-1-E"],
+    ["冰箱無異常結霜、溫度正常","SOP 一-1-F"],
+    ["馬桶可正常沖水","SOP 一-1-G"],
+    ["熱水功能正常（現場測試）","SOP 一-1-G"],
+    ["浴室／廚房排水順暢","延伸項目"],
+    ["Wi-Fi 可正常連線使用","SOP 一-1-H"],
+    ["照明、插座、延長線正常","延伸項目"],
+    ["窗戶／紗窗完好可關閉","延伸項目"],
+    ["洗衣機運轉正常（如有配置）","延伸項目"],
+  ]],
+  ["二、入住當日說明",[
+    ["抵達前 30 分鐘已開啟空調並複測設備與 Wi-Fi","SOP 二"],
+    ["大門出入方式與垃圾處理已說明","SOP 二-1"],
+    ["電梯是否需磁扣已確認並說明","SOP 二-1"],
+    ["緊急逃生出口與電表位置已介紹","SOP 二-1"],
+    ["大門每一把鑰匙皆已測試可用","SOP 二-2"],
+    ["已示範開鎖並請客戶自行操作一次","SOP 二-2"],
+    ["磁扣功能已同步確認","SOP 二-2"],
+    ["房內各項設備已逐一示範操作","SOP 二-3"],
+    ["電視與遙控器使用方式已說明","SOP 二-3"],
+    ["熱水已現場測試並與客戶確認","SOP 二-3"],
+    ["廚房用具與設備使用方式已說明","SOP 二-3"],
+    ["生活公約已說明（禁菸檳榔、22:00–08:00 安靜、公區不堆放）","SOP 二-4"],
+    ["鑰匙／磁扣遺失賠償 $800 起已告知","SOP 二-4"],
+    ["退房時間 11:00 與遺留物處理已告知","SOP 二-4"],
+    ["緊急聯絡電話與使用時機已說明","SOP 二-4"],
+    ["非緊急事項請走客服私訊已說明","SOP 二-4"],
+    ["已請客戶自行檢查房內環境並確認已清潔","SOP 二-5"],
+    ["電箱位置與勿自行操作已提醒","SOP 二-6"],
+  ]],
+  ["三、基本備品",[
+    ["枕頭（依可入住人數）","SOP 三-1"],
+    ["枕頭保潔墊","SOP 三-1"],
+    ["床包","SOP 三-1"],
+    ["床包保潔墊","SOP 三-1"],
+    ["棉被＋被套","SOP 三-1"],
+    ["馬桶刷","SOP 三-2"],
+    ["浴室腳踏墊","SOP 三-2"],
+    ["吹風機","SOP 三-2"],
+    ["垃圾桶－廁所 1 個","SOP 三-2"],
+    ["垃圾桶－廚房 1 個","SOP 三-2"],
+    ["垃圾桶－客廳 1 個","SOP 三-2"],
+    ["垃圾桶－睡床／臥室區 1 個","SOP 三-2"],
+    ["快煮壺","SOP 三-3"],
+    ["基本廚具、馬克杯及餐具（依人數）","SOP 三-3"],
+    ["微波爐（期望項）","SOP 三-3"],
+    ["延長線","SOP 三-4"],
+    ["轉接插座","SOP 三-4"],
+    ["警示貼紙","SOP 三-4"],
+    ["偵煙器（含電池）","SOP 三-4"],
+    ["滅火器（含有效期限）","SOP 三-4"],
+    ["簡易清潔用品","SOP 三-5"],
+  ]],
+  ["四、影像檔案",[
+    ["完整房內帶看影片","SOP 四"],
+    ["每項設備照片（含型號）","SOP 四"],
+    ["整體環境／周邊照片","SOP 四"],
+    ["電箱位置與開關配置照片","SOP 四"],
+    ["備品逐項照片","SOP 四"],
+    ["入住／退房點交照片","SOP 四"],
+  ]],
+];
+
+// ── 房源風險燈號門檻 ────────────────────────────
+// 刻意全部用「比例」而非絕對金額：雅房與四房的合理維修支出差好幾倍，
+// 寫絕對數字的話小房型永遠是綠燈、大房型永遠是紅燈，燈號就沒有意義了。
+// 觀察期固定為近 365 天。
+const RISK_TH={
+  fix:[0.05,0.10,0.15],   // 維修占用天數 ÷ 365
+  cost:[0.5,1.0,1.5],     // 期間維修金額 ÷ 月租金（＝相當於幾個月租金）
+  cnt:[3,5,8],            // 期間客訴件數
+  sev:2,                  // 期間「重」級客訴達此數即至少橙燈
+};
+const RISK_LAMP={
+  g:{label:'綠燈',color:'#2f9e44',bg:'#ebfbee',advice:'維持短租'},
+  y:{label:'黃燈',color:'#e67700',bg:'#fff3bf',advice:'列入觀察'},
+  o:{label:'橙燈',color:'#d9480f',bg:'#ffe8cc',advice:'建議轉年租'},
+  r:{label:'紅燈',color:'#c92a2a',bg:'#ffe3e3',advice:'建議停賣'},
+};
+const RISK_ORDER=['g','y','o','r'];
+// 取三段門檻中最嚴重的那一級；門檻由低到高排列，由高往低比才會命中最嚴重的一級
+function lampBy(v,th){return v>=th[2]?'r':v>=th[1]?'o':v>=th[0]?'y':'g';}
+function worstLamp(list){return list.reduce((a,b)=>RISK_ORDER.indexOf(b)>RISK_ORDER.indexOf(a)?b:a,'g');}
 // 業務寄祝福信時要用哪個信箱。這是「這台電腦怎麼寄信」的偏好，
 // 不同業務用不同電腦、甚至同一人在公司與家裡用不同信箱，
 // 所以存 localStorage（跟著裝置）而非雲端（跟著帳號）。
@@ -1195,11 +1409,18 @@ function todoAlerts(){
   const tod=todayStr();
   const lead=loadTodoCfg().leadDays;
   const leadEnd=addDays(tod,lead);
-  const unpaid=[],lateOut=[],upcoming=[],noShow=[];
+  const unpaid=[],lateOut=[],upcoming=[],noShow=[],precheck=[];
+  // 迴圈外先讀一次，避免每個段落都打一次 KV
+  const ckAll=loadChecklists(),ckTot=ckTotal();
   loadBks().forEach(b=>{
     (b.segments||[]).forEach((s,i)=>{
       if(!s.checkin||!s.checkout)return;
       const st=s.status||'reserved';
+      // 入住日在預告區間內、複查清單卻還沒做完：現在還來得及補，客人到場才發現就來不及了
+      if((st==='reserved'||st==='pending')&&s.checkin>=tod&&s.checkin<=leadEnd&&s.prop_id&&s.room){
+        const n=ckDoneCount(ckRec(ckAll,ckKey(b.id,s.prop_id,s.room,s.checkin)));
+        if(n<ckTot)precheck.push({bk:b,seg:s,idx:i,days:diffDays(tod,s.checkin),done:n,total:ckTot});
+      }
       // 入住日已到、退房日還沒過，卻仍是「預定中」＝人要住進來了但款項還沒確認
       if(st==='reserved'&&s.checkin<=tod&&s.checkout>tod)
         unpaid.push({bk:b,seg:s,idx:i,days:diffDays(s.checkin,tod)});
@@ -1219,9 +1440,10 @@ function todoAlerts(){
   noShow.sort((a,b)=>b.days-a.days);
   lateOut.sort((a,b)=>b.days-a.days);
   upcoming.sort((a,b)=>a.days-b.days);
+  precheck.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
-  return{unpaid,noShow,lateOut,upcoming,tasks,lead,
-    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+tasks.length,tod};
+  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,lead,
+    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length,tod};
 }
 function refreshTodoBadge(){
   const el=document.getElementById('todo-badge');
@@ -1253,7 +1475,7 @@ function openTodo(){
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款的訂單。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、或複查清單尚未完成的訂單。</div>';
   }else{
     h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
       '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
@@ -1267,6 +1489,10 @@ function openTodo(){
     h+=sec('⏳ 即將入住但尚未收款','#f08c00',a.upcoming.length,
       '這些訂單還沒到入住日，但已進入預告區間且仍是「預定中」。趁現在還有時間催款或改期，不要等到客人到現場才發現沒收到錢。',
       a.upcoming.map(x=>bkRow(x,'#f08c00','入住 '+x.seg.checkin,'還有 '+x.days+' 天')).join(''));
+    h+=sec('📋 即將入住但複查清單尚未完成','#0c8599',a.precheck.length,
+      '入住前複查清單還沒逐項確認完。點客人姓名開啟訂單後，在對應房間按「📋 複查」即可繼續勾選。',
+      a.precheck.map(x=>bkRow(x,'#0c8599','入住 '+x.seg.checkin,
+        x.done+'/'+x.total+'　還有 '+x.days+' 天')).join(''));
     h+=sec('🧹 清潔／維修已過預計完成日','#7048e8',a.tasks.length,
       '狀態仍是待處理／處理中。系統不會因為日期過了就自動標記完成，需由執行人員回報。',
       a.tasks.map(t=>'<tr style="border-top:1px solid var(--border)">'+
@@ -3110,6 +3336,7 @@ function saveTk(){
     blocking=document.getElementById('tk-blocking').value||'exclusive';
   }
   const tasks=loadTasks();
+  let newTaskId='';
   if(editingTkId){
     const idx=tasks.findIndex(t=>t.id===editingTkId);
     if(idx>=0){
@@ -3123,13 +3350,19 @@ function saveTk(){
         updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
-    tasks.push({id:genId('TK'),prop_id:pid,room:rno,type:curTkType,
+    newTaskId=genId('TK');
+    tasks.push({id:newTaskId,prop_id:pid,room:rno,type:curTkType,
       start,end:endAdj,note,isAuto:false,bookingId:null,
+      complaintId:pendingComplaintLink||null,
       status,handler,vendorId,cat,dueDate,cost,billing,blocking,
       doneAt:status==='done'||status==='replaced'?todayStr():'',
       createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
-  saveTasks(tasks);closeTk();render();
+  saveTasks(tasks);
+  // 從客訴轉過來的維修單，等到真的建立了才把 id 寫回客訴，
+  // 使用者中途按取消就不會在客訴上留下指向不存在維修單的死連結
+  if(newTaskId&&pendingComplaintLink)linkComplaintTask(pendingComplaintLink,newTaskId);
+  closeTk();render();
 }
 function deleteTk(){
   if(!editingTkId)return;
@@ -3141,7 +3374,11 @@ function closeTk(){
   document.getElementById('tk-prop').disabled=false;
   document.getElementById('tk-room').disabled=false;
   document.getElementById('tk-start').readOnly=false;
-  // 從維修追蹤清單點進來的，關掉後自動回到清單，不讓使用者迷路
+  // 從客訴紀錄轉過來的，關掉後回客訴清單；從維修追蹤清單點進來的則回維修清單，
+  // 都是為了不讓使用者在多層視窗之間迷路
+  const backToCp=cpReturnAfterTask;
+  cpReturnAfterTask=false;pendingComplaintLink=null;
+  if(backToCp){setTimeout(openComplaints,80);return;}
   if(maintReturnAfterTask){maintReturnAfterTask=false;setTimeout(openMaint,80);}
 }
 
@@ -3462,6 +3699,9 @@ function renderSegs(){
   // Show tip when editing a multi-room booking
   const tip=document.getElementById('seg-tip');
   if(tip)tip.style.display=(curSegs.length>1&&editingBkId)?'block':'none';
+  const ckAll=loadChecklists();
+  const gnEl=document.getElementById('g-name');
+  const gName=gnEl?gnEl.value.trim():'';
   c.innerHTML=curSegs.map((seg,i)=>{
     const isParallel=seg.segType==='parallel';
     const pOpts=ap.map(p=>'<option value="'+String(p.id)+'" '+
@@ -3476,10 +3716,22 @@ function renderSegs(){
     if(i===0) segLabel='🏠 第 1 間（主房）';
     else if(isParallel){ segLabel='🏠 第 '+(i+1)+' 間（同組 · 獨立日期）';}
     else{ segLabel='🔄 第 '+(i+1)+' 段（換房）'; segNote='<span class="seg-clean-note">↑ 第'+i+'段退房後自動 2 天打掃期</span>';}
+    // 複查清單綁在「訂單＋房間＋入住日」上，訂單還沒存檔就沒有 id 可綁，
+    // 因此只在編輯既有訂單、且館別／房號／入住日都填好時才出現
+    let ckBtn='';
+    if(editingBkId&&seg.prop_id&&seg.room&&seg.checkin){
+      const k=ckKey(editingBkId,seg.prop_id,seg.room,seg.checkin);
+      const n=ckDoneCount(ckRec(ckAll,k)),tot=ckTotal();
+      ckBtn='<button type="button" class="seg-ck-btn'+(n===tot?' ck-done':'')+
+        '" onclick="openChecklist('+jsArg(editingBkId)+','+jsArg(seg.prop_id)+','+
+        jsArg(seg.room)+','+jsArg(seg.checkin)+','+jsArg(gName)+')" '+
+        'title="入住前複查清單（依 SOP 逐項確認）">📋 複查 '+n+'/'+tot+'</button>';
+    }
     return '<div class="seg-card'+(isParallel?' seg-parallel':'')+'" data-idx="'+i+'">'+
       '<div class="seg-hdr">'+
         '<span class="seg-num">'+segLabel+'</span>'+
         (isParallel?'<span class="parallel-badge">同組</span>':segNote)+
+        ckBtn+
         (curSegs.length>1?'<button class="seg-del-btn" onclick="confirmRemoveSeg('+i+')" title="僅移除此房間，不影響其他房間">✕ 取消此房間</button>':'')+
       '</div>'+
       '<div class="seg-body">'+
@@ -4216,6 +4468,535 @@ function renderGreetQueue(){
 }
 
 // ════════════════════════════════════════════════
+// 客訴紀錄（COMPLAINTS）
+// ════════════════════════════════════════════════
+// 客訴刻意獨立於維修單：費用爭議、服務流程、退訂這類客訴根本不需要動工，
+// 掛在維修單上就無處可記，房源風險燈號的客訴件數也會系統性低估。
+// 需要動工的客訴按「儲存並開維修單」會帶著館別、房號與詞庫的建議處置跳過去，
+// 兩邊以 id 互相連結（complaint.taskId ↔ task.complaintId）。
+function loadComplaints(){return Cloud.get('qj_complaints',[]);}
+function saveComplaints(a){Cloud.set('qj_complaints',a);}
+function complaintEntry(cat,item){return (COMPLAINT_LIB[cat]||[]).find(x=>x[0]===item)||null;}
+function sevChip(sev){
+  const s=COMPLAINT_SEV[sev]||COMPLAINT_SEV['輕'];
+  return '<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;'+
+    'font-weight:700;color:'+s.color+';background:'+s.bg+'">'+escH(sev||'輕')+'</span>';
+}
+// escH 不處理單引號，房號帶引號時直接塞進 onclick 會把屬性截斷。
+// 這裡用 JSON.stringify 產生合法的 JS 字面量，再轉義成安全的 HTML 屬性內容。
+function jsArg(s){
+  return JSON.stringify(String(s==null?'':s))
+    .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+let editingCpId=null,cpReturnAfter=false,pendingComplaintLink=null,cpReturnAfterTask=false;
+
+function openComplaints(){
+  document.getElementById('cp-f-prop').innerHTML='<option value="">全部館別</option>'+
+    getAllProps().map(p=>'<option value="'+escH(p.id)+'">'+escH(p.name)+'</option>').join('');
+  renderComplaints();
+  document.getElementById('cp-ov').classList.add('open');
+}
+function closeComplaints(){document.getElementById('cp-ov').classList.remove('open');}
+function complaintsFiltered(){
+  const fs=document.getElementById('cp-f-status').value;
+  const fp=document.getElementById('cp-f-prop').value;
+  const fd=document.getElementById('cp-f-days').value;
+  const kw=(document.getElementById('cp-search').value||'').trim().toLowerCase();
+  const from=fd?addDays(todayStr(),-Number(fd)):'';
+  return loadComplaints().filter(c=>{
+    if(fs&&(c.status||'open')!==fs)return false;
+    if(fp&&String(c.prop_id)!==fp)return false;
+    if(from&&(c.date||'')<from)return false;
+    if(kw){
+      const hay=((c.room||'')+' '+(c.cat||'')+' '+(c.item||'')+' '+(c.note||'')+' '+(c.handler||'')).toLowerCase();
+      if(!hay.includes(kw))return false;
+    }
+    return true;
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
+}
+function renderComplaints(){
+  const list=complaintsFiltered();
+  const props=getAllProps();
+  const pn=pid=>{const p=props.find(x=>String(x.id)===String(pid));return p?p.name:'（已刪除館別）';};
+  document.getElementById('cp-title').textContent='📣 客訴紀錄 — 共 '+list.length+' 筆';
+  const box=document.getElementById('cp-content');
+  if(list.length===0){
+    box.innerHTML='<div style="text-align:center;padding:36px;color:var(--muted);font-size:12px">'+
+      '目前沒有符合條件的客訴紀錄。</div>';
+    return;
+  }
+  const tasks=loadTasks();
+  box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:880px">'+
+    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+      ['日期','館別 / 房號','類別 · 項目','嚴重度','來源','處理人員','賠償 / 退款','維修單','狀態',''].map((h,i)=>
+        '<th style="padding:8px 9px;text-align:'+(i===9?'right':'left')+
+        ';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+    '</tr></thead><tbody>'+
+    list.map(c=>{
+      const closed=(c.status||'open')==='closed';
+      const tk=c.taskId?tasks.find(t=>t.id===c.taskId):null;
+      return '<tr style="border-bottom:1px solid var(--border)'+(closed?';opacity:.62':'')+'">'+
+        '<td style="padding:7px 9px;white-space:nowrap">'+escH(c.date||'')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px">'+escH(pn(c.prop_id))+
+          '<div style="font-weight:700;color:var(--primary)">'+escH(c.room||'')+'</div></td>'+
+        '<td style="padding:7px 9px;font-size:11px;max-width:210px">'+
+          '<div style="color:var(--muted);font-size:10px">'+escH(c.cat||'')+'</div>'+escH(c.item||'')+
+          (c.note?'<div style="color:var(--muted);font-size:10px;margin-top:2px">'+escH(c.note)+'</div>':'')+'</td>'+
+        '<td style="padding:7px 9px">'+sevChip(c.sev)+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+escH(c.src||'—')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px">'+
+          (c.handler?escH(c.handler):'<span style="color:var(--muted)">未指派</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+
+          (Number(c.refundAmt)>0?'<strong>'+money(c.refundAmt)+'</strong>':'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+(tk
+          ?'<a href="javascript:void(0)" onclick="cpOpenTask('+jsArg(c.taskId)+')">'+stChip(tk.status)+'</a>'
+          :(c.taskId?'<span style="color:var(--muted)">已刪除</span>':'<span style="color:var(--muted)">—</span>'))+'</td>'+
+        '<td style="padding:7px 9px">'+(closed
+          ?'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#2f9e44;background:#ebfbee">已結案</span>'
+          :'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#c92a2a;background:#ffe3e3">處理中</span>')+'</td>'+
+        '<td style="padding:7px 9px;text-align:right">'+
+          '<button class="btn btn-ghost sm" onclick="openCpForm('+jsArg(c.id)+')">編輯</button></td>'+
+      '</tr>';
+    }).join('')+'</tbody></table></div>';
+}
+function cpOpenTask(id){
+  const t=loadTasks().find(x=>x.id===id);
+  if(!t){alert('這筆維修單已不存在，可能已被其他成員刪除。');return;}
+  closeComplaints();cpReturnAfterTask=true;
+  setTimeout(()=>openEditTask(t),80);
+}
+
+// ── 客訴表單 ────────────────────────────────────
+function openCpForm(id){
+  const c=id?loadComplaints().find(x=>x.id===id):null;
+  editingCpId=c?c.id:null;
+  // 從清單進來的才要在關閉時回到清單；從別處直接開的就不回
+  cpReturnAfter=document.getElementById('cp-ov').classList.contains('open');
+  closeComplaints();
+  setTimeout(()=>{
+    document.getElementById('cpf-title').textContent=c?'修改客訴紀錄':'新增客訴紀錄';
+    document.getElementById('cpf-del').style.display=c?'':'none';
+    document.getElementById('cpf-date').value=c?(c.date||todayStr()):todayStr();
+    fillCpProps(c?String(c.prop_id):'');
+    fillCpRooms(c?String(c.prop_id):'',c?c.room:'');
+    fillCpCats(c?c.cat:'');
+    fillCpItems(c?c.cat:'',c?c.item:'');
+    // 舊紀錄的來源若已不在清單中（例如日後調整過），仍保留原值不讓它被靜默改掉
+    const src=c&&c.src?c.src:COMPLAINT_SRC[0];
+    const srcOpts=COMPLAINT_SRC.includes(src)?COMPLAINT_SRC:COMPLAINT_SRC.concat([src]);
+    document.getElementById('cpf-src').innerHTML=srcOpts.map(s=>
+      '<option value="'+escH(s)+'"'+(s===src?' selected':'')+'>'+escH(s)+'</option>').join('');
+    document.getElementById('cpf-sev').value=c?(c.sev||'中'):'中';
+    document.getElementById('cpf-handler').value=c?(c.handler||''):(Cloud.myDisplayName||'');
+    document.getElementById('cpf-refund').value=(c&&Number(c.refundAmt)>0)?c.refundAmt:'';
+    document.getElementById('cpf-note').value=c?(c.note||''):'';
+    document.getElementById('cpf-status').value=c?(c.status||'open'):'open';
+    updCpHint();
+    updCpTaskBtn(c);
+    document.getElementById('cpf-ov').classList.add('open');
+  },80);
+}
+function fillCpProps(cur){
+  document.getElementById('cpf-prop').innerHTML='<option value="">— 請選擇館別 —</option>'+
+    getAllProps().map(p=>'<option value="'+escH(p.id)+'"'+
+      (String(p.id)===String(cur)?' selected':'')+'>'+escH(p.name)+'</option>').join('');
+}
+function fillCpRooms(pid,cur){
+  const p=pid?getProp(pid):null;
+  document.getElementById('cpf-room').innerHTML=
+    '<option value="">'+(p?'— 請選擇房號 —':'— 請先選館別 —')+'</option>'+
+    (p?p.rooms.map(r=>'<option value="'+escH(r.room)+'"'+
+      (r.room===cur?' selected':'')+'>'+escH(r.room)+'</option>').join(''):'');
+}
+function fillCpCats(cur){
+  document.getElementById('cpf-cat').innerHTML='<option value="">— 請選擇類別 —</option>'+
+    Object.keys(COMPLAINT_LIB).map(k=>'<option value="'+escH(k)+'"'+
+      (k===cur?' selected':'')+'>'+escH(k)+'</option>').join('');
+}
+function fillCpItems(cat,cur){
+  const items=COMPLAINT_LIB[cat]||[];
+  document.getElementById('cpf-item').innerHTML=
+    '<option value="">'+(cat?'— 請選擇項目 —':'— 請先選類別 —')+'</option>'+
+    items.map(x=>'<option value="'+escH(x[0])+'"'+
+      (x[0]===cur?' selected':'')+'>'+escH(x[0])+'</option>').join('');
+}
+function onCpPropChange(){
+  fillCpRooms(document.getElementById('cpf-prop').value,'');
+}
+function onCpCatChange(){
+  fillCpItems(document.getElementById('cpf-cat').value,'');
+  updCpHint();
+}
+function onCpItemChange(){
+  // 詞庫的嚴重度只是起點，帶出來之後使用者仍可依現場狀況自行調整
+  const ent=complaintEntry(document.getElementById('cpf-cat').value,
+                           document.getElementById('cpf-item').value);
+  if(ent)document.getElementById('cpf-sev').value=ent[3];
+  updCpHint();
+}
+function updCpHint(){
+  const ent=complaintEntry(document.getElementById('cpf-cat').value,
+                           document.getElementById('cpf-item').value);
+  const box=document.getElementById('cpf-hint');
+  if(!ent){box.style.display='none';box.innerHTML='';return;}
+  box.style.display='';
+  box.innerHTML='<div style="margin-bottom:4px"><strong>可能成因：</strong>'+escH(ent[1])+'</div>'+
+    '<div><strong>建議處置：</strong>'+escH(ent[2])+'</div>';
+}
+function updCpTaskBtn(c){
+  const b=document.getElementById('cpf-totask');
+  const linked=c&&c.taskId&&loadTasks().some(t=>t.id===c.taskId)?c.taskId:'';
+  b.textContent=linked?'🔧 開啟已連結的維修單':'🔧 儲存並開維修單';
+  b.dataset.linked=linked;
+}
+function cpCollect(){
+  const date=document.getElementById('cpf-date').value;
+  const prop_id=document.getElementById('cpf-prop').value;
+  const room=document.getElementById('cpf-room').value;
+  const cat=document.getElementById('cpf-cat').value;
+  const item=document.getElementById('cpf-item').value;
+  if(!date||!prop_id||!room||!cat||!item){alert('請填寫完整：日期、館別、房號、類別、項目');return null;}
+  let refundAmt=0;
+  const raw=document.getElementById('cpf-refund').value.trim();
+  if(raw!==''){
+    refundAmt=Number(raw);
+    if(!isFinite(refundAmt)||refundAmt<0){alert('賠償／退款金額請填 0 以上的數字');return null;}
+  }
+  return{date,prop_id,room,cat,item,refundAmt,
+    src:document.getElementById('cpf-src').value||'',
+    sev:document.getElementById('cpf-sev').value||'中',
+    handler:document.getElementById('cpf-handler').value.trim(),
+    note:document.getElementById('cpf-note').value.trim(),
+    status:document.getElementById('cpf-status').value||'open'};
+}
+function saveCp(thenTask){
+  const rec=cpCollect();if(!rec)return;
+  const arr=loadComplaints();
+  const now=new Date().toISOString();
+  const who=Cloud.myDisplayName||Cloud.myEmail;
+  let id=editingCpId;
+  if(id){
+    const i=arr.findIndex(x=>x.id===id);
+    if(i<0){alert('這筆客訴已不存在，可能已被其他成員刪除。');closeCpForm();return;}
+    const old=arr[i];
+    arr[i]={...old,...rec,
+      closedAt:rec.status==='closed'?(old.closedAt||todayStr()):'',
+      updatedAt:now,updatedBy:who};
+  }else{
+    id=genId('CP');
+    arr.push({id,...rec,taskId:'',bookingId:null,
+      closedAt:rec.status==='closed'?todayStr():'',
+      createdAt:now,updatedAt:now,updatedBy:who});
+  }
+  saveComplaints(arr);
+  if(!thenTask){closeCpForm();return;}
+  // 轉維修單：帶著館別、房號與詞庫建議處置過去，省下重打一次的工夫。
+  // 實際的連結在 saveTk() 建立任務時才寫回，使用者中途取消就不會留下空連結。
+  pendingComplaintLink=id;
+  cpReturnAfterTask=true;
+  cpReturnAfter=false;
+  editingCpId=null;
+  document.getElementById('cpf-ov').classList.remove('open');
+  const ent=complaintEntry(rec.cat,rec.item);
+  setTimeout(()=>{
+    openTaskModal(rec.prop_id,rec.room,todayStr(),'repair');
+    document.getElementById('tk-note').value=
+      '客訴（'+rec.date+'）：'+rec.cat+'－'+rec.item+
+      (ent?'\n建議處置：'+ent[2]:'')+
+      (rec.note?'\n客訴備註：'+rec.note:'');
+    fillTkCats(COMPLAINT_CAT_TO_VENDOR[rec.cat]||'');
+    fillTkVendors('');
+  },80);
+}
+function cpToTask(){
+  const b=document.getElementById('cpf-totask');
+  if(!b.dataset.linked){saveCp(true);return;}
+  const id=b.dataset.linked;
+  const t=loadTasks().find(x=>x.id===id);
+  if(!t){alert('這筆維修單已不存在，可能已被其他成員刪除。');updCpTaskBtn(null);return;}
+  cpReturnAfter=false;cpReturnAfterTask=true;editingCpId=null;
+  document.getElementById('cpf-ov').classList.remove('open');
+  setTimeout(()=>openEditTask(t),80);
+}
+function deleteCp(){
+  if(!editingCpId)return;
+  if(!confirm('確定刪除這筆客訴紀錄？房源風險燈號的統計也會同步減少。'))return;
+  saveComplaints(loadComplaints().filter(c=>c.id!==editingCpId));
+  closeCpForm();
+}
+function closeCpForm(){
+  document.getElementById('cpf-ov').classList.remove('open');
+  editingCpId=null;
+  if(cpReturnAfter){cpReturnAfter=false;setTimeout(openComplaints,80);}
+}
+// 客訴連結到剛建立的維修單（單向由客訴指向任務；任務那邊在 saveTk 直接寫 complaintId）
+function linkComplaintTask(cpId,taskId){
+  const arr=loadComplaints();
+  const i=arr.findIndex(x=>x.id===cpId);
+  if(i<0)return;
+  arr[i]={...arr[i],taskId,updatedAt:new Date().toISOString()};
+  saveComplaints(arr);
+}
+
+// ════════════════════════════════════════════════
+// 房源風險燈號（RISK）
+// ════════════════════════════════════════════════
+// 把原本散在維修報表與客訴紀錄的數字，收斂成房間層級的一個燈號與續約建議，
+// 讓「這間房到底還值不值得繼續做短租」有依據可談，而不是憑印象。
+// 觀察期固定近 365 天：短於一年會被單次大修扭曲，長於一年則跟不上房況變化。
+function riskWindow(){const to=todayStr();return{from:addDays(to,-365),to};}
+// 兩個半開區間 [s1,e1) ∩ [s2,e2) 的天數。任務本身就是半開區間，直接沿用同一基準。
+function dayOverlap(s1,e1,s2,e2){const s=s1>s2?s1:s2,e=e1<e2?e1:e2;return s<e?diffDays(s,e):0;}
+function buildRiskRows(){
+  const w=riskWindow();
+  const wEnd=addDays(w.to,1);   // 半開區間，讓「今天」整天也算進觀察期
+  const tasks=loadTasks().filter(t=>t.type==='repair'&&t.start&&t.end);
+  const cps=loadComplaints().filter(c=>c.date&&c.date>=w.from&&c.date<=w.to);
+  const rows=[];
+  getAllProps().forEach(p=>{
+    (p.rooms||[]).forEach(r=>{
+      const mine=tasks.filter(t=>String(t.prop_id)===String(p.id)&&t.room===r.room);
+      // 只有「需淨空」的維修才真的讓房間賣不出去；可續住的維修不計入佔用天數
+      let repDays=0;
+      mine.forEach(t=>{
+        if((t.blocking||'exclusive')!=='exclusive')return;
+        repDays+=dayOverlap(t.start,t.end,w.from,wEnd);
+      });
+      const cost=mine.reduce((s,t)=>s+((t.start>=w.from&&t.start<=w.to)?tkCost(t):0),0);
+      const mycp=cps.filter(c=>String(c.prop_id)===String(p.id)&&c.room===r.room);
+      const cnt=mycp.length;
+      const sevN=mycp.filter(c=>c.sev==='重').length;
+      const refund=mycp.reduce((s,c)=>s+(Number(c.refundAmt)||0),0);
+      const price=Number(r.price)||0;
+      const fixRate=repDays/365;
+      const lamps=[lampBy(fixRate,RISK_TH.fix),lampBy(cnt,RISK_TH.cnt)];
+      // 月租為 0（尚未定價）時「花掉幾個月租金」沒有意義，整條判準略過，
+      // 否則會把每一間還沒定價的房間都誤判成紅燈。
+      const costRate=price>0?cost/price:0;
+      if(price>0)lamps.push(lampBy(costRate,RISK_TH.cost));
+      // 重大客訴（漏水、跳電、門鎖打不開⋯）不論次數多寡都代表住得下不去，單獨拉高一級
+      if(sevN>=RISK_TH.sev)lamps.push('o');
+      rows.push({pid:p.id,pname:p.name,room:r.room,type:r.type||'',offSale:!!r.offSale,
+        price,repDays,fixRate,cost,costRate,cnt,sevN,refund,
+        lamp:worstLamp(lamps),loss:Math.round(repDays*price/30)});
+    });
+  });
+  rows.sort((a,b)=>RISK_ORDER.indexOf(b.lamp)-RISK_ORDER.indexOf(a.lamp)||b.loss-a.loss||b.cnt-a.cnt);
+  return rows;
+}
+function riskHtml(){
+  document.getElementById('mt-title').textContent='🚦 房源風險燈號';
+  const rows=buildRiskRows();
+  if(rows.length===0)return '<div style="text-align:center;padding:36px;color:var(--muted);font-size:12px">'+
+    '還沒有房源資料，先到房源管理建立館別與房號。</div>';
+  const cnt={g:0,y:0,o:0,r:0};rows.forEach(x=>{cnt[x.lamp]++;});
+  const card=k=>{const L=RISK_LAMP[k];
+    return '<div style="flex:1;min-width:112px;background:'+L.bg+';border-radius:8px;padding:9px 12px">'+
+      '<div style="font-size:10.5px;font-weight:700;color:'+L.color+'">'+L.label+'</div>'+
+      '<div style="font-size:21px;font-weight:800;color:'+L.color+';line-height:1.25">'+cnt[k]+
+        '<span style="font-size:11px;font-weight:600"> 間</span></div>'+
+      '<div style="font-size:10px;color:'+L.color+';opacity:.82">'+L.advice+'</div></div>';};
+  let h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
+    RISK_ORDER.map(card).join('')+'</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">'+
+    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+      ['燈號','館別 / 房號','房型','月租','維修佔用','維修金額','客訴','推估損失營收','建議'].map((t,i)=>
+        '<th style="padding:8px 9px;text-align:'+(i>=3&&i<=7?'right':'left')+
+        ';color:var(--muted);font-size:10px;white-space:nowrap">'+t+'</th>').join('')+
+    '</tr></thead><tbody>'+
+    rows.map(x=>{
+      const L=RISK_LAMP[x.lamp];
+      return '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:7px 9px;white-space:nowrap"><span style="display:inline-block;padding:1px 8px;'+
+          'border-radius:99px;font-size:10px;font-weight:700;color:'+L.color+';background:'+L.bg+'">'+L.label+'</span></td>'+
+        '<td style="padding:7px 9px;font-size:11px">'+escH(x.pname)+
+          '<div style="font-weight:700;color:var(--primary)">'+escH(x.room)+
+          (x.offSale?' <span style="color:#c92a2a;font-weight:600">停售中</span>':'')+'</div></td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+escH(x.type||'—')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+
+          (x.price>0?money(x.price):'<span style="color:var(--muted)">未定價</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+x.repDays+' 天'+
+          '<div style="color:var(--muted);font-size:10px">'+(x.fixRate*100).toFixed(1)+'%</div></td>'+
+        '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+money(x.cost)+
+          (x.price>0?'<div style="color:var(--muted);font-size:10px">≒ '+x.costRate.toFixed(1)+' 個月租</div>':'')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+x.cnt+' 件'+
+          (x.sevN>0?'<div style="color:#c92a2a;font-size:10px;font-weight:700">重 '+x.sevN+' 件</div>':'')+
+          (x.refund>0?'<div style="color:var(--muted);font-size:10px">賠 '+money(x.refund)+'</div>':'')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap;font-weight:700">'+
+          (x.loss>0?money(x.loss):'<span style="color:var(--muted);font-weight:400">—</span>')+'</td>'+
+        '<td style="padding:7px 9px;font-size:11px;white-space:nowrap;color:'+L.color+';font-weight:700">'+L.advice+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody></table></div>';
+  h+='<div style="margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.85;'+
+    'background:var(--bg2,#f6f7f9);border-radius:6px;padding:10px 12px">'+
+    '<strong>計算方式（觀察期：近 365 天 '+escH(riskWindow().from)+' ～ '+escH(riskWindow().to)+'）</strong><br>'+
+    '‧ <strong>維修佔用</strong>＝需淨空的維修排程天數 ÷ 365。可續住的維修不計入（房間照樣收得到租金）。'+
+      '達 '+(RISK_TH.fix[0]*100)+'% 黃燈、'+(RISK_TH.fix[1]*100)+'% 橙燈、'+(RISK_TH.fix[2]*100)+'% 紅燈。<br>'+
+    '‧ <strong>維修金額</strong>＝期間維修支出相當於幾個月租金。'+
+      '達 '+RISK_TH.cost[0]+' 個月黃燈、'+RISK_TH.cost[1]+' 個月橙燈、'+RISK_TH.cost[2]+' 個月紅燈。'+
+      '刻意用比例而非絕對金額：雅房與四房的合理維修支出差好幾倍，寫死金額會讓小房型永遠綠燈、大房型永遠紅燈。<br>'+
+    '‧ <strong>客訴件數</strong>：達 '+RISK_TH.cnt[0]+' 件黃燈、'+RISK_TH.cnt[1]+' 件橙燈、'+RISK_TH.cnt[2]+' 件紅燈；'+
+      '另有「重」級客訴 '+RISK_TH.sev+' 件以上，至少橙燈。<br>'+
+    '‧ 最終燈號取上述各項中<strong>最嚴重</strong>的一項。<br>'+
+    '‧ <strong>推估損失營收</strong>＝維修佔用天數 × 月租 ÷ 30，僅供比較各房間的相對嚴重度，不等於實際少收的錢。<br>'+
+    '‧ 建議欄是決策參考，不會自動更動房源狀態；要停止接單請到房源管理把房間設為<strong>停售</strong>。'+
+    '</div>';
+  return h;
+}
+
+// ════════════════════════════════════════════════
+// 入住前複查清單（PRE-CHECK）
+// ════════════════════════════════════════════════
+// 以「訂單＋館別＋房號＋入住日」為 key，而不是段落索引：
+// 段落在編輯訂單時會被增刪重排，用索引會讓已勾好的清單對到別間房。
+// 項目 id 是「群組序－項目序」，因此 PRECHECK_LIB 的順序一旦調整，
+// 舊紀錄的勾選就會對位錯誤。日後要增修項目請只在群組末端追加。
+function loadChecklists(){return Cloud.get('qj_checklists',{});}
+function saveChecklists(d){Cloud.set('qj_checklists',d);}
+function ckKey(bkId,pid,room,checkin){return [bkId,pid,room,checkin].join('|');}
+function ckTotal(){return PRECHECK_LIB.reduce((n,g)=>n+g[1].length,0);}
+function ckRec(cls,k){return cls[k]||{done:{},note:'',updatedAt:'',updatedBy:''};}
+function ckDoneCount(rec){const d=(rec&&rec.done)||{};return Object.keys(d).filter(x=>d[x]).length;}
+
+let ckCur=null;
+function openChecklist(bkId,pid,room,checkin,guest){
+  if(!bkId||!pid||!room||!checkin){
+    alert('請先選好館別、房號與入住日期並儲存訂單，才能開啟複查清單。');return;
+  }
+  ckCur={key:ckKey(bkId,pid,room,checkin),bkId,pid:String(pid),room,checkin,guest:guest||''};
+  const p=getProp(pid);
+  document.getElementById('ck-sub').innerHTML=
+    escH(p?p.name:'（已刪除館別）')+' <strong>'+escH(room)+'</strong>　入住 '+escH(checkin)+
+    (guest?'　客人：'+escH(guest):'');
+  renderChecklist();
+  document.getElementById('ck-ov').classList.add('open');
+}
+function closeChecklist(){
+  document.getElementById('ck-ov').classList.remove('open');
+  ckCur=null;refreshTodoBadge();
+  // 回到訂單視窗時把按鈕上的完成度更新掉，不然還顯示剛才的舊數字
+  if(typeof renderSegs==='function'&&document.getElementById('bk-ov').classList.contains('open'))renderSegs();
+}
+function renderChecklist(){
+  if(!ckCur)return;
+  const rec=ckRec(loadChecklists(),ckCur.key);
+  const done=rec.done||{};
+  const total=ckTotal(),n=ckDoneCount(rec);
+  document.getElementById('ck-title').textContent='📋 入住前複查清單 — '+n+' / '+total;
+  let h='<div style="background:var(--bg2,#f6f7f9);border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">'+
+    '<div id="ck-bar" style="height:100%;width:'+Math.round(n/total*100)+'%;'+
+    'background:'+(n===total?'#2f9e44':'#f08c00')+'"></div></div>'+
+    '<div style="font-size:10.5px;color:var(--muted);line-height:1.7;margin-bottom:6px">'+
+    '依 SOP 逐項確認，勾選會即時儲存並同步給其他成員。尚未完成、又快到入住日的清單會出現在 🔔 今日待辦。</div>';
+  PRECHECK_LIB.forEach((g,gi)=>{
+    const items=g[1];
+    const gn=items.filter((_,ii)=>done[gi+'-'+ii]).length;
+    h+='<div style="font-weight:800;font-size:12.5px;margin:14px 0 4px">'+escH(g[0])+
+      ' <span id="ck-gc-'+gi+'" style="font-weight:600;font-size:10.5px;color:'+
+      (gn===items.length?'#2f9e44':'var(--muted)')+'">'+gn+'/'+items.length+'</span></div>'+
+    items.map((it,ii)=>{
+      const id=gi+'-'+ii;
+      return '<label data-ck="'+id+'" style="display:flex;align-items:flex-start;gap:7px;padding:3px 6px;'+
+        'border-radius:5px;cursor:pointer;font-size:11.5px;line-height:1.6'+(done[id]?';background:#ebfbee':'')+'">'+
+        '<input type="checkbox" '+(done[id]?'checked ':'')+'onchange="toggleCk('+jsArg(id)+',this.checked)" style="margin-top:3px">'+
+        '<span style="flex:1">'+escH(it[0])+'</span>'+
+        '<span style="color:var(--muted);font-size:9.5px;white-space:nowrap">'+escH(it[1])+'</span></label>';
+    }).join('');
+  });
+  h+='<div class="field" style="margin-top:16px"><label>複查備註</label>'+
+    '<textarea id="ck-note" rows="2" onchange="saveCkNote()" '+
+    'placeholder="現場發現的問題、已處理方式…">'+escH(rec.note||'')+'</textarea></div>';
+  if(rec.updatedAt)h+='<div style="font-size:10px;color:var(--muted);margin-top:6px">最後更新：'+
+    escH(rec.updatedAt.slice(0,16).replace('T',' '))+(rec.updatedBy?'（'+escH(rec.updatedBy)+'）':'')+'</div>';
+  document.getElementById('ck-body').innerHTML=h;
+}
+// 勾選後只更新進度與底色，不整份重畫——61 個項目重畫會把捲動位置彈回頂端
+function updCkProgress(){
+  if(!ckCur)return;
+  const rec=ckRec(loadChecklists(),ckCur.key);
+  const done=rec.done||{},total=ckTotal(),n=ckDoneCount(rec);
+  document.getElementById('ck-title').textContent='📋 入住前複查清單 — '+n+' / '+total;
+  const bar=document.getElementById('ck-bar');
+  if(bar){bar.style.width=Math.round(n/total*100)+'%';bar.style.background=n===total?'#2f9e44':'#f08c00';}
+  PRECHECK_LIB.forEach((g,gi)=>{
+    const el=document.getElementById('ck-gc-'+gi);
+    if(!el)return;
+    const gn=g[1].filter((_,ii)=>done[gi+'-'+ii]).length;
+    el.textContent=gn+'/'+g[1].length;
+    el.style.color=gn===g[1].length?'#2f9e44':'var(--muted)';
+  });
+  document.querySelectorAll('#ck-body label[data-ck]').forEach(l=>{
+    l.style.background=done[l.dataset.ck]?'#ebfbee':'';
+  });
+  refreshTodoBadge();
+}
+function ckWrite(mut){
+  const cls=loadChecklists();
+  const rec={...ckRec(cls,ckCur.key)};
+  rec.done={...rec.done};
+  mut(rec);
+  rec.updatedAt=new Date().toISOString();
+  rec.updatedBy=Cloud.myDisplayName||Cloud.myEmail;
+  cls[ckCur.key]=rec;
+  saveChecklists(cls);
+}
+function toggleCk(id,on){
+  if(!ckCur)return;
+  ckWrite(rec=>{if(on)rec.done[id]=true;else delete rec.done[id];});
+  updCkProgress();
+}
+function ckSetAll(on){
+  if(!ckCur)return;
+  if(on&&!confirm('確定把全部 '+ckTotal()+' 項都標示為已完成？\n請確認現場真的都檢查過了——這份紀錄是日後客訴爭議的依據。'))return;
+  ckWrite(rec=>{
+    rec.done={};
+    if(on)PRECHECK_LIB.forEach((g,gi)=>g[1].forEach((_,ii)=>{rec.done[gi+'-'+ii]=true;}));
+  });
+  renderChecklist();refreshTodoBadge();
+}
+function saveCkNote(){
+  if(!ckCur)return;
+  const v=document.getElementById('ck-note').value.trim();
+  ckWrite(rec=>{rec.note=v;});
+}
+function printChecklist(){
+  if(!ckCur)return;
+  const rec=ckRec(loadChecklists(),ckCur.key);
+  const done=rec.done||{};
+  const p=getProp(ckCur.pid);
+  let body='';
+  PRECHECK_LIB.forEach((g,gi)=>{
+    body+='<h3>'+escH(g[0])+'</h3><table>'+
+      g[1].map((it,ii)=>'<tr><td class="bx">'+(done[gi+'-'+ii]?'☑':'☐')+'</td><td>'+
+        escH(it[0])+'</td><td class="sop">'+escH(it[1])+'</td></tr>').join('')+'</table>';
+  });
+  const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'+
+    '<title>入住前複查清單</title><style>'+
+    'body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;font-size:12px;color:#222;margin:24px}'+
+    'h1{font-size:17px;margin:0 0 6px}'+
+    'h3{font-size:13px;margin:15px 0 4px;border-bottom:1px solid #ccc;padding-bottom:3px}'+
+    '.meta{font-size:11px;color:#555;line-height:1.75;margin-bottom:6px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'td{padding:3px 5px;border-bottom:1px solid #eee;vertical-align:top}'+
+    '.bx{width:18px;font-size:14px}.sop{width:86px;text-align:right;color:#888;font-size:10px;white-space:nowrap}'+
+    '.sign{margin-top:24px;font-size:11px}@media print{body{margin:10mm}}'+
+    '</style></head><body>'+
+    '<h1>入住前複查清單</h1>'+
+    '<div class="meta">館別：'+escH(p?p.name:'—')+'　房號：'+escH(ckCur.room)+'　入住日：'+escH(ckCur.checkin)+
+      (ckCur.guest?'<br>客人：'+escH(ckCur.guest):'')+
+      '<br>完成度：'+ckDoneCount(rec)+' / '+ckTotal()+'　列印時間：'+escH(new Date().toLocaleString('zh-TW'))+'</div>'+
+    body+
+    (rec.note?'<h3>複查備註</h3><div style="white-space:pre-wrap;font-size:11.5px">'+escH(rec.note)+'</div>':'')+
+    '<div class="sign">複查人員簽名：________________　　主管覆核：________________</div>'+
+    '</body></html>';
+  const w=window.open('','_blank');
+  if(!w){alert('瀏覽器擋下了新視窗，請允許本站的彈出視窗後再試一次。');return;}
+  w.document.write(html);w.document.close();w.focus();
+  setTimeout(()=>{try{w.print();}catch(e){}},300);
+}
+
+// ════════════════════════════════════════════════
 // MAINTENANCE TRACKING（維修追蹤 + 維修報表）
 // ════════════════════════════════════════════════
 let maintTab='list',maintReturnAfterTask=false;
@@ -4232,6 +5013,7 @@ function setMaintTab(tab){
   document.getElementById('mt-tab-list').className='btn sm '+(tab==='list'?'btn-primary':'btn-ghost');
   document.getElementById('mt-tab-report').className='btn sm '+(tab==='report'?'btn-primary':'btn-ghost');
   document.getElementById('mt-tab-sched').className='btn sm '+(tab==='sched'?'btn-primary':'btn-ghost');
+  document.getElementById('mt-tab-risk').className='btn sm '+(tab==='risk'?'btn-primary':'btn-ghost');
   document.getElementById('mt-filters').style.display=tab==='list'?'flex':'none';
   renderMaint();
 }
@@ -4387,6 +5169,7 @@ function renderMaint(){
     document.getElementById('mt-title').textContent='🧹 清潔班表';
     box.innerHTML=cleanSchedHtml();return;
   }
+  if(maintTab==='risk'){box.innerHTML=riskHtml();return;}
   const list=maintFiltered();
   const tod=todayStr();
   document.getElementById('mt-title').textContent='🔧 維修追蹤 — 共 '+list.length+' 筆';
@@ -5960,6 +6743,7 @@ init();
       <button id="mt-tab-list" class="btn btn-primary sm" onclick="setMaintTab('list')">追蹤清單</button>
       <button id="mt-tab-report" class="btn btn-ghost sm" onclick="setMaintTab('report')">維修報表</button>
       <button id="mt-tab-sched" class="btn btn-ghost sm" onclick="setMaintTab('sched')">清潔班表</button>
+      <button id="mt-tab-risk" class="btn btn-ghost sm" onclick="setMaintTab('risk')">房源風險</button>
     </div>
     <button class="close-btn" onclick="closeMaint()">✕</button>
   </div>
@@ -6155,6 +6939,116 @@ init();
   <div style="padding:10px 20px 16px;display:flex;gap:8px;justify-content:flex-end">
     <button class="btn btn-ghost" onclick="closeCancelModal()">返回</button>
     <button class="btn" style="background:#c92a2a;color:#fff;border-color:#c92a2a" onclick="applyCancel()">確認取消訂單</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 客訴紀錄清單 ═══ -->
+<div class="overlay" id="cp-ov" onclick="if(event.target===this)closeComplaints()">
+<div class="modal" style="width:1040px;max-width:98vw">
+  <div class="modal-h">
+    <h2 id="cp-title">📣 客訴紀錄</h2>
+    <button class="close-btn" onclick="closeComplaints()">✕</button>
+  </div>
+  <div style="padding:10px 17px 4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <select class="sel" id="cp-f-status" onchange="renderComplaints()">
+      <option value="open">處理中</option>
+      <option value="">全部狀態</option>
+      <option value="closed">已結案</option>
+    </select>
+    <select class="sel" id="cp-f-prop" onchange="renderComplaints()"><option value="">全部館別</option></select>
+    <select class="sel" id="cp-f-days" onchange="renderComplaints()">
+      <option value="365">近一年</option>
+      <option value="90">近三個月</option>
+      <option value="">全部期間</option>
+    </select>
+    <input class="search" id="cp-search" type="text" placeholder="搜尋房號 / 項目 / 處理人員…"
+      oninput="renderComplaints()" style="flex:1;min-width:150px">
+  </div>
+  <div class="modal-body" style="max-height:62vh;overflow-y:auto">
+    <div id="cp-content"></div>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div style="font-size:10.5px;color:var(--muted);line-height:1.6">
+      選好類別與項目後會自動帶出「可能成因」與「建議處置」，第一線人員不必憑經驗判斷。<br>
+      需要動工的客訴按<strong>儲存並開維修單</strong>即可帶著房間與建議處置轉成維修單；件數與嚴重度會即時反映在 🚦 房源風險燈號。
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-primary sm" onclick="openCpForm(null)">＋ 新增客訴</button>
+      <button class="btn btn-ghost sm" onclick="closeComplaints()">關閉</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 客訴表單 ═══ -->
+<div class="overlay" id="cpf-ov" onclick="if(event.target===this)closeCpForm()">
+<div class="modal" style="width:640px;max-width:96vw">
+  <div class="modal-h">
+    <h2 id="cpf-title">新增客訴紀錄</h2>
+    <button class="close-btn" onclick="closeCpForm()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+    <div class="form-grid">
+      <div class="field"><label>客訴日期 <span class="req">*</span></label>
+        <input id="cpf-date" type="date"></div>
+      <div class="field"><label>來源</label>
+        <select id="cpf-src"></select></div>
+      <div class="field"><label>館別 <span class="req">*</span></label>
+        <select id="cpf-prop" onchange="onCpPropChange()"><option value="">— 請選擇館別 —</option></select></div>
+      <div class="field"><label>房號 <span class="req">*</span></label>
+        <select id="cpf-room"><option value="">— 請先選館別 —</option></select></div>
+      <div class="field"><label>類別 <span class="req">*</span></label>
+        <select id="cpf-cat" onchange="onCpCatChange()"><option value="">— 請選擇類別 —</option></select></div>
+      <div class="field"><label>項目 <span class="req">*</span></label>
+        <select id="cpf-item" onchange="onCpItemChange()"><option value="">— 請先選類別 —</option></select></div>
+    </div>
+    <div id="cpf-hint" style="display:none;font-size:11.5px;color:var(--muted);line-height:1.7;
+      background:var(--primary-light);border-radius:8px;padding:9px 12px;margin-top:10px"></div>
+    <div class="form-grid" style="margin-top:10px">
+      <div class="field"><label>嚴重度</label>
+        <select id="cpf-sev"><option value="輕">輕</option><option value="中">中</option><option value="重">重</option></select></div>
+      <div class="field"><label>處理人員</label>
+        <input id="cpf-handler" type="text" placeholder="負責跟進的同仁"></div>
+      <div class="field"><label>賠償／退款金額 (NT$)</label>
+        <input id="cpf-refund" type="number" min="0" placeholder="無則留空"></div>
+      <div class="field"><label>狀態</label>
+        <select id="cpf-status"><option value="open">處理中</option><option value="closed">已結案</option></select></div>
+      <div class="field span2"><label>備註（客人原話、現場狀況、已做的處置…）</label>
+        <textarea id="cpf-note" rows="3"></textarea></div>
+    </div>
+  </div>
+  <div style="padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <button class="btn btn-ghost sm" id="cpf-del" style="display:none;color:#c92a2a" onclick="deleteCp()">🗑 刪除</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-ghost sm" id="cpf-totask" data-linked="" onclick="cpToTask()">🔧 儲存並開維修單</button>
+    <button class="btn btn-ghost sm" onclick="closeCpForm()">取消</button>
+    <button class="btn btn-primary sm" onclick="saveCp(false)">💾 儲存客訴</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 入住前複查清單 ═══ -->
+<!-- 放在最後：與訂單視窗同為 .overlay 且 z-index 相同，靠 DOM 順序才會疊在訂單之上 -->
+<div class="overlay" id="ck-ov" onclick="if(event.target===this)closeChecklist()">
+<div class="modal" style="width:720px;max-width:96vw">
+  <div class="modal-h">
+    <h2 id="ck-title">📋 入住前複查清單</h2>
+    <button class="close-btn" onclick="closeChecklist()">✕</button>
+  </div>
+  <div id="ck-sub" style="padding:0 18px 8px;font-size:11.5px;color:var(--muted)"></div>
+  <div class="modal-body" style="max-height:66vh;overflow-y:auto">
+    <div id="ck-body"></div>
+  </div>
+  <div style="padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-ghost sm" onclick="ckSetAll(true)">全部勾選</button>
+      <button class="btn btn-ghost sm" onclick="ckSetAll(false)">全部清除</button>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-ghost sm" onclick="printChecklist()">🖨 列印</button>
+      <button class="btn btn-primary sm" onclick="closeChecklist()">完成</button>
+    </div>
   </div>
 </div>
 </div>
