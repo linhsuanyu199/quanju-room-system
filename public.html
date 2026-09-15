@@ -126,7 +126,24 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
   display:flex;flex-direction:column;
 }
 .card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.card-cover{position:relative;width:100%;aspect-ratio:4/3;background:#eef1f5;overflow:hidden}
+.card-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.card-cover .cover-more{position:absolute;right:8px;bottom:8px;background:rgba(15,23,42,.72);
+  color:#fff;font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--radius-pill)}
 .card-head{padding:18px 18px 0}
+/* 相簿 */
+.gal{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scroll-snap-type:x mandatory}
+.gal img{flex:0 0 auto;width:190px;height:142px;object-fit:cover;border-radius:10px;
+  background:#eef1f5;cursor:zoom-in;scroll-snap-align:start}
+.gal-cap{font-size:12px;color:var(--muted,#64748b);margin:2px 0 6px}
+.room-thumb{width:52px;height:40px;object-fit:cover;border-radius:6px;background:#eef1f5;
+  display:block;cursor:zoom-in}
+.lightbox{position:fixed;inset:0;background:rgba(15,23,42,.88);display:none;
+  align-items:center;justify-content:center;z-index:3000;padding:24px}
+.lightbox.open{display:flex}
+.lightbox img{max-width:min(1100px,94vw);max-height:88vh;border-radius:10px;display:block}
+.lightbox-x{position:absolute;top:18px;right:22px;background:none;border:0;color:#fff;
+  font-size:30px;line-height:1;cursor:pointer}
 .card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .badge{display:inline-flex;align-items:center;padding:3px 10px;
   border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
@@ -468,6 +485,12 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 <!-- OVERLAY -->
 <div class="overlay" id="overlay" onclick="closeAll()"></div>
 
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-x" onclick="closeLightbox()" aria-label="關閉">✕</button>
+  <img id="lightboxImg" alt="">
+</div>
+
 <!-- DETAIL MODAL -->
 <div class="detail-modal" id="detailModal" role="dialog" aria-modal="true">
   <div class="modal-header">
@@ -481,6 +504,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     </div>
   </div>
   <div class="modal-body">
+    <div id="modalGallery"></div>
     <div class="modal-section-title">房間列表</div>
     <table class="room-table">
       <thead>
@@ -587,7 +611,7 @@ function getAllProps(){
     const extra=info[pid]||{};
     const addr=extra.address||p.address||'';
     const district=extra.district||p.district||inferDistrict(addr)||'';
-    return{...p,rooms,district,address:addr,serviceType:extra.serviceType||''};
+    return{...p,rooms,district,address:addr,serviceType:extra.serviceType||'',photos:extra.photos||{}};
   }).filter(Boolean);
 }
 
@@ -690,6 +714,27 @@ function filterProps(props,f){
   });
 }
 
+// ── PHOTOS ────────────────────────────────────────────────────────────────
+// 後台把照片網址存在 propinfo[pid].photos，key 是房號，館別層級用 '_cover'。
+const PHOTO_COVER_KEY='_cover';
+function roomPhotos(p,roomNo){ return (p.photos&&p.photos[roomNo])||[]; }
+function coverPhotos(p){ return (p.photos&&p.photos[PHOTO_COVER_KEY])||[]; }
+// 館別照片優先當封面；沒有的話退而用第一間有照片的房間，才不會整張卡片空著
+function allPhotos(p){
+  const out=coverPhotos(p).map(u=>({url:u,cap:'館別'}));
+  for(const r of p.rooms) for(const u of roomPhotos(p,r.room)) out.push({url:u,cap:r.room});
+  return out;
+}
+
+function openLightbox(url){
+  document.getElementById('lightboxImg').src=url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src='';
+}
+
 // ── RENDER GRID ───────────────────────────────────────────────────────────
 function renderGrid(props){
   const grid=document.getElementById('propGrid');
@@ -719,7 +764,14 @@ function cardHTML(p){
   const districtBadge=p.district?`<span class="badge badge-district">${p.district}</span>`:'';
   const svcBadge=p.serviceType?`<span class="badge badge-service">${p.serviceType}</span>`:'';
 
+  const pics=allPhotos(p);
+  const cover=pics.length?`<div class="card-cover">
+    <img src="${esc(pics[0].url)}" alt="${esc(p.name)}" loading="lazy">
+    ${pics.length>1?`<span class="cover-more">📷 ${pics.length}</span>`:''}
+  </div>`:'';
+
   return `<div class="card" onclick="openDetail(${p.id})">
+  ${cover}
   <div class="card-head">
     <div class="card-badges">${districtBadge}${svcBadge}</div>
     <div class="card-name">${esc(p.name)}</div>
@@ -754,12 +806,23 @@ function openDetail(propId){
   if(p.district) badges.innerHTML+=`<span class="badge badge-district">${esc(p.district)}</span>`;
   if(p.serviceType) badges.innerHTML+=`<span class="badge badge-service">${esc(p.serviceType)}</span>`;
 
+  const pics=allPhotos(p);
+  document.getElementById('modalGallery').innerHTML=pics.length?
+    `<div class="modal-section-title">照片（${pics.length}）</div>
+     <div class="gal">${pics.map(x=>
+       `<img src="${esc(x.url)}" alt="${esc(p.name+' '+x.cap)}" loading="lazy"
+             onclick="openLightbox(this.src)">`).join('')}</div>
+     <div class="gal-cap">點圖可放大。實際狀況以現場為準。</div>`:'';
+
   const tbody=document.getElementById('roomTableBody');
   tbody.innerHTML=p.rooms.map(r=>{
     const st=getRoomStatus(p.id,r.room);
     const typNorm=normalizeType(r.type);
+    const rp=roomPhotos(p,r.room);
+    const thumb=rp.length?`<img class="room-thumb" src="${esc(rp[0])}" alt="${esc(r.room)}"
+      loading="lazy" onclick="openLightbox(this.src)">`:'';
     return `<tr>
-      <td><strong>${esc(r.room)}</strong></td>
+      <td><strong>${esc(r.room)}</strong>${thumb}</td>
       <td>${esc(typNorm)}</td>
       <td>NT$${(r.price||0).toLocaleString()}</td>
       <td><span class="status-badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
@@ -807,7 +870,10 @@ function esc(s){
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && document.getElementById('detailModal').classList.contains('open')) closeDetail();
+  if(e.key!=='Escape') return;
+  // 燈箱疊在詳情視窗之上，要先關掉最上層那一個，不然詳情會連帶被關掉
+  if(document.getElementById('lightbox').classList.contains('open')) closeLightbox();
+  else if(document.getElementById('detailModal').classList.contains('open')) closeDetail();
 });
 
 // ── BOOT ──────────────────────────────────────────────────────────────────

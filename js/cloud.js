@@ -67,6 +67,41 @@ const Cloud = {
     return val;
   },
 
+  // ── 房源照片（Supabase Storage）──────────────────
+  // 照片不存進 company_kv：base64 會讓單一 JSON 膨脹到數 MB，每次存房源設定都要整包來回傳，
+  // 官網訪客也會被迫下載全部原圖。改存 Storage，KV 內只留公開網址字串。
+  // 路徑第一段固定是 company_id，Storage 的 RLS policy 就靠它擋掉跨企業的上傳與刪除。
+  PHOTO_BUCKET: 'prop-photos',
+  PHOTO_MAX_BYTES: 5 * 1024 * 1024,
+
+  async uploadPhoto(file, propId, roomNo) {
+    if (!this.companyId) throw new Error('尚未登入');
+    if (!/^image\//.test(file.type)) throw new Error('只能上傳圖片檔');
+    if (file.size > this.PHOTO_MAX_BYTES)
+      throw new Error('圖片超過 5MB，請先壓縮（目前 ' + (file.size / 1048576).toFixed(1) + 'MB）');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = [this.companyId, String(propId), roomNo ? 'r_' + roomNo : '_cover',
+      Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext].join('/');
+    const { error } = await _sb.storage.from(this.PHOTO_BUCKET)
+      .upload(path, file, { cacheControl: '31536000', upsert: false, contentType: file.type });
+    if (error) throw new Error('上傳失敗：' + error.message);
+    return _sb.storage.from(this.PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+  },
+
+  // 由公開網址反推 Storage 路徑。網址是自己產的，格式固定，找不到就當作外部連結不刪檔。
+  _photoPath(url) {
+    const marker = '/object/public/' + this.PHOTO_BUCKET + '/';
+    const i = String(url).indexOf(marker);
+    return i < 0 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+  },
+
+  async deletePhoto(url) {
+    const path = this._photoPath(url);
+    if (!path) return;
+    const { error } = await _sb.storage.from(this.PHOTO_BUCKET).remove([path]);
+    if (error) console.error('照片刪除失敗：', error.message);
+  },
+
   // ── 官網預約詢問單（獨立資料表，靠 RLS 隔離企業）──────────
   async listInquiries() {
     const { data, error } = await _sb.from('inquiries').select('*')
