@@ -2,3 +2,6 @@
 **/.DS_Store
 .claude/
 node_modules/
+
+# 資料備份含客戶個資，絕不進版控
+backups/

@@ -1,0 +1,55 @@
+name: RLS Guard
+
+on:
+  schedule:
+    - cron: '30 2 * * *'     # 每天一次
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'sql/**'             # 動到資料庫定義就立刻重驗
+      - 'scripts/rls-guard.sh'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 以未登入身分驗證 RLS 把關
+        id: guard
+        env:
+          ROOM_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          YIJING_ANON_KEY: ${{ secrets.YIJING_ANON_KEY }}
+        run: |
+          set +e
+          bash scripts/rls-guard.sh 2>&1 | tee /tmp/rls.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: 外洩時立即告警
+        if: steps.guard.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create security --color B60205 --description "資安" 2>/dev/null || true
+          {
+            echo "**未登入的使用者可能讀得到或寫得進不該碰的資料。**"
+            echo
+            echo '```'
+            cat /tmp/rls.txt
+            echo '```'
+            echo
+            echo "執行紀錄：$RUN_URL"
+            echo
+            echo "處理方式：到 Supabase SQL Editor 確認該表 \`alter table ... enable row level security;\`，"
+            echo "並確認政策有綁定身分（\`auth.uid()\` 或 \`get_my_company_id()\`）且 \`to authenticated\`。"
+          } > /tmp/body.md
+          gh issue create \
+            --title "🔓 RLS 稽核失敗 $(date -u '+%Y-%m-%d %H:%M') UTC" \
+            --label security \
+            --body-file /tmp/body.md
+          exit 1

@@ -1,0 +1,78 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 每 30 分鐘
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 執行全站健康檢查
+        id: hc
+        env:
+          ROOM_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          YIJING_ANON_KEY: ${{ secrets.YIJING_ANON_KEY }}
+        run: |
+          set +e
+          bash scripts/healthcheck.sh 2>&1 | tee /tmp/report.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      # 失敗 → 開一張 issue（已有未關閉的就補留言，避免每 30 分鐘洗版）
+      - name: 異常時發出告警
+        if: steps.hc.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create health-alert --color B60205 --description "自動健康檢查告警" 2>/dev/null || true
+
+          {
+            echo "自動健康檢查在 \`$(date -u '+%Y-%m-%d %H:%M') UTC\` 偵測到異常。"
+            echo
+            echo '```'
+            cat /tmp/report.txt
+            echo '```'
+            echo
+            echo "執行紀錄：$RUN_URL"
+            echo
+            echo "---"
+            echo "常見原因："
+            echo "- Supabase REST／Auth 回 \`000\`：專案網域解析不到，多半是免費方案閒置暫停（Pro 方案不會發生）。"
+            echo "- Supabase 回 \`401\`：anon 金鑰失效或被輪替，需更新 repo secret。"
+            echo "- 前端站點非 200：Vercel／Netlify 部署失敗，或部署保護（Vercel Authentication）被開啟。"
+          } > /tmp/body.md
+
+          EXISTING=$(gh issue list --label health-alert --state open --limit 1 --json number -q '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file /tmp/body.md
+            echo "已於 issue #$EXISTING 補上留言"
+          else
+            gh issue create \
+              --title "🚨 健康檢查異常 $(date -u '+%Y-%m-%d %H:%M') UTC" \
+              --label health-alert \
+              --body-file /tmp/body.md
+          fi
+          exit 1
+
+      # 恢復 → 自動結案，不用手動清
+      - name: 恢復正常時關閉告警
+        if: steps.hc.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label health-alert --state open --json number -q '.[].number'); do
+            gh issue comment "$n" --body "✅ 已於 \`$(date -u '+%Y-%m-%d %H:%M') UTC\` 恢復正常，自動結案。"
+            gh issue close "$n"
+          done
