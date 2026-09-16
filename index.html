@@ -1149,12 +1149,12 @@ const OPEN_STATUS_KEYS=['todo','doing','suggest_replace'];
 // 否則房間早就打掃／維修完了，日曆與官網還一直掛著「打掃中／維修中」而漏客。
 const CLOSED_STATUS_KEYS=['done','replaced'];
 function tkClosed(t){return CLOSED_STATUS_KEYS.includes(t.status);}
-// 維修真正「賣不出去」的區間，維修率／空房率都以這個為準：
-// ① 只算需淨空（exclusive）的單，可續住的維修房間照樣有收租，算進維修率會虛胖
-// ② 已結案的單以實際完成日為準，提早修好的天數要還給空房，不能整段照排程算
-// 回傳半開區間 [start,end)，沒有佔用就回 null。
-function tkBlockRange(t){
-  if((t.blocking||'exclusive')!=='exclusive')return null;
+// 計算維修率用的實際維修區間，回傳半開區間 [start,end)，沒有佔用就回 null。
+// ① 已結案的單以實際完成日為準，提早修好的天數不該再算進維修率
+// ② 刻意不分 exclusive／occupied：房客還住著的小維修雖然租金照收，
+//    但那仍是這間房的維修負擔，維修率要回答的是「這房源還值不值得繼續出租」，
+//    兩種都要計入。收不收得到租金是空房率的事，不是維修率的事。
+function tkRepairRange(t){
   const end=(tkClosed(t)&&t.doneAt&&t.doneAt>=t.start&&t.doneAt<t.end)?t.doneAt:t.end;
   return (t.start&&end&&t.start<end)?{start:t.start,end}:null;
 }
@@ -2249,13 +2249,17 @@ function renderAna(tab){
     totalAvailDays=totalRooms*pDays;
     allTasks.forEach(t=>{
       if(t.type!=='repair')return;
-      const r=tkBlockRange(t);
+      const r=tkRepairRange(t);
       if(r)maintDays+=dayOverlap(r.start,r.end,pStart,pEndEx);
     });
     const occRate=totalAvailDays>0?Math.round(occupiedDays/totalAvailDays*100):0;
     const maintRate=totalAvailDays>0?Math.round(maintDays/totalAvailDays*100):0;
-    // 同一間房可能同時被算進入住與維修（資料重疊），夾住避免空房率變負數
-    const vacRate=Math.max(0,100-occRate-maintRate);
+    // 空房率＝收不到租金的天數占比＝沒人住的天數。不必再去分那天是在打掃、
+    // 在做需淨空的大修還是純閒置，只要沒人住就是空房：
+    //   當天退房當天入住 → 那天算住房，打掃不另計空房
+    //   小維修房客照住   → 那天算住房，不算空房（但仍計入維修率）
+    // 所以維修率是「疊加」指標，會與住房率重疊，不能拿來扣空房率。
+    const vacRate=100-occRate;
     return {label:p.label,rev:Math.round(rev),occRate,maintRate,vacRate,pDays,totalAvailDays,occupiedDays};
   });
 
@@ -2278,7 +2282,7 @@ function renderAna(tab){
     });
     allTasks.forEach(t=>{
       if(t.type!=='repair'||String(t.prop_id)!==String(prop.id))return;
-      const r=tkBlockRange(t);
+      const r=tkRepairRange(t);
       if(r)mdays+=dayOverlap(r.start,r.end,last12Start,last12EndEx);
     });
     const avail=prop.rooms.length*last12Days;
