@@ -3,7 +3,12 @@ name: Health Check
 on:
   schedule:
     - cron: '*/30 * * * *'   # 每 30 分鐘
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_fail:
+        description: '強制失敗，用來實測告警是否真的會通知（測完再跑一次正常的即會自動結案）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,7 +32,12 @@ jobs:
         run: |
           set +e
           bash scripts/healthcheck.sh 2>&1 | tee /tmp/report.txt
-          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          CODE=${PIPESTATUS[0]}
+          if [ "${{ inputs.force_fail }}" = "true" ]; then
+            echo "（本次為告警管線演練，強制視為失敗）" | tee -a /tmp/report.txt
+            CODE=1
+          fi
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
       # 失敗 → 開一張 issue（已有未關閉的就補留言，避免每 30 分鐘洗版）
       - name: 異常時發出告警
