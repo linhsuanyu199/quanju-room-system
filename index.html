@@ -1676,6 +1676,7 @@ function renderVendorRows(){
     return;
   }
   const inpS='height:28px;border:1px solid var(--border);border-radius:5px;padding:0 7px;font-size:12px';
+  const perf=vendorPerfById();
   box.innerHTML=vdRows.map((v,i)=>
     '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:7px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px dashed var(--border)">'+
       '<input class="vd-name" type="text" placeholder="廠商／師傅名稱" value="'+escH(v.name||'')+'" style="flex:0 0 130px;'+inpS+'">'+
@@ -1694,8 +1695,24 @@ function renderVendorRows(){
       '<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;height:28px;white-space:nowrap">'+
         '<input class="vd-act" type="checkbox"'+(v.active!==false?' checked':'')+'>啟用</label>'+
       '<button class="btn sm btn-ghost" onclick="removeVendorRow('+i+')" title="移除">✕</button>'+
+      vendorPerfLine(perf[v.id])+
     '</div>').join('')+
-    '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">欄位依序為：名稱 · 電話 · 專長類別 · 可服務館別 · 備註 · 是否啟用</div>';
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">欄位依序為：名稱 · 電話 · 專長類別 · 可服務館別 · 備註 · 是否啟用。'+
+      '每列下方的績效由維修單自動統計，完整版在「維修追蹤 → 維修報表」。</div>';
+}
+// 廠商管理每列下方的績效摘要。剛新增還沒存檔的列、或建了檔卻還沒叫過修的廠商
+// 都會落到 null，直接說「尚無叫修紀錄」比顯示一排 0 或 — 有意義。
+function vendorPerfLine(p){
+  const base='flex:1 0 100%;font-size:10.5px;margin-top:2px;padding-left:2px';
+  if(!p)return '<div style="'+base+';color:var(--muted)">尚無叫修紀錄</div>';
+  const seg=['已配合 <strong>'+p.n+'</strong> 次'];
+  if(p.avgDays!==null)seg.push('平均 <strong>'+p.avgDays+'</strong> 天完成（'+p.doneN+' 筆已結案）');
+  else seg.push('尚無已結案的單可算天數');
+  if(p.onTimeRate!==null)seg.push('準時率 <strong>'+p.onTimeRate+'%</strong>（'+p.dueN+' 筆有設期限）');
+  if(p.avgCost!==null)seg.push('平均每次 <strong>'+money(p.avgCost)+'</strong>');
+  if(p.open>0)seg.push('<span style="color:#e67700">未結案 '+p.open+' 筆</span>');
+  if(p.lastAt)seg.push('最近 '+p.lastAt);
+  return '<div style="'+base+';color:var(--muted)">📊 '+seg.join(' · ')+'</div>';
 }
 function collectVendors(){
   const box=document.getElementById('vd-rows');
@@ -1838,6 +1855,51 @@ function vendorsFor(cat,propId){
     if(propId&&v.props&&v.props.length&&!v.props.includes(String(propId)))return false;
     return true;
   });
+}
+// ── 廠商客觀績效 ──────────────────────────────
+// 全部從既有維修單自動統計，刻意不做主觀星等評分：主觀評價無從查證，
+// 而且一旦累積成負評就很難跟廠商解釋。這裡只統計「叫了幾次、多久修好、
+// 準不準時、平均多少錢」這類攤得上桌、可以直接拿來跟廠商討論的事實。
+// 歸戶鍵與維修報表一致：有 vendorId 就用 vendorId，舊的純文字單才退而用名稱字串，
+// 兩者不互相污染；完全沒填處理人員的單一律排除，否則會出現一個叫「未指派」的假廠商。
+function vendorPerf(){
+  const byKey={};
+  loadTasks().filter(t=>t.type==='repair').forEach(t=>{
+    const key=t.vendorId||(t.handler?'名稱|'+t.handler:'');
+    if(!key)return;
+    const v=t.vendorId?getVendor(t.vendorId):null;
+    const s=byKey[key]||(byKey[key]={key,vendorId:t.vendorId||'',linked:!!t.vendorId,
+      label:v?vendorLabel(v):t.handler,n:0,open:0,cost:0,costN:0,unbilled:0,
+      days:[],dueN:0,onTime:0,lastAt:'',cats:{}});
+    s.n++;
+    const c=tkCost(t);
+    s.cost+=c;
+    if(c>0)s.costN++;
+    if(t.billing==='unbilled')s.unbilled+=c;
+    if(OPEN_STATUS_KEYS.includes(t.status))s.open++;
+    if(tkClosed(t)&&t.doneAt&&t.start)s.days.push(Math.max(0,diffDays(t.start,t.doneAt)));
+    // 準時率只看「有設預計完成日且已結案」的單。沒設期限的單不能算進分母，
+    // 否則從來不設期限的公司會看到一個 100% 準時的假象。
+    if(tkClosed(t)&&t.doneAt&&t.dueDate){s.dueN++;if(t.doneAt<=t.dueDate)s.onTime++;}
+    if(t.start&&t.start>s.lastAt)s.lastAt=t.start;
+    if(t.cat)s.cats[t.cat]=(s.cats[t.cat]||0)+1;
+  });
+  return Object.values(byKey).map(s=>{
+    const topCat=Object.entries(s.cats).sort((a,b)=>b[1]-a[1])[0];
+    return {...s,
+      doneN:s.days.length,
+      avgDays:s.days.length?Math.round(s.days.reduce((a,b)=>a+b,0)/s.days.length*10)/10:null,
+      // 平均每次金額以「有填金額的單」為分母。用總筆數當分母的話，
+      // 幾張忘了填金額的單就會把這家廠商的行情拉低，失去比價意義。
+      avgCost:s.costN?Math.round(s.cost/s.costN):null,
+      onTimeRate:s.dueN?Math.round(s.onTime/s.dueN*100):null,
+      topCat:topCat?topCat[0]:''};
+  });
+}
+function vendorPerfById(){
+  const m={};
+  vendorPerf().forEach(p=>{if(p.vendorId)m[p.vendorId]=p;});
+  return m;
 }
 function hm2min(s){const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||''));return m?(+m[1])*60+(+m[2]):0;}
 function min2hm(n){n=Math.max(0,Math.round(n));return pad(Math.floor(n/60))+':'+pad(n%60);}
@@ -2435,12 +2497,16 @@ function renderAna(tab){
 
   // ──────── 業務績效分析 ────────
   const propInfo=loadPropInfo();
-  const AGENTS=(Cloud.companyMembers&&Cloud.companyMembers.length)?Cloud.companyMembers:[];
+  // 離職業務的歷史業績不能從報表裡消失——獎金結算、年度回顧都要看得到當時是誰做的。
+  // 所以成員清單之外，再把訂單上出現過、但已不在成員清單裡的名字補進來。
+  const CUR_AGENTS=(Cloud.companyMembers&&Cloud.companyMembers.length)?Cloud.companyMembers:[];
+  const FORMER_AGENTS=formerAgents().filter(n=>allBks.some(b=>b.agent===n));
+  const AGENTS=[...CUR_AGENTS,...FORMER_AGENTS];
   // 計算各業務在當前期間的績效
   function getPeriodBounds(p){
     const pStart=tab==='y'?p.y+'-01-01':tab==='q'?p.y+'-'+(String((p.q-1)*3+1).padStart(2,'0'))+'-01':p.y+'-'+(String(p.m).padStart(2,'0'))+'-01';
     const pEndRaw=tab==='y'?new Date(p.y,11,31):tab==='q'?new Date(p.y,p.q*3,0):new Date(p.y,p.m,0);
-    return {pStart,pEnd:pEndRaw.toISOString().slice(0,10)};
+    return {pStart,pEnd:dstr(pEndRaw)};
   }
   const agentData=AGENTS.map(agent=>{
     const agentBks=allBks.filter(b=>b.agent===agent);
@@ -2480,8 +2546,11 @@ function renderAna(tab){
       const pEndAll=getPeriodBounds(periods[periods.length-1]).pEnd;
       return seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending';
     })).map(b=>b.id)).size;
-    return {agent,pStats,totRev};
-  });
+    return {agent,pStats,totRev,former:FORMER_AGENTS.includes(agent)};
+  })
+  // 在職業務即使這期沒業績也保留一行（看得到誰掛零本身就是資訊）；
+  // 已離職的則只在該期間真的有業績時才佔一行，否則報表會被歷年離職者塞滿。
+  .filter(a=>!a.former||a.pStats.some(p=>p.orders>0));
 
   // 計算合計行
   const hasAgentData=agentData.some(a=>a.pStats.some(p=>p.orders>0));
@@ -2516,7 +2585,8 @@ function renderAna(tab){
                 }
               }));
               return '<tr style="border-bottom:1px solid #ede9fe;'+(ai%2?'background:#faf8ff;':'')+'">' +
-                '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+a.agent+'</td>'+
+                '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+escH(a.agent)+
+                  (a.former?'<span style="font-size:9.5px;color:var(--muted);font-weight:400;margin-left:4px">（已離職）</span>':'')+'</td>'+
                 a.pStats.map(s=>
                   '<td style="padding:5px 8px;text-align:center;vertical-align:middle">'+
                     (s.orders>0?
@@ -2670,24 +2740,37 @@ function init(){
   ca.scrollLeft=Math.max(0,(colF(ds(curY,curM,1))-1)*DW);
   refreshInqBadge();
 }
+// 已離開企業、但名字還留在訂單「負責業務」或客戶「歸屬業務」上的人。
+// 不把這些名字補回下拉選單的話，開啟他們的舊訂單時瀏覽器會因為找不到對應的
+// <option> 而把選單清成空值，一按儲存就被「請選擇負責業務」擋住，
+// 等於逼著使用者去竄改歷史紀錄才能改動舊訂單。
+function formerAgents(){
+  const cur=new Set(Cloud.companyMembers||[]);
+  const out=new Set();
+  loadBks().forEach(b=>{if(b.agent&&!cur.has(b.agent))out.add(b.agent);});
+  Object.values(loadCusts()).forEach(c=>{if(c&&c.owner&&!cur.has(c.owner))out.add(c.owner);});
+  return [...out].sort();
+}
 function populateAgentOptions(){
   const members=Cloud.companyMembers||[];
-  const fa=document.getElementById('f-agent');
-  const curF=fa.value;
-  fa.innerHTML='<option value="">全部業務</option>';
-  members.forEach(name=>{
-    const o=document.createElement('option');o.value=name;o.textContent=name;
-    if(name===curF)o.selected=true;
-    fa.appendChild(o);
-  });
-  const ga=document.getElementById('g-agent');
-  const curG=ga.value;
-  ga.innerHTML='<option value="">— 請選擇 —</option>';
-  members.forEach(name=>{
-    const o=document.createElement('option');o.value=name;o.textContent=name;
-    if(name===curG)o.selected=true;
-    ga.appendChild(o);
-  });
+  const former=formerAgents();
+  const fill=(sel,placeholder)=>{
+    const cur=sel.value;
+    sel.innerHTML='<option value="">'+placeholder+'</option>';
+    members.forEach(name=>{
+      const o=document.createElement('option');o.value=name;o.textContent=name;
+      if(name===cur)o.selected=true;
+      sel.appendChild(o);
+    });
+    // 離職者列在最後並標註，避免建新單時誤選；但仍可被選中以顯示舊訂單原值
+    former.forEach(name=>{
+      const o=document.createElement('option');o.value=name;o.textContent=name+'（已離職）';
+      if(name===cur)o.selected=true;
+      sel.appendChild(o);
+    });
+  };
+  fill(document.getElementById('f-agent'),'全部業務');
+  fill(document.getElementById('g-agent'),'— 請選擇 —');
 }
 function populatePropFilter(){
   const pf=document.getElementById('f-prop');
@@ -3489,6 +3572,9 @@ function openEditBk(bk){
   document.getElementById('g-email').value=bk.email||'';
   document.getElementById('g-deposit').value=bk.deposit||'';
   document.getElementById('g-payment').value=bk.payment||'國泰';
+  // 先重建選單再指派值：這張訂單的負責業務可能已離職，選單必須先含有那個 option，
+  // 否則指派會靜默失敗、欄位變空，儲存時被必填擋住
+  populateAgentOptions();
   document.getElementById('g-agent').value=bk.agent||'';
   document.getElementById('g-source').value=bk.source||'';
   document.getElementById('g-ctype').value=bk.ctype||'';
@@ -5388,22 +5474,9 @@ function maintReportHtml(){
     byRoom[k].cost+=tkCost(t);
     if(t.billing==='unbilled')byRoom[k].unbilled+=tkCost(t);
   });
-  // 各廠商叫修次數與累計金額。以 vendorId 為主鍵，沒有 vendorId 的舊單（純文字 handler）
-  // 才退而以名稱字串歸戶，兩者不會互相污染；完全沒填處理人員的單一律排除，
-  // 否則會出現一個名為「未指派」的假廠商佔據排行榜第一名。
-  const byVendor={};
-  all.forEach(t=>{
-    const key=t.vendorId||(t.handler?'名稱|'+t.handler:'');
-    if(!key)return;
-    const v=t.vendorId?getVendor(t.vendorId):null;
-    const label=v?vendorLabel(v):t.handler;
-    if(!byVendor[key])byVendor[key]={label,n:0,cost:0,unbilled:0,open:0,linked:!!t.vendorId};
-    byVendor[key].n++;
-    byVendor[key].cost+=tkCost(t);
-    if(t.billing==='unbilled')byVendor[key].unbilled+=tkCost(t);
-    if(OPEN_STATUS_KEYS.includes(t.status))byVendor[key].open++;
-  });
-  const topVendors=Object.values(byVendor).sort((a,b)=>b.cost-a.cost||b.n-a.n).slice(0,10);
+  // 各廠商績效由 vendorPerf() 統一計算，與「廠商管理」每列顯示的摘要共用同一份定義，
+  // 避免兩處各算各的、數字對不起來。
+  const topVendors=vendorPerf().sort((a,b)=>b.n-a.n||b.cost-a.cost).slice(0,12);
   const topRooms=Object.entries(byRoom).sort((a,b)=>b[1].n-a[1].n).slice(0,8);
   const topCost=Object.entries(byRoom).filter(x=>x[1].cost>0).sort((a,b)=>b[1].cost-a[1].cost).slice(0,8);
   const sumCost=all.reduce((s,t)=>s+tkCost(t),0);
@@ -5455,22 +5528,35 @@ function maintReportHtml(){
   }
 
   if(topVendors.length>0){
-    html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">🔧 各廠商叫修次數與累計金額</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
+    // 準時率的色階：只在有足夠樣本時才上色，1～2 筆就判定一家廠商不準時並不公平。
+    const otColor=v=>v.dueN<3?'var(--muted)':v.onTimeRate>=90?'#2f9e44':v.onTimeRate>=70?'#e67700':'#c92a2a';
+    html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">🔧 廠商績效（依叫修次數排序）</div>'+
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:620px">'+
       '<thead><tr style="border-bottom:1px solid var(--border)">'+
-        ['廠商 / 處理人員','叫修次數','未結案','累計金額','其中未請款','平均每次'].map((h,i)=>
+        ['廠商 / 處理人員','叫修次數','未結案','平均處理天數','準時率','累計金額','其中未請款','平均每次'].map((h,i)=>
           '<th style="padding:6px 8px;text-align:'+(i===0?'left':'right')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
       '</tr></thead><tbody>'+
       topVendors.map(v=>'<tr style="border-bottom:1px solid var(--border)">'+
         '<td style="padding:6px 8px">'+escH(v.label)+
-          (v.linked?'':'<span style="font-size:9.5px;color:var(--muted);margin-left:5px">（未建檔）</span>')+'</td>'+
+          (v.linked?'':'<span style="font-size:9.5px;color:var(--muted);margin-left:5px">（未建檔）</span>')+
+          '<div style="font-size:9.5px;color:var(--muted);margin-top:2px">'+
+            (v.topCat?'主要類別 '+escH(v.topCat):'未分類')+(v.lastAt?'　最近 '+escH(v.lastAt):'')+'</div></td>'+
         '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v.n+' 次</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.open>0?'#e67700':'var(--muted)')+'">'+v.open+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+
+          (v.avgDays===null?'<span style="color:var(--muted)">—</span>'
+            :'<strong>'+v.avgDays+'</strong> 天<div style="font-size:9.5px;color:var(--muted)">'+v.doneN+' 筆已結案</div>')+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.onTimeRate===null?'var(--muted)':otColor(v))+'">'+
+          (v.onTimeRate===null?'—':'<strong>'+v.onTimeRate+'%</strong><div style="font-size:9.5px;color:var(--muted)">'+v.dueN+' 筆有期限</div>')+'</td>'+
         '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+money(v.cost)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#e67700':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
-        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost/v.n)+'</td>'+
-      '</tr>').join('')+'</tbody></table>'+
-      '<div style="font-size:10.5px;color:var(--muted);margin-top:5px">標示「未建檔」者是以手動輸入的文字歸戶，名稱打法不同會被算成不同廠商；建議到「⚙️ 更多 → 🔧 廠商管理」建檔後改用下拉選單。</div>';
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+
+          (v.avgCost===null?'—':money(v.avgCost)+'<div style="font-size:9.5px">'+v.costN+' 筆有金額</div>')+'</td>'+
+      '</tr>').join('')+'</tbody></table></div>'+
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.7">'+
+        '平均處理天數＝開始日到實際完成日，只計已結案的單；準時率＝已結案且有設「預計完成日」的單中準時完成的比例，'+
+        '沒設期限的單不列入分母，樣本少於 3 筆不上色；平均每次金額以有填金額的單為分母。<br>'+
+        '標示「未建檔」者是以手動輸入的文字歸戶，名稱打法不同會被算成不同廠商；建議到「⚙️ 更多 → 🔧 廠商管理」建檔後改用下拉選單。</div>';
   }
 
   if(overdue.length>0){
@@ -7042,7 +7128,7 @@ init();
     <div style="font-size:11.5px;color:var(--muted);line-height:1.7;background:var(--primary-light);border-radius:8px;padding:10px 12px;margin-bottom:14px">
       建檔後，維修單的「處理人員」就能直接從下拉選單挑選，不必每次重打廠商名稱與電話。
       系統會依維修單選的<strong>類別</strong>與<strong>館別</strong>自動篩選，只列出做得了這件事、也跑得到那個地點的廠商。
-      維修報表則會統計各廠商的叫修次數與累計金額。
+      每家廠商下方會顯示由維修單自動統計的客觀績效（配合次數、平均處理天數、準時率、平均金額），完整版在「維修追蹤 → 維修報表」。
     </div>
     <div style="font-weight:800;font-size:13px;margin:0 0 8px;display:flex;align-items:center;gap:8px">
       廠商清單
