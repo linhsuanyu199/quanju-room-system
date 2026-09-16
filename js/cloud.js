@@ -22,7 +22,8 @@ const Cloud = {
   myDisplayName: '',
   myNameChangeCount: 0,
   shareMarket: true,
-  companyMembers: [],
+  companyMembers: [],      // 在職成員的顯示名稱（給各種「負責業務」下拉用）
+  memberRows: [],          // 成員完整資料 {id, display_name, role, active, left_at, left_by}
   _pendingDisplayName: '',
 
   async init() {
@@ -169,10 +170,20 @@ const Cloud = {
     this.myEmail = user.email || '';
     this.myUserId = user.id;
     const { data: profile, error: pErr } = await _sb.from('profiles')
-      .select('company_id, role, display_name, name_change_count').eq('id', user.id).maybeSingle();
+      .select('company_id, role, display_name, name_change_count, active, left_at').eq('id', user.id).maybeSingle();
     if (pErr) { alert('讀取帳號資料失敗：' + pErr.message); return; }
     if (!profile || !profile.company_id) {
       this._showCompanyScreen();
+      return;
+    }
+    // 已被停用（離職註銷）的帳號：資料庫端 get_my_company_id() 已對他回 null，
+    // 就算硬闖進來也讀不到任何資料。這裡明確告知並登出，避免他看到一個空白系統
+    // 而反覆嘗試、或誤以為公司資料不見了。
+    if (profile.active === false) {
+      alert('⚠️ 您的帳號已被企業管理者停用（' +
+        (profile.left_at ? profile.left_at.slice(0, 10) + '　' : '') +
+        '），已無法存取公司資料。\n\n如有疑問請聯繫貴公司的系統管理者。');
+      await _sb.auth.signOut();
       return;
     }
     this.companyId = profile.company_id;
@@ -198,8 +209,8 @@ const Cloud = {
     const boxText = this.companyName + ' · ' + (this.myDisplayName || '未顯示');
     box.textContent = boxText;
     box.title = boxText;
-    const inviteBtn = document.getElementById('more-invite');
-    if (inviteBtn) inviteBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    const membersBtn = document.getElementById('more-members');
+    if (membersBtn) membersBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const marketBtn = document.getElementById('pm-market-btn');
     if (marketBtn) marketBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const cleanCfgBtn = document.getElementById('more-cleancfg');
@@ -221,10 +232,53 @@ const Cloud = {
     navigator.clipboard.writeText(this.getPublicUrl()).then(() => alert('✅ 公開房源連結已複製，可直接分享給房客：\n' + this.getPublicUrl()));
   },
 
+  // companyMembers 只留在職成員：離職者不該再出現在「負責業務」之類的下拉選項裡。
+  // 舊訂單上那些已離職的名字由 index.html 的 formerAgents() 另外補回去，
+  // 這樣既不會被誤選來建新單，也不會讓舊單的欄位被清空。
   async _loadCompanyMembers() {
-    const { data, error } = await _sb.from('profiles').select('display_name').eq('company_id', this.companyId);
-    if (error) { console.error('讀取企業成員清單失敗：', error.message); this.companyMembers = []; return; }
-    this.companyMembers = data.map(m => m.display_name).filter(Boolean).sort();
+    const { data, error } = await _sb.from('profiles')
+      .select('id, display_name, role, active, left_at, left_by').eq('company_id', this.companyId);
+    if (error) {
+      console.error('讀取企業成員清單失敗：', error.message);
+      this.memberRows = []; this.companyMembers = []; return;
+    }
+    this.memberRows = (data || []).map(m => ({ ...m, active: m.active !== false }))
+      .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || '', 'zh-Hant'));
+    this.companyMembers = this.memberRows.filter(m => m.active)
+      .map(m => m.display_name).filter(Boolean).sort();
+  },
+
+  // ── 成員管理 RPC（伺服器端會再驗一次 admin 與同公司，前端 gating 只是 UX）──
+  async setMemberActive(userId, on) {
+    const { data, error } = await _sb.rpc('set_member_active', { p_user_id: userId, p_on: !!on });
+    if (error) { alert('❌ ' + this._translateMemberError(error.message)); return null; }
+    await this._loadCompanyMembers();
+    return data;
+  },
+  async setMemberRole(userId, role) {
+    const { data, error } = await _sb.rpc('set_member_role', { p_user_id: userId, p_role: role });
+    if (error) { alert('❌ ' + this._translateMemberError(error.message)); return null; }
+    await this._loadCompanyMembers();
+    if (userId === this.myUserId) this.myRole = role;
+    return data;
+  },
+  async resetInviteCode() {
+    const { data, error } = await _sb.rpc('reset_invite_code');
+    if (error) { alert('❌ ' + this._translateMemberError(error.message)); return null; }
+    this.inviteCode = data || '';
+    return this.inviteCode;
+  },
+  _translateMemberError(msg) {
+    const m = String(msg || '');
+    if (/admin only/.test(m)) return '只有企業管理者可以執行這個動作';
+    if (/not in company/.test(m)) return '您目前不屬於任何企業，或帳號已被停用';
+    if (/cannot change your own status/.test(m)) return '不能停用自己的帳號';
+    if (/cannot change your own role/.test(m)) return '不能修改自己的角色，請由另一位管理者操作';
+    if (/member not found in your company/.test(m)) return '找不到這位成員（可能已不屬於貴企業）';
+    if (/last active admin/.test(m)) return '這是最後一位在職管理者，請先指定另一位管理者再操作';
+    if (/cannot promote a deactivated member/.test(m)) return '已停用的成員不能設為管理者，請先恢復任職';
+    if (/bad role/.test(m)) return '角色參數不正確';
+    return this._translateDbError(m);
   },
 
   // ── 登入 / 註冊 分頁 ──────────────────────────
@@ -359,12 +413,7 @@ const Cloud = {
     await this._afterLogin();
   },
 
-  // ── 邀請成員（僅企業管理者可見）──────────────
-  openInvite() {
-    document.getElementById('invite-code-show').value = this.inviteCode;
-    document.getElementById('invite-ov').classList.add('open');
-  },
-  closeInvite() { document.getElementById('invite-ov').classList.remove('open'); },
+  // ── 邀請碼（併入「👥 成員管理」，開關由 index.html 的 openMembers 負責）──
   copyInviteCode() {
     navigator.clipboard.writeText(this.inviteCode).then(() => alert('✅ 邀請碼已複製'));
   },

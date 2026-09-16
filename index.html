@@ -541,7 +541,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
         <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
-        <button class="more-item" id="more-invite" style="display:none" onclick="pickMore(()=>Cloud.openInvite())">✉️ 邀請成員</button>
+        <button class="more-item" id="more-members" style="display:none" onclick="pickMore(openMembers)">👥 成員管理</button>
         <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
         <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
         <div class="more-sep"></div>
@@ -826,24 +826,45 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 </div>
 
 <!-- ═══ Invite Members Modal ═══ -->
-<div class="overlay" id="invite-ov" onclick="if(event.target===this)Cloud.closeInvite()">
-<div class="modal" style="width:400px">
+<div class="overlay" id="invite-ov" onclick="if(event.target===this)closeMembers()">
+<div class="modal" style="width:720px">
   <div class="modal-h">
-    <h2>👥 邀請企業成員</h2>
-    <button class="close-btn" onclick="Cloud.closeInvite()">✕</button>
+    <h2>👥 成員管理</h2>
+    <button class="close-btn" onclick="closeMembers()">✕</button>
   </div>
-  <div class="modal-body" style="max-height:unset">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">將以下邀請碼提供給同企業的員工，他們註冊帳號時於「使用邀請碼加入」輸入即可自動加入本企業，並即時同步所有房源與訂單資料。</p>
+  <div class="modal-body" style="max-height:72vh;overflow:auto">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">將邀請碼提供給同企業的員工，他們註冊帳號時於「使用邀請碼加入」輸入即可自動加入本企業，並即時同步所有房源與訂單資料。</p>
     <div class="field">
       <label>企業邀請碼</label>
       <div style="display:flex;gap:8px">
         <input id="invite-code-show" type="text" readonly style="background:#f5f5f5;flex:1;font-weight:700;letter-spacing:1px">
         <button class="btn btn-primary" onclick="Cloud.copyInviteCode()">複製</button>
+        <button class="btn btn-ghost" onclick="doResetInvite()" title="重設後舊邀請碼立即失效">🔄 重設</button>
       </div>
     </div>
+    <div id="mb-invite-tip" style="display:none;font-size:11.5px;color:#a61e4d;background:#fff0f6;border:1px solid #f8b4cf;border-radius:6px;padding:8px 10px;margin:-4px 0 12px"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">企業成員</div>
+    <div id="mb-list"></div>
   </div>
   <div class="form-actions">
-    <button class="btn btn-ghost" onclick="Cloud.closeInvite()">關閉</button>
+    <button class="btn btn-ghost" onclick="closeMembers()">關閉</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 成員停用（離職註銷）確認 ═══ -->
+<div class="overlay" id="mbd-ov" onclick="if(event.target===this)closeDeact()">
+<div class="modal" style="width:520px">
+  <div class="modal-h">
+    <h2>🚫 停用成員（離職註銷）</h2>
+    <button class="close-btn" onclick="closeDeact()">✕</button>
+  </div>
+  <div class="modal-body" style="max-height:70vh;overflow:auto">
+    <div id="mbd-body"></div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-ghost" onclick="closeDeact()">取消</button>
+    <button class="btn btn-primary" id="mbd-go" onclick="confirmDeact()">確認停用並移轉</button>
   </div>
 </div>
 </div>
@@ -5734,6 +5755,249 @@ function visibleCustomers(){
   if(isAdmin())return all;
   const me=Cloud.myDisplayName||'';
   return all.filter(c=>c.owner===me||!!custBlacklist(c.phone));
+}
+
+/* ═══ 成員管理（離職註銷＋名下工作移轉）═══════════════════
+   停用一位成員時最怕的不是他還能登入，而是他名下的客戶、未結案客訴與
+   未派完的維修就這樣懸在空中沒人管。所以停用一律強制指定接手人，
+   把「還在進行中」的東西一次轉過去；已經結案的、以及訂單上的負責業務
+   則永遠不動——那是成交當下的歷史紀錄，獎金已經據此結算過了。      */
+
+let deactTarget=null, deactPending=null;
+
+// 一位成員名下「還在進行中」的工作量。inquiries 是獨立資料表要另外撈，
+// 所以這裡先算純本地的三類，詢問單由呼叫端補上。
+function memberWorkload(name){
+  const n=name||'';
+  const custs=Object.entries(loadCusts()).filter(([,c])=>c&&c.owner===n).map(([p])=>p);
+  const cps=loadComplaints().filter(c=>(c.status||'open')!=='closed'&&c.handler===n);
+  const tks=loadTasks().filter(t=>!tkClosed(t)&&t.handler===n);
+  return {custs,cps,tks};
+}
+
+async function openMembers(){
+  if(!isAdmin()){alert('只有企業管理者可以開啟成員管理');return;}
+  document.getElementById('invite-code-show').value=Cloud.inviteCode||'';
+  document.getElementById('mb-invite-tip').style.display='none';
+  document.getElementById('mb-list').innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px">讀取中…</div>';
+  document.getElementById('invite-ov').classList.add('open');
+  await Cloud._loadCompanyMembers();
+  renderMembers();
+}
+function closeMembers(){document.getElementById('invite-ov').classList.remove('open');}
+
+function renderMembers(){
+  const rows=Cloud.memberRows||[];
+  const activeCnt=rows.filter(m=>m.active).length;
+  const adminCnt=rows.filter(m=>m.active&&m.role==='admin').length;
+  const el=document.getElementById('mb-list');
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px">目前沒有成員資料</div>';return;}
+  el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
+    '<thead><tr style="border-bottom:1px solid var(--border)">'+
+      ['成員','角色','狀態','名下客戶','操作'].map((h,i)=>
+        '<th style="padding:6px 8px;text-align:'+(i>=3?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
+    '</tr></thead><tbody>'+
+    rows.map(m=>{
+      const me=m.id===Cloud.myUserId;
+      const nCust=memberWorkload(m.display_name).custs.length;
+      return '<tr style="border-bottom:1px solid var(--border)'+(m.active?'':';background:#fafafa')+'">'+
+        '<td style="padding:6px 8px;font-weight:700;'+(m.active?'':'color:var(--muted)')+'">'+escH(m.display_name||'（未命名）')+
+          (me?'<span style="font-size:9.5px;color:var(--muted);font-weight:400;margin-left:4px">（您本人）</span>':'')+
+          (m.active?'':'<div style="font-size:9.5px;color:var(--muted);font-weight:400;margin-top:2px">'+
+            (m.left_at?'停用於 '+escH(String(m.left_at).slice(0,10)):'')+
+            (m.left_by?'　由 '+escH(m.left_by):'')+'</div>')+'</td>'+
+        '<td style="padding:6px 8px">'+(m.role==='admin'
+            ? '<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#0b4f8a;background:#e7f5ff">管理者</span>'
+            : '<span style="color:var(--muted)">一般成員</span>')+'</td>'+
+        '<td style="padding:6px 8px">'+(m.active
+            ? '<span style="color:#2f9e44;font-weight:700">在職</span>'
+            : '<span style="color:#c92a2a;font-weight:700">已停用</span>')+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+(nCust||'—')+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+memberActions(m,me,activeCnt,adminCnt)+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody></table></div>'+
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.7">'+
+      '停用後該成員將立刻無法存取本企業任何資料（資料庫端一併生效，不是只把畫面藏起來）。'+
+      '停用時必須指定接手人，名下客戶與未結案的客訴／任務／詢問單會一次轉過去；'+
+      '<strong>歷史訂單的「負責業務」永遠維持原本的人</strong>，不會被改寫。<br>'+
+      '為避免整間企業失去管理權限，系統不允許停用或降級最後一位在職管理者，也不允許修改自己的角色與狀態。</div>';
+}
+
+function memberActions(m,me,activeCnt,adminCnt){
+  const btn=(txt,fn,color)=>'<button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;margin-left:4px'+
+    (color?';color:'+color:'')+'" onclick="'+fn+'">'+txt+'</button>';
+  if(me)return '<span style="font-size:10.5px;color:var(--muted)">不可修改自己</span>';
+  const uid=jsArg(m.id);
+  if(!m.active)return btn('↩ 恢復任職','doReactivate('+uid+')','#2f9e44');
+  const lastAdmin=m.role==='admin'&&adminCnt<=1;
+  let h='';
+  h+=m.role==='admin'
+    ? btn('取消管理者','doSetRole('+uid+',\'member\')')
+    : btn('設為管理者','doSetRole('+uid+',\'admin\')');
+  h+=btn('🚫 停用','openDeact('+uid+')','#c92a2a');
+  if(lastAdmin)h+='<div style="font-size:9.5px;color:var(--muted);margin-top:2px">最後一位管理者，需先指定其他管理者</div>';
+  else if(activeCnt<=1)h+='<div style="font-size:9.5px;color:var(--muted);margin-top:2px">企業僅剩這位在職成員</div>';
+  return h;
+}
+
+async function doSetRole(uid,role){
+  const m=(Cloud.memberRows||[]).find(x=>x.id===uid);
+  if(!m)return;
+  const label=role==='admin'?'設為企業管理者':'取消管理者權限';
+  if(!confirm('確定要將「'+(m.display_name||'')+'」'+label+'嗎？\n\n'+
+    (role==='admin'
+      ? '管理者可以管理成員、廠商、清潔排程、行情共享設定，並看得到企業全部客戶。'
+      : '取消後，他將只看得到歸屬於自己的客戶，也無法再管理成員與各項設定。')))return;
+  const r=await Cloud.setMemberRole(uid,role);
+  if(!r)return;
+  renderMembers();
+  alert('✅ 已將「'+(m.display_name||'')+'」'+label);
+}
+
+async function doReactivate(uid){
+  const m=(Cloud.memberRows||[]).find(x=>x.id===uid);
+  if(!m)return;
+  if(!confirm('確定要恢復「'+(m.display_name||'')+'」的任職狀態嗎？\n\n'+
+    '他將可以重新登入並存取企業資料。\n'+
+    '注意：停用時移轉出去的客戶與任務不會自動轉回來，需要時請手動重新指派。'))return;
+  const r=await Cloud.setMemberActive(uid,true);
+  if(!r)return;
+  renderMembers();
+  populateAgentOptions();
+  alert('✅ 已恢復「'+(m.display_name||'')+'」的任職狀態');
+}
+
+async function doResetInvite(){
+  if(!confirm('確定要重設企業邀請碼嗎？\n\n舊邀請碼會立即失效，還沒用舊碼註冊的同事必須改用新碼。'))return;
+  const code=await Cloud.resetInviteCode();
+  if(!code)return;
+  document.getElementById('invite-code-show').value=code;
+  const tip=document.getElementById('mb-invite-tip');
+  tip.style.display='none';
+  alert('✅ 邀請碼已重設為：'+code+'\n\n請將新邀請碼轉知需要加入的同事。');
+}
+
+// ── 停用流程：先讓管理者看清楚「這次會動到什麼」再決定 ──
+async function openDeact(uid){
+  const m=(Cloud.memberRows||[]).find(x=>x.id===uid);
+  if(!m)return;
+  deactTarget=m;
+  const body=document.getElementById('mbd-body');
+  body.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px">盤點名下工作中…</div>';
+  document.getElementById('mbd-go').disabled=true;
+  document.getElementById('mbd-ov').classList.add('open');
+
+  const w=memberWorkload(m.display_name);
+  // 詢問單在獨立資料表，得另外撈；已成訂單／已結案的不算未結案
+  let inqs=[];
+  try{
+    inqs=(await Cloud.listInquiries()).filter(i=>i.assigned_to===m.display_name&&
+      i.status!=='converted'&&i.status!=='closed');
+  }catch(e){inqs=[];}
+  deactPending={...w,inqs};
+
+  const others=(Cloud.memberRows||[]).filter(x=>x.active&&x.id!==m.id&&x.display_name);
+  if(!others.length){
+    body.innerHTML='<div style="font-size:12.5px;color:#c92a2a;line-height:1.8">'+
+      '企業目前沒有其他在職成員可以接手「'+escH(m.display_name||'')+'」名下的客戶與工作。<br><br>'+
+      '請先邀請新成員加入並完成交接，再回來停用這個帳號。</div>';
+    return;
+  }
+  const line=(icon,label,n,note)=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;'+
+    'border-bottom:1px dashed var(--border);font-size:12px">'+
+    '<span>'+icon+' '+label+(note?'<span style="color:var(--muted);font-size:10.5px">　'+note+'</span>':'')+'</span>'+
+    '<strong style="white-space:nowrap;color:'+(n>0?'var(--primary)':'var(--muted)')+'">'+(n>0?n+' 筆':'無')+'</strong></div>';
+
+  document.getElementById('mbd-go').disabled=false;
+  body.innerHTML=
+    '<div style="font-size:12.5px;margin-bottom:12px">即將停用　<strong style="font-size:14px">'+escH(m.display_name||'')+'</strong>'+
+      (m.role==='admin'?'<span style="font-size:10.5px;color:#0b4f8a;margin-left:6px">（目前是管理者）</span>':'')+'</div>'+
+    '<div class="field"><label>接手人（必選）</label>'+
+      '<select id="mbd-to">'+
+        '<option value="">— 請選擇接手的成員 —</option>'+
+        others.map(o=>'<option value="'+escH(o.display_name)+'">'+escH(o.display_name)+
+          (o.role==='admin'?'（管理者）':'')+'</option>').join('')+
+      '</select></div>'+
+    '<div style="font-size:11.5px;font-weight:700;color:var(--primary);margin:14px 0 4px">會一併移轉給接手人</div>'+
+    line('👤','名下客戶',deactPending.custs.length,'')+
+    line('📣','未結案客訴',deactPending.cps.length,'')+
+    line('🔧','未結案清潔／維修任務',deactPending.tks.length,'')+
+    line('📩','未結案官網詢問單',deactPending.inqs.length,'')+
+    '<div style="font-size:11.5px;font-weight:700;color:var(--primary);margin:14px 0 4px">不會變動</div>'+
+    '<div style="font-size:11.5px;color:var(--muted);line-height:1.8">'+
+      '・歷史訂單的「負責業務」仍記為 '+escH(m.display_name||'')+'（獎金已依當時紀錄結算，改了會對不上帳）<br>'+
+      '・已結案的客訴與任務仍記為原處理人<br>'+
+      '・黑名單標記、訂單放行紀錄等稽核欄位保留原簽名</div>'+
+    '<div style="font-size:11.5px;color:#a61e4d;background:#fff0f6;border:1px solid #f8b4cf;border-radius:6px;padding:8px 10px;margin-top:12px;line-height:1.7">'+
+      '停用後對方將立即無法登入使用本企業資料。帳號紀錄會保留，日後可在成員管理中「恢復任職」。</div>';
+}
+function closeDeact(){document.getElementById('mbd-ov').classList.remove('open');deactTarget=null;deactPending=null;}
+
+async function confirmDeact(){
+  if(!deactTarget||!deactPending)return;
+  const to=(document.getElementById('mbd-to')||{}).value||'';
+  if(!to){alert('⚠️ 請先選擇接手人');return;}
+  const from=deactTarget.display_name||'';
+  const p=deactPending;
+  const total=p.custs.length+p.cps.length+p.tks.length+p.inqs.length;
+  if(!confirm('確定停用「'+from+'」並將名下 '+total+' 筆進行中的項目移轉給「'+to+'」嗎？\n\n'+
+    '・客戶 '+p.custs.length+' 位\n・未結案客訴 '+p.cps.length+' 張\n'+
+    '・未結案任務 '+p.tks.length+' 張\n・未結案詢問單 '+p.inqs.length+' 張\n\n'+
+    '歷史訂單的負責業務不會改變。'))return;
+
+  const btn=document.getElementById('mbd-go');
+  btn.disabled=true; btn.textContent='移轉中…';
+  const stamp={at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail||'',from};
+
+  // 先移轉再停用：萬一停用的 RPC 失敗，至少客戶與未結案工作已經有人接手，
+  // 不會出現「人走了、東西沒人管」的空窗；反過來則會。
+  if(p.custs.length){
+    const cs=loadCusts();
+    p.custs.forEach(ph=>{if(cs[ph]){cs[ph]={...cs[ph],owner:to,transferred:stamp,
+      updatedAt:stamp.at,updatedBy:stamp.by};}});
+    saveCusts(cs);
+  }
+  if(p.cps.length){
+    const ids=new Set(p.cps.map(c=>c.id));
+    saveComplaints(loadComplaints().map(c=>ids.has(c.id)?{...c,handler:to,transferred:stamp}:c));
+  }
+  if(p.tks.length){
+    const ids=new Set(p.tks.map(t=>t.id));
+    saveTasks(loadTasks().map(t=>ids.has(t.id)?{...t,handler:to,transferred:stamp}:t));
+  }
+  let inqFail=0;
+  for(const i of p.inqs){
+    const ok=await Cloud.updateInquiry(i.id,{assigned_to:to});
+    if(!ok)inqFail++;
+  }
+
+  const r=await Cloud.setMemberActive(deactTarget.id,false);
+  btn.disabled=false; btn.textContent='確認停用並移轉';
+  if(!r){
+    // 移轉已經寫進去了，這裡要講清楚目前的實際狀態，不能只丟一句失敗
+    alert('⚠️ 名下項目已成功移轉給「'+to+'」，但帳號停用失敗（詳見上一則訊息）。\n\n'+
+      '「'+from+'」目前「仍可登入」，請稍後重試停用。');
+    closeDeact(); renderMembers(); refreshAfterTransfer();
+    return;
+  }
+  closeDeact();
+  renderMembers();
+  refreshAfterTransfer();
+  document.getElementById('mb-invite-tip').innerHTML=
+    '🔑 「'+escH(from)+'」可能仍記得目前的企業邀請碼，建議按上方的「🔄 重設」產生新碼，'+
+    '避免離職者日後用舊碼再次註冊加入。（非必要，若近期已把舊碼給了新同事可先不重設）';
+  document.getElementById('mb-invite-tip').style.display='';
+  alert('✅ 已停用「'+from+'」，名下 '+total+' 筆進行中的項目已移轉給「'+to+'」。'+
+    (inqFail?'\n\n⚠️ 其中 '+inqFail+' 張詢問單移轉失敗，請到「📩 詢問單」手動改指派。':''));
+}
+
+// 移轉後有好幾個畫面的內容會過期：業務下拉、客戶列表、日曆上的任務、待辦數字。
+// 這些函式不一定都存在（視使用者當下開著哪個畫面），所以逐一防禦式呼叫。
+function refreshAfterTransfer(){
+  try{populateAgentOptions();}catch(e){}
+  try{if(typeof refreshCustViews==='function')refreshCustViews();}catch(e){}
+  try{render();}catch(e){}
+  try{refreshTodoBadge();}catch(e){}
 }
 /* ═══ 官網預約詢問單收件匣 ═══ */
 const INQ_STATUS={new:{label:'未處理',color:'#c92a2a'},contacted:{label:'已聯繫',color:'#f08c00'},
