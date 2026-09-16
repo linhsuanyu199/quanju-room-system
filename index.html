@@ -1360,7 +1360,7 @@ const PRECHECK_LIB=[
 // 寫絕對數字的話小房型永遠是綠燈、大房型永遠是紅燈，燈號就沒有意義了。
 // 觀察期固定為近 365 天。
 const RISK_TH={
-  fix:[0.05,0.10,0.15],   // 維修占用天數 ÷ 365
+  fix:[0.10,0.15,0.20],   // 維修天數 ÷ 365（含房客照住的小維修，故門檻高於只算淨空時）
   cost:[0.5,1.0,1.5],     // 期間維修金額 ÷ 月租金（＝相當於幾個月租金）
   cnt:[3,5,8],            // 期間客訴件數
   sev:2,                  // 期間「重」級客訴達此數即至少橙燈
@@ -4791,11 +4791,16 @@ function buildRiskRows(){
   getAllProps().forEach(p=>{
     (p.rooms||[]).forEach(r=>{
       const mine=tasks.filter(t=>String(t.prop_id)===String(p.id)&&t.room===r.room);
-      // 只有「需淨空」的維修才真的讓房間賣不出去；可續住的維修不計入佔用天數
-      let repDays=0;
+      // repDays＝維修天數，與營運報表維修率同一定義：含房客照住的小維修。
+      // 燈號要回答「這房源還值不值得繼續出租」，維修負擔不會因為收得到租金就消失。
+      // blockDays＝其中真正需淨空的天數，只有它才會造成租金損失，用來推估損失營收。
+      let repDays=0,blockDays=0;
       mine.forEach(t=>{
-        if((t.blocking||'exclusive')!=='exclusive')return;
-        repDays+=dayOverlap(t.start,t.end,w.from,wEnd);
+        const rg=tkRepairRange(t);
+        if(!rg)return;
+        const d=dayOverlap(rg.start,rg.end,w.from,wEnd);
+        repDays+=d;
+        if((t.blocking||'exclusive')==='exclusive')blockDays+=d;
       });
       const cost=mine.reduce((s,t)=>s+((t.start>=w.from&&t.start<=w.to)?tkCost(t):0),0);
       const mycp=cps.filter(c=>String(c.prop_id)===String(p.id)&&c.room===r.room);
@@ -4812,8 +4817,8 @@ function buildRiskRows(){
       // 重大客訴（漏水、跳電、門鎖打不開⋯）不論次數多寡都代表住得下不去，單獨拉高一級
       if(sevN>=RISK_TH.sev)lamps.push('o');
       rows.push({pid:p.id,pname:p.name,room:r.room,type:r.type||'',offSale:!!r.offSale,
-        price,repDays,fixRate,cost,costRate,cnt,sevN,refund,
-        lamp:worstLamp(lamps),loss:Math.round(repDays*price/30)});
+        price,repDays,blockDays,fixRate,cost,costRate,cnt,sevN,refund,
+        lamp:worstLamp(lamps),loss:Math.round(blockDays*price/30)});
     });
   });
   rows.sort((a,b)=>RISK_ORDER.indexOf(b.lamp)-RISK_ORDER.indexOf(a.lamp)||b.loss-a.loss||b.cnt-a.cnt);
@@ -4835,7 +4840,7 @@ function riskHtml(){
     RISK_ORDER.map(card).join('')+'</div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">'+
     '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
-      ['燈號','館別 / 房號','房型','月租','維修佔用','維修金額','客訴','推估損失營收','建議'].map((t,i)=>
+      ['燈號','館別 / 房號','房型','月租','維修天數','維修金額','客訴','推估損失營收','建議'].map((t,i)=>
         '<th style="padding:8px 9px;text-align:'+(i>=3&&i<=7?'right':'left')+
         ';color:var(--muted);font-size:10px;white-space:nowrap">'+t+'</th>').join('')+
     '</tr></thead><tbody>'+
@@ -4851,7 +4856,8 @@ function riskHtml(){
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+
           (x.price>0?money(x.price):'<span style="color:var(--muted)">未定價</span>')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+x.repDays+' 天'+
-          '<div style="color:var(--muted);font-size:10px">'+(x.fixRate*100).toFixed(1)+'%</div></td>'+
+          '<div style="color:var(--muted);font-size:10px">'+(x.fixRate*100).toFixed(1)+'%</div>'+
+          (x.repDays>x.blockDays?'<div style="color:var(--muted);font-size:10px">含可續住 '+(x.repDays-x.blockDays)+' 天</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+money(x.cost)+
           (x.price>0?'<div style="color:var(--muted);font-size:10px">≒ '+x.costRate.toFixed(1)+' 個月租</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+x.cnt+' 件'+
@@ -4865,7 +4871,8 @@ function riskHtml(){
   h+='<div style="margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.85;'+
     'background:var(--bg2,#f6f7f9);border-radius:6px;padding:10px 12px">'+
     '<strong>計算方式（觀察期：近 365 天 '+escH(riskWindow().from)+' ～ '+escH(riskWindow().to)+'）</strong><br>'+
-    '‧ <strong>維修佔用</strong>＝需淨空的維修排程天數 ÷ 365。可續住的維修不計入（房間照樣收得到租金）。'+
+    '‧ <strong>維修天數</strong>＝維修排程天數 ÷ 365，<strong>含房客照住的小維修</strong>（與營運報表的維修率同一定義）。'+
+      '燈號要回答的是這間房還值不值得繼續出租，維修負擔不會因為租金照收就消失。'+
       '達 '+(RISK_TH.fix[0]*100)+'% 黃燈、'+(RISK_TH.fix[1]*100)+'% 橙燈、'+(RISK_TH.fix[2]*100)+'% 紅燈。<br>'+
     '‧ <strong>維修金額</strong>＝期間維修支出相當於幾個月租金。'+
       '達 '+RISK_TH.cost[0]+' 個月黃燈、'+RISK_TH.cost[1]+' 個月橙燈、'+RISK_TH.cost[2]+' 個月紅燈。'+
@@ -4873,7 +4880,8 @@ function riskHtml(){
     '‧ <strong>客訴件數</strong>：達 '+RISK_TH.cnt[0]+' 件黃燈、'+RISK_TH.cnt[1]+' 件橙燈、'+RISK_TH.cnt[2]+' 件紅燈；'+
       '另有「重」級客訴 '+RISK_TH.sev+' 件以上，至少橙燈。<br>'+
     '‧ 最終燈號取上述各項中<strong>最嚴重</strong>的一項。<br>'+
-    '‧ <strong>推估損失營收</strong>＝維修佔用天數 × 月租 ÷ 30，僅供比較各房間的相對嚴重度，不等於實際少收的錢。<br>'+
+    '‧ <strong>推估損失營收</strong>＝<strong>需淨空</strong>的維修天數 × 月租 ÷ 30。可續住的小維修租金照收、沒有損失，'+
+      '所以不列入這一欄（但仍計入上面的維修天數）。僅供比較各房間的相對嚴重度，不等於實際少收的錢。<br>'+
     '‧ 建議欄是決策參考，不會自動更動房源狀態；要停止接單請到房源管理把房間設為<strong>停售</strong>。'+
     '</div>';
   return h;
