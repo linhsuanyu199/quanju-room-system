@@ -588,9 +588,12 @@ function getRoomStatus(propId, roomNo){
   const tod = todayStr();
   const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
   const pid=String(propId);
-  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='repair'&&t.start<=tod&&t.end>tod))
+  // 已結案的排程不再佔住房態，否則房間早就打掃／維修完了官網還掛著「打掃中」，房客看到就跳過不問。
+  // 舊資料或 RPC 未帶 status 時視為未結案，維持原本行為。
+  const open=t=>t.status!=='done'&&t.status!=='replaced';
+  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='repair'&&t.start<=tod&&t.end>tod&&open(t)))
     return{status:'repair',label:'維修中',color:'#c92a2a'};
-  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='cleaning'&&t.start<=tod&&t.end>tod))
+  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='cleaning'&&t.start<=tod&&t.end>tod&&open(t)))
     return{status:'cleaning',label:'打掃中',color:'#0c8599'};
   if(segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod))
     return{status:'occupied',label:'已出租',color:'#e67700'};

@@ -1145,6 +1145,10 @@ const CLEAN_STATUS_KEYS=['todo','doing','done'];
 const REPAIR_STATUS_KEYS=['todo','doing','done','suggest_replace','replaced'];
 // 尚未結案的狀態：只有這些會出現在待辦統計與房間提醒
 const OPEN_STATUS_KEYS=['todo','doing','suggest_replace'];
+// 已結案的狀態：房態徽章、日曆方塊、官網即時房態都必須排除它們，
+// 否則房間早就打掃／維修完了，日曆與官網還一直掛著「打掃中／維修中」而漏客。
+const CLOSED_STATUS_KEYS=['done','replaced'];
+function tkClosed(t){return CLOSED_STATUS_KEYS.includes(t.status);}
 // 三節國曆日期對照表（農曆節日無法用 JS 內建日期換算，故內建對照表；到 2032 年，屆時需補表）
 const FESTIVALS=[
   {key:'newyear',name:'春節',dates:{2026:'02-17',2027:'02-06',2028:'01-26',2029:'02-13',2030:'02-03',2031:'01-23',2032:'02-11'}},
@@ -2766,14 +2770,16 @@ function getRoomCurrentStatus(propId,roomNo){
   const tod=todayStr();
   const tasks=loadTasks();
   // Repair takes highest priority
+  // 已結案（已完成／已汰換）的排程不再佔住房態，否則房間修好了徽章還掛「維修中」，
+  // 與 checkConflicts() 的判斷也會不一致。
   const repairTask=tasks.find(t=>
     String(t.prop_id)===String(propId)&&t.room===roomNo&&
-    t.start<=tod&&t.end>tod&&t.type==='repair');
+    t.start<=tod&&t.end>tod&&t.type==='repair'&&!tkClosed(t));
   if(repairTask)return{status:'repair',label:'維修中',color:'#c92a2a'};
   // Cleaning next
   const cleanTask=tasks.find(t=>
     String(t.prop_id)===String(propId)&&t.room===roomNo&&
-    t.start<=tod&&t.end>tod&&t.type==='cleaning');
+    t.start<=tod&&t.end>tod&&t.type==='cleaning'&&!tkClosed(t));
   if(cleanTask)return{status:'cleaning',label:'打掃中',color:'#0c8599'};
   // Booking segments
   const bks=loadBks();
@@ -2909,16 +2915,26 @@ function render(){
   tasks.forEach(tk=>{
     const color=tk.type==='repair'?'#c92a2a':'#0c8599';
     const icon=tk.isAuto?'🔄':'';
-    const lbl=icon+(tk.type==='repair'?'🔧 維修中':'🧹 打掃中');
+    const closed=tkClosed(tk);
+    const st=TASK_STATUS[tk.status]||TASK_STATUS.todo;
+    // 已結案的排程淡化保留而非移除：房態已經放行，但日曆上仍看得出那幾天排過清潔／維修
+    const lbl=icon+(tk.type==='repair'?'🔧 維修':'🧹 清潔')+' · '+st.label;
+    const overdue=OPEN_STATUS_KEYS.includes(tk.status)&&tk.dueDate&&tk.dueDate<tod;
     addB(tk.prop_id,tk.room,{
-      ci:tk.start,co:tk.end,lbl,color,isTask:true,
+      ci:tk.start,co:tk.end,lbl,color,isTask:true,dim:closed,
       onClick:e=>{e.stopPropagation();openEditTask(tk);},
       onHover:e=>showTT(e,
         '<div class="tt-title">'+(tk.type==='repair'?'🔧 設備維修':'🧹 打掃清潔')+(tk.isAuto?' (換房自動)':'')+'</div>'+
+        '<div class="tt-row"><span class="tt-lbl">狀態</span>'+st.label+(closed&&tk.doneAt?'（'+tk.doneAt+'）':'')+'</div>'+
         '<div class="tt-row"><span class="tt-lbl">開始</span>'+tk.start+'</div>'+
         '<div class="tt-row"><span class="tt-lbl">結束</span>'+tk.end+'</div>'+
-        (tk.note?'<div class="tt-row"><span class="tt-lbl">備註</span>'+tk.note+'</div>':'')+
-        '<div style="margin-top:5px;font-size:10px;opacity:.7;border-top:1px solid rgba(255,255,255,.2);padding-top:4px">👆 點擊可修改時間</div>')
+        (tk.dueDate?'<div class="tt-row"><span class="tt-lbl">預計完成</span>'+tk.dueDate+(overdue?' ⚠️逾期':'')+'</div>':'')+
+        '<div class="tt-row"><span class="tt-lbl">處理人員</span>'+(tk.handler?escH(tk.handler):'未指派')+'</div>'+
+        (tk.type==='repair'&&tkCost(tk)>0
+          ?'<div class="tt-row"><span class="tt-lbl">金額</span>'+money(tkCost(tk))+' · '+(BILLING[tk.billing]||BILLING.none).label+'</div>':'')+
+        (tk.note?'<div class="tt-row"><span class="tt-lbl">備註</span>'+escH(tk.note)+'</div>':'')+
+        tkHistTTRows(tk)+
+        '<div style="margin-top:5px;font-size:10px;opacity:.7;border-top:1px solid rgba(255,255,255,.2);padding-top:4px">👆 點擊可編輯；改狀態請用維修追蹤清單</div>')
     });
   });
 
@@ -3021,7 +3037,7 @@ function render(){
         const htPx=b.isTask?14:(CH-8);
         blk.style.cssText='left:'+((s-1)*DW+2)+'px;width:'+((e-s)*DW-4)+'px;'+
           'background:'+b.color+';top:'+topPx+'px;height:'+htPx+'px;'+
-          'z-index:'+(b.isTask?3:1)+';';
+          'z-index:'+(b.isTask?3:1)+';'+(b.dim?'opacity:.38;':'');
         blk.textContent=b.lbl;
         blk.addEventListener('click',b.onClick);
         blk.addEventListener('mouseenter',b.onHover);
@@ -3347,6 +3363,8 @@ function saveTk(){
         start,   // 開始日期現在允許修改（含自動排程）
         end:endAdj,note,status,handler,vendorId,cat,dueDate,cost,billing,blocking,
         doneAt:status==='done'||status==='replaced'?(old.doneAt||todayStr()):'',
+        // 歷程只在狀態真的變動時才寫，否則改個備註就多一筆雜訊
+        hist:status!==old.status?pushTkHist(old,status):old.hist,
         updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
     }
   }else{
@@ -3356,6 +3374,7 @@ function saveTk(){
       complaintId:pendingComplaintLink||null,
       status,handler,vendorId,cat,dueDate,cost,billing,blocking,
       doneAt:status==='done'||status==='replaced'?todayStr():'',
+      hist:pushTkHist({},status),
       createdAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail});
   }
   saveTasks(tasks);
@@ -5046,6 +5065,60 @@ function stChip(k){
   const s=TASK_STATUS[k]||TASK_STATUS.todo;
   return '<span style="background:'+s.bg+';color:'+s.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+s.label+'</span>';
 }
+// ── 任務狀態歷程 ───────────────────────────────
+// 只留最後 20 筆：歷程是寫進 company_kv 的同一包 JSON，不設上限的話
+// 一張反覆開開關關的單會把整包資料撐大，拖慢所有人的載入。
+const TK_HIST_MAX=20;
+function pushTkHist(t,st){
+  const h=Array.isArray(t.hist)?t.hist.slice(-(TK_HIST_MAX-1)):[];
+  h.push({st,at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail||''});
+  return h;
+}
+function lastTkHist(t){return Array.isArray(t.hist)&&t.hist.length?t.hist[t.hist.length-1]:null;}
+// ISO → 「MM-DD HH:mm」。歷程只需要看得出先後，不必顯示年份與秒。
+function fmtHistAt(iso){
+  const d=new Date(iso);
+  if(isNaN(d))return '';
+  const p=n=>String(n).padStart(2,'0');
+  return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function tkHistTTRows(t){
+  const h=Array.isArray(t.hist)?t.hist.slice(-3):[];
+  if(!h.length)return '';
+  return h.map(x=>'<div class="tt-row"><span class="tt-lbl">'+fmtHistAt(x.at)+'</span>'+
+    ((TASK_STATUS[x.st]&&TASK_STATUS[x.st].label)||x.st)+(x.by?' · '+escH(x.by):'')+'</div>').join('');
+}
+// 追蹤清單的一鍵改狀態。刻意不共用編輯表單：現場人員回報進度時
+// 不該被迫面對金額、請款、廠商那一整頁欄位。
+function setTkStatus(id,st){
+  const tasks=loadTasks();
+  const idx=tasks.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const t=tasks[idx];
+  if(t.status===st)return;
+  // 維修單沒填金額就結案，維修報表的成本統計與房源風險的成本燈會長期少算這筆，
+  // 而且事後很難想起來補，所以在這裡擋一次。
+  if(CLOSED_STATUS_KEYS.includes(st)&&t.type==='repair'&&!(Number(t.cost)>0)&&
+     !confirm('這張維修單金額還是 $0。\n直接結案的話，維修報表與房源風險燈號會少算這筆成本。\n\n仍要結案嗎？（取消可先用 ✏️ 補金額）'))return;
+  tasks[idx]={...t,status:st,
+    doneAt:CLOSED_STATUS_KEYS.includes(st)?(t.doneAt||todayStr()):'',
+    hist:pushTkHist(t,st),
+    updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
+  saveTasks(tasks);
+  renderMaint();render();
+}
+// 可選動作依狀態而異：清潔單沒有汰換的概念，維修單的「建議汰換」結案要記成「已汰換」。
+function tkActions(t){
+  const b=(lbl,st,primary)=>'<button class="btn '+(primary?'btn-primary':'btn-ghost')+
+    ' sm" style="margin-left:4px;padding:3px 8px" onclick="setTkStatus('+jsArg(t.id)+','+jsArg(st)+')">'+lbl+'</button>';
+  let h;
+  if(t.status==='doing')h=b('結案','done',1)+b('↩ 退回','todo');
+  else if(t.status==='suggest_replace')h=b('進行中','doing')+b('已汰換','replaced',1);
+  else if(CLOSED_STATUS_KEYS.includes(t.status))h=b('↩ 重新開啟','todo');
+  else h=b('進行中','doing')+b('結案','done',1);
+  return h+'<button class="btn btn-ghost sm" style="margin-left:4px;padding:3px 7px" '+
+    'title="編輯明細（金額・廠商・日期・備註）" onclick="editMaintTask('+jsArg(t.id)+')">✏️</button>';
+}
 const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未請款',color:'#e67700'},billed:{label:'已請款',color:'#2f9e44'}};
 function money(n){return '$'+Math.round(n||0).toLocaleString();}
 // 維修金額只對維修單有意義，清潔單一律視為 0
@@ -5186,6 +5259,7 @@ function renderMaint(){
       const p=getProp(t.prop_id);
       const isOpen=OPEN_STATUS_KEYS.includes(t.status);
       const overdue=isOpen&&t.dueDate&&t.dueDate<tod;
+      const lh=lastTkHist(t);
       const dueCell=t.dueDate
         ?(overdue?'<span style="color:#c92a2a;font-weight:700">'+t.dueDate+' ⚠️逾期</span>':t.dueDate)
         :'<span style="color:var(--muted)">—</span>';
@@ -5199,8 +5273,10 @@ function renderMaint(){
         '<td style="padding:7px 9px;font-size:11px">'+(t.handler?escH(t.handler):'<span style="color:var(--muted)">未指派</span>')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+(t.start||'')+'<div style="color:var(--muted)">~ '+(t.end||'')+'</div></td>'+
         '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+dueCell+'</td>'+
-        '<td style="padding:7px 9px">'+stChip(t.status)+'</td>'+
-        '<td style="padding:7px 9px;text-align:right"><button class="btn btn-ghost sm" onclick="editMaintTask(\''+t.id+'\')">編輯</button></td>'+
+        '<td style="padding:7px 9px">'+stChip(t.status)+(lh
+          ?'<div style="font-size:9px;color:var(--muted);margin-top:3px;white-space:nowrap">'+fmtHistAt(lh.at)+(lh.by?' · '+escH(lh.by):'')+'</div>'
+          :'')+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;white-space:nowrap">'+tkActions(t)+'</td>'+
       '</tr>';
     }).join('')+'</tbody></table>';
 }
