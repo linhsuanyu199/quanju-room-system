@@ -1375,6 +1375,29 @@ const RISK_ORDER=['g','y','o','r'];
 // 取三段門檻中最嚴重的那一級；門檻由低到高排列，由高往低比才會命中最嚴重的一級
 function lampBy(v,th){return v>=th[2]?'r':v>=th[1]?'o':v>=th[0]?'y':'g';}
 function worstLamp(list){return list.reduce((a,b)=>RISK_ORDER.indexOf(b)>RISK_ORDER.indexOf(a)?b:a,'g');}
+
+// ── 房客風險燈號門檻 ────────────────────────────
+// [黃燈門檻, 橙燈門檻]，null 代表該級不觸發。
+// 自動燈號最高只到橙燈：紅燈（黑名單）一律人工標記。
+// 系統不自動把人列入黑名單——判斷依據無法向當事人解釋、也無從申訴，
+// 在個資法上站不住腳，而且誤判的代價是直接拒絕一位可能無辜的房客。
+const GUEST_TH={
+  cancel: [2,3],     // 取消訂單次數
+  unpaid: [1,2],     // 入住日已過仍停在「預定中」＝訂了卻沒付款
+  noshow: [null,1],  // 已付款卻沒來辦入住，一次就橙燈（房間白白空著）
+  lateout:[1,2],     // 退房日已過仍停在「入住中」＝賴著不退房
+};
+const GUEST_LAMP={
+  g:{label:'綠燈',  color:'#2f9e44',bg:'#ebfbee',advice:'正常承租'},
+  y:{label:'黃燈',  color:'#e67700',bg:'#fff3bf',advice:'列入觀察'},
+  o:{label:'橙燈',  color:'#d9480f',bg:'#ffe8cc',advice:'謹慎承租'},
+  r:{label:'黑名單',color:'#c92a2a',bg:'#ffe3e3',advice:'不建議承租'},
+};
+// 兩段門檻版的 lampBy（房源用三段、房客用兩段，因為房客不自動判紅燈）
+function lampBy2(v,th){return (th[1]!=null&&v>=th[1])?'o':(th[0]!=null&&v>=th[0])?'y':'g';}
+// 黑名單預設保存年限。個資法要求個資不得逾越必要期間保存，
+// 給預設值才不會變成「標了就一輩子」。
+const BLACKLIST_YEARS=2;
 // 業務寄祝福信時要用哪個信箱。這是「這台電腦怎麼寄信」的偏好，
 // 不同業務用不同電腦、甚至同一人在公司與家裡用不同信箱，
 // 所以存 localStorage（跟著裝置）而非雲端（跟著帳號）。
@@ -3513,6 +3536,18 @@ function lookupCustByPhone(){
     hint.textContent='✔ 已帶入既有客戶資料';
   }
   hint.style.display='block';
+  // 風險提示放在自動帶入之後，讓警語蓋過一般提示文字（資料仍然照樣帶入，
+  // 業務可能只是要查閱或補建歷史訂單）
+  const bl=custBlacklist(phone);
+  const lamp=guestLamp(phone,buildGuestRisk()[phone]);
+  if(bl&&!bl.expired){
+    hint.innerHTML='<span style="color:#c92a2a;font-weight:700">🚫 黑名單客戶</span> — '+escH(bl.reason)+
+      '（'+escH(bl.by||'')+' 標記'+(bl.until?'、有效至 '+escH(bl.until):'')+'）。儲存時會再次確認。';
+  }else if(lamp==='o'||lamp==='y'){
+    const L=GUEST_LAMP[lamp];
+    hint.innerHTML='<span style="color:'+L.color+';font-weight:700">'+L.label+' '+L.advice+'</span> — '+
+      escH(guestRiskReasons(buildGuestRisk()[phone]).join('・'));
+  }
 }
 function closeBk(){
   document.getElementById('bk-ov').classList.remove('open');
@@ -4081,6 +4116,19 @@ async function saveBk(){
     }).join('\n');
     if(!confirm('⚠️ 以下時段已排定清潔/維修，確定仍要儲存？\n\n'+msg))return;
   }
+  // ── 黑名單軟提示 ──
+  // 刻意不硬擋：標記可能過時或誤標，現場業務仍需要能處理。但每一次放行都留下紀錄。
+  // 只在新建訂單時問；編輯既有訂單（改日期、補資料）不該每次都跳。
+  const phoneVal=document.getElementById('g-phone').value.trim();
+  const blRec=phoneVal&&!editingBkId?custBlacklist(phoneVal):null;
+  let blOverride=null;
+  if(blRec&&!blRec.expired){
+    if(!confirm('🚫 這位房客目前被列為黑名單。\n\n原因：'+blRec.reason+
+      '\n標記人：'+(blRec.by||'—')+'（'+(blRec.at||'').slice(0,10)+'）'+
+      (blRec.until?'\n有效至：'+blRec.until:'')+
+      '\n\n仍要建立這張訂單嗎？系統會記錄本次放行。'))return;
+    blOverride={at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail};
+  }
   let tot=0;curSegs.forEach(s=>tot+=s.totalRent||0);
   const bk={id:editingBkId||genId('BK'),guest,
     phone:document.getElementById('g-phone').value.trim(),
@@ -4093,11 +4141,13 @@ async function saveBk(){
     taxid:document.getElementById('g-ctype').value==='法人'?(document.getElementById('g-taxid').value||'').trim():'',
     note:document.getElementById('g-note').value.trim(),
     totalRent:tot,segments:curSegs.map(s=>({...s})),
+    ...(blOverride?{blOverride}:{}),
     createdAt:editingBkId?undefined:new Date().toISOString(),
     updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
   const result=await saveBkAtomic(fresh=>{
     const idx=fresh.findIndex(b=>b.id===bk.id);
-    if(idx>=0){bk.createdAt=fresh[idx].createdAt;fresh[idx]=bk;}else fresh.push(bk);
+    // 編輯既有訂單時不再問黑名單，所以放行紀錄必須從舊資料保留下來
+    if(idx>=0){bk.createdAt=fresh[idx].createdAt;if(fresh[idx].blOverride)bk.blOverride=fresh[idx].blOverride;fresh[idx]=bk;}else fresh.push(bk);
     return fresh;
   },{bookingId:editingBkId,checkConflict:!!editingBkId,baseUpdatedAt:editingBkBaseUpdatedAt});
   if(result===null)return; // 使用者取消覆蓋
@@ -5510,12 +5560,94 @@ function buildCustomerIndex(){
   });
   return Object.values(map).sort((a,b)=>(b.lastCheckin||'').localeCompare(a.lastCheckin||''));
 }
-// 一般成員只看得到歸屬給自己的客戶；admin 看全部
+/* ═══ 房客風險燈號 ═══ */
+// 全部由既有訂單推導，不需要額外輸入任何欄位。
+// 回傳 {電話: {cancel:[], unpaid:[], noshow:[], lateout:[]}}，每項都留下是哪一張訂單，
+// 只給燈號不給明細的話，業務沒辦法跟客人說明「你是因為哪一次被列入觀察」。
+function buildGuestRisk(){
+  const tod=todayStr();
+  const map={};
+  loadBks().forEach(b=>{
+    const phone=(b.phone||'').trim();
+    if(!phone)return; // 無電話無法歸戶（與 buildCustomerIndex 一致）
+    const m=map[phone]||(map[phone]={cancel:[],unpaid:[],noshow:[],lateout:[]});
+    const cis=b.segments.map(s=>s.checkin).filter(Boolean).sort();
+    if(b.segments.every(s=>s.status==='cancelled')){
+      // 整張取消才算一次取消。部分段落退租是換房調整，不是客戶爽約。
+      m.cancel.push({bkId:b.id,date:(b.cancelledAt||'').slice(0,10)||cis[0]||'',reason:b.cancelReason||''});
+      return; // 已取消的訂單不再重複計未付款／no-show
+    }
+    b.segments.forEach(s=>{
+      if(s.status==='cancelled'||!s.checkin)return;
+      if(s.checkin<tod){
+        // reserved＝還沒收到錢；pending＝錢收了但人沒來辦入住
+        if(s.status==='reserved')m.unpaid.push({bkId:b.id,date:s.checkin,days:diffDays(s.checkin,tod)});
+        else if(s.status==='pending')m.noshow.push({bkId:b.id,date:s.checkin,days:diffDays(s.checkin,tod)});
+      }
+      if(s.status==='checkin'&&s.checkout&&s.checkout<tod)
+        m.lateout.push({bkId:b.id,date:s.checkout,days:diffDays(s.checkout,tod)});
+    });
+  });
+  return map;
+}
+const EMPTY_GUEST_RISK={cancel:[],unpaid:[],noshow:[],lateout:[]};
+// 客訴只記到「館別＋房號＋日期」，沒有記是哪位房客，所以用日期回推當時
+// 住在該房號的訂單來推定。可能推錯（退房後才申訴、或問題其實出在房源本身），
+// 因此只在客戶詳情列出並標示「推定」，刻意不納入自動燈號判定。
+function complaintsByGuest(){
+  const bks=loadBks();
+  const out={};
+  loadComplaints().forEach(c=>{
+    if(!c.date)return;
+    for(const b of bks){
+      const phone=(b.phone||'').trim();
+      if(!phone)continue;
+      const hit=b.segments.some(s=>s.status!=='cancelled'&&String(s.prop_id)===String(c.prop_id)&&
+        s.room===c.room&&s.checkin&&s.checkout&&s.checkin<=c.date&&c.date<s.checkout);
+      if(hit){(out[phone]=out[phone]||[]).push(c);break;}
+    }
+  });
+  return out;
+}
+// 有效的黑名單標記。到期後回傳 expired:true 而不是 null，
+// 這樣詳情頁仍看得出「曾被標記、何時到期」，不會讓歷史憑空消失。
+function custBlacklist(phone){
+  const bl=(getCust(phone)||{}).blacklist;
+  if(!bl||!bl.reason)return null;
+  return {...bl,expired:!!(bl.until&&bl.until<todayStr())};
+}
+function guestLamp(phone,st){
+  const bl=custBlacklist(phone);
+  if(bl&&!bl.expired)return 'r';
+  const s=st||EMPTY_GUEST_RISK;
+  return worstLamp([lampBy2(s.cancel.length,GUEST_TH.cancel),
+                    lampBy2(s.unpaid.length,GUEST_TH.unpaid),
+                    lampBy2(s.noshow.length,GUEST_TH.noshow),
+                    lampBy2(s.lateout.length,GUEST_TH.lateout)]);
+}
+function guestLampChip(lamp,small){
+  const L=GUEST_LAMP[lamp];
+  return '<span style="display:inline-block;padding:1px '+(small?6:8)+'px;border-radius:99px;font-size:'+
+    (small?9.5:10)+'px;font-weight:700;color:'+L.color+';background:'+L.bg+';white-space:nowrap">'+L.label+'</span>';
+}
+// 燈號的具體理由，供列表副標與訂單提示共用
+function guestRiskReasons(st){
+  const s=st||EMPTY_GUEST_RISK;
+  const r=[];
+  if(s.cancel.length) r.push('取消 '+s.cancel.length+' 次');
+  if(s.unpaid.length) r.push('逾期未付款 '+s.unpaid.length+' 次');
+  if(s.noshow.length) r.push('已付款未入住 '+s.noshow.length+' 次');
+  if(s.lateout.length)r.push('逾期未退房 '+s.lateout.length+' 次');
+  return r;
+}
+
+// 一般成員只看得到歸屬給自己的客戶；admin 看全部。
+// 但黑名單客戶所有成員都看得到——否則別的業務照樣接單，黑名單等於失效。
 function visibleCustomers(){
   const all=buildCustomerIndex();
   if(isAdmin())return all;
   const me=Cloud.myDisplayName||'';
-  return all.filter(c=>c.owner===me);
+  return all.filter(c=>c.owner===me||!!custBlacklist(c.phone));
 }
 /* ═══ 官網預約詢問單收件匣 ═══ */
 const INQ_STATUS={new:{label:'未處理',color:'#c92a2a'},contacted:{label:'已聯繫',color:'#f08c00'},
@@ -5611,18 +5743,26 @@ function openCustomers(){
 function closeCustomers(){document.getElementById('cust-ov').classList.remove('open');}
 function renderCustomers(){
   const kw=(document.getElementById('cust-search').value||'').trim();
-  const list=visibleCustomers().filter(c=>!kw||c.name.includes(kw)||c.phone.includes(kw));
+  const lampF=(document.getElementById('cust-lamp')||{}).value||'';
+  const risk0=buildGuestRisk();
+  const list=visibleCustomers()
+    .filter(c=>!kw||c.name.includes(kw)||c.phone.includes(kw))
+    .filter(c=>!lampF||guestLamp(c.phone,risk0[c.phone])===lampF);
   const tbody=document.getElementById('cust-tbody');
   const scope=isAdmin()?'（企業管理者：可看全部客戶）':'（僅顯示歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶）';
   document.getElementById('cust-title').textContent='客戶列表 — 共 '+list.length+' 位'+scope;
   if(list.length===0){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">'+
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">'+
       (isAdmin()?'尚無符合的客戶資料':'目前沒有歸屬於您的客戶。若確認有客戶應由您負責，請聯繫企業管理者調整歸屬。')+'</td></tr>';
     return;
   }
   const agents=Cloud.companyMembers||[];
+  const risk=risk0;
   tbody.innerHTML=list.map(c=>{
     const ph=escH(c.phone);
+    const st=risk[c.phone];
+    const lamp=guestLamp(c.phone,st);
+    const reasons=lamp==='r'?[]:guestRiskReasons(st);
     const ownerCell=isAdmin()
       ?'<select onclick="event.stopPropagation()" onchange="setCustOwner(\''+ph+'\',this.value)" '+
         'style="height:24px;font-size:10.5px;border:1px solid var(--border);border-radius:4px;background:#fff;max-width:92px">'+
@@ -5632,6 +5772,8 @@ function renderCustomers(){
        '</select>'+(c.ownerAuto&&c.owner?'<div style="font-size:9px;color:var(--muted);margin-top:2px">自動帶入</div>':'')
       :'<span style="font-size:11px">'+escH(c.owner||'—')+'</span>';
     return '<tr class="oo-row" onclick="openCustomerDetail(\''+ph.replace(/'/g,"\\'")+'\')">'+
+      '<td style="white-space:nowrap">'+guestLampChip(lamp)+
+        (reasons.length?'<div style="font-size:9px;color:var(--muted);margin-top:2px">'+escH(reasons.join('・'))+'</div>':'')+'</td>'+
       '<td><strong>'+escH(c.name)+'</strong>'+(c.ctype?'<div style="font-size:10px;color:var(--muted)">'+escH(c.ctype)+'</div>':'')+'</td>'+
       '<td style="font-size:11px">'+ph+'</td>'+
       '<td>'+ownerCell+'</td>'+
@@ -5648,6 +5790,91 @@ function setCustOwner(phone,owner){
   setCustFields(phone,{owner});
   renderCustomers();
 }
+// 客戶詳情頁的風險燈號卡：燈號、觸發原因明細、推定客訴、黑名單設定
+function custRiskHtml(phone){
+  const st=buildGuestRisk()[phone]||EMPTY_GUEST_RISK;
+  const bl=custBlacklist(phone);
+  const lamp=guestLamp(phone,st);
+  const L=GUEST_LAMP[lamp];
+  const cps=complaintsByGuest()[phone]||[];
+  const overrides=loadBks().filter(b=>(b.phone||'').trim()===phone&&b.blOverride);
+  const sub=(label,arr,fmt)=>arr.length
+    ?'<div style="margin-top:6px"><strong style="font-size:11px">'+label+' '+arr.length+' 次</strong>'+
+      arr.slice(-5).map(x=>'<div style="font-size:10.5px;color:var(--muted);padding-left:14px">・'+fmt(x)+'</div>').join('')+
+      (arr.length>5?'<div style="font-size:10px;color:var(--muted);padding-left:14px">（僅列最近 5 筆）</div>':'')+'</div>'
+    :'';
+  let h='<div style="background:'+L.bg+';border:1px solid '+L.color+'55;border-radius:8px;padding:11px 13px;margin-bottom:10px">'+
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+      guestLampChip(lamp)+
+      '<strong style="font-size:12px;color:'+L.color+'">'+L.advice+'</strong>'+
+      (lamp==='g'?'<span style="font-size:10.5px;color:var(--muted)">沒有取消、欠款或逾期退房紀錄</span>':'')+
+    '</div>';
+  if(bl){
+    h+='<div style="margin-top:7px;font-size:11px;line-height:1.75;background:#fff;border-radius:6px;padding:8px 10px">'+
+      '<div><strong style="color:#c92a2a">'+(bl.expired?'⏳ 黑名單已到期（自動失效）':'🚫 黑名單')+'</strong></div>'+
+      '<div>原因：'+escH(bl.reason)+'</div>'+
+      '<div style="color:var(--muted)">標記人：'+escH(bl.by||'—')+'　標記於 '+escH((bl.at||'').slice(0,10))+
+        '　'+(bl.until?'有效至 '+escH(bl.until):'無到期日')+'</div></div>';
+  }
+  h+=sub('🚫 取消訂單',st.cancel,x=>(x.date||'日期不詳')+(x.reason?'　原因：'+escH(x.reason):''));
+  h+=sub('💰 逾期未付款',st.unpaid,x=>'入住日 '+x.date+'　已逾 '+x.days+' 天仍停在「預定中」');
+  h+=sub('🔑 已付款未入住',st.noshow,x=>'入住日 '+x.date+'　已逾 '+x.days+' 天未辦入住');
+  h+=sub('🚪 逾期未退房',st.lateout,x=>'退房日 '+x.date+'　已逾 '+x.days+' 天仍在「入住中」');
+  if(cps.length){
+    h+='<div style="margin-top:6px"><strong style="font-size:11px">📣 推定相關客訴 '+cps.length+' 件</strong>'+
+      '<span style="font-size:10px;color:var(--muted)">（依日期與房號推定，僅供參考、不計入燈號）</span>'+
+      cps.slice(-5).map(c=>'<div style="font-size:10.5px;color:var(--muted);padding-left:14px">・'+
+        escH(c.date)+'　'+escH(c.item||c.cat||'')+'（'+escH(c.sev||'')+'）</div>').join('')+'</div>';
+  }
+  if(overrides.length){
+    h+='<div style="margin-top:6px;font-size:10.5px;color:#c92a2a">⚠️ 曾在黑名單狀態下放行建立訂單 '+overrides.length+' 次'+
+      '（最近：'+escH((overrides[overrides.length-1].blOverride.at||'').slice(0,10))+
+      ' · '+escH(overrides[overrides.length-1].blOverride.by||'')+'）</div>';
+  }
+  if(isAdmin()){
+    const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;background:#fff';
+    const d=new Date();d.setFullYear(d.getFullYear()+BLACKLIST_YEARS);
+    const defUntil=bl&&bl.until?bl.until:ds(d.getFullYear(),d.getMonth()+1,d.getDate());
+    h+='<div style="margin-top:9px;border-top:1px dashed '+L.color+'55;padding-top:8px">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">'+
+        '<div style="flex:2;min-width:180px"><label style="font-size:10px;color:var(--muted)">黑名單原因（必填）</label>'+
+          '<input type="text" id="bl-reason" value="'+escH(bl?bl.reason:'')+'" placeholder="例：惡意毀損設備並拒絕賠償" style="'+inp+';width:100%"></div>'+
+        '<div><label style="font-size:10px;color:var(--muted)">有效至</label>'+
+          '<input type="date" id="bl-until" value="'+escH(defUntil)+'" style="'+inp+'"></div>'+
+        '<button class="btn btn-ghost sm" style="color:#c92a2a;border-color:#c92a2a55" onclick="setBlacklist('+jsArg(phone)+')">'+
+          (bl?'💾 更新標記':'🚫 設為黑名單')+'</button>'+
+        (bl?'<button class="btn btn-ghost sm" onclick="clearBlacklist('+jsArg(phone)+')">✔ 解除</button>':'')+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6">'+
+        '黑名單屬個人資料，請填寫具體事實而非評價性字眼，並僅供內部承租判斷使用，不會提供給其他業者。'+
+        '到期後自動失效、改由行為紀錄判定燈號。</div>'+
+    '</div>';
+  }
+  return h+'</div>';
+}
+function setBlacklist(phone){
+  if(!isAdmin()){alert('只有企業管理者可以標記黑名單');return;}
+  const reason=(document.getElementById('bl-reason').value||'').trim();
+  if(!reason){alert('請填寫黑名單原因。沒有原因的標記無法向客戶說明，也無從申訴。');return;}
+  const until=document.getElementById('bl-until').value||'';
+  if(until&&until<=todayStr()){alert('有效至日期必須晚於今天，否則標記會立即失效。');return;}
+  const old=(getCust(phone)||{}).blacklist;
+  setCustFields(phone,{blacklist:{reason,until,
+    by:(old&&old.by)||Cloud.myDisplayName||Cloud.myEmail,
+    at:(old&&old.at)||new Date().toISOString()}});
+  alert('已標記為黑名單。所有成員在建立訂單時都會看到提示。');
+  refreshCustViews(phone);
+}
+function clearBlacklist(phone){
+  if(!isAdmin()){alert('只有企業管理者可以解除黑名單');return;}
+  if(!confirm('確定解除黑名單？\n解除後燈號改由取消／欠款／逾期等行為紀錄判定。'))return;
+  setCustFields(phone,{blacklist:null});
+  refreshCustViews(phone);
+}
+function refreshCustViews(phone){
+  renderCustProfile(phone,buildCustomerIndex().find(x=>x.phone===phone));
+  renderCustomers();
+}
 // 客戶詳情頁上方的可編輯資料卡（生日、行銷同意、Email、歸屬、備註）
 function renderCustProfile(phone,c){
   const box=document.getElementById('custd-profile');
@@ -5655,7 +5882,7 @@ function renderCustProfile(phone,c){
   if(!c){box.innerHTML='';return;}
   const agents=Cloud.companyMembers||[];
   const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;width:100%;background:#fff';
-  box.innerHTML=
+  box.innerHTML=custRiskHtml(phone)+
     '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:11px 13px">'+
       '<div class="form-grid" style="gap:9px">'+
         '<div class="field"><label style="font-size:10px">客戶生日</label>'+
@@ -5699,7 +5926,8 @@ function saveCustProfile(phone){
 function openCustomerDetail(phone){
   const bks=loadBks().filter(b=>(b.phone||'').trim()===phone);
   const c=buildCustomerIndex().find(x=>x.phone===phone);
-  if(c&&!isAdmin()&&c.owner!==(Cloud.myDisplayName||'')){
+  // 黑名單客戶不受歸屬限制：任何成員接單前都必須看得到原因
+  if(c&&!isAdmin()&&c.owner!==(Cloud.myDisplayName||'')&&!custBlacklist(phone)){
     alert('此客戶目前歸屬於「'+(c.owner||'未指定')+'」，您沒有檢視權限。');
     return;
   }
@@ -6961,12 +7189,22 @@ init();
     <button class="close-btn" onclick="closeCustomers()">✕</button>
   </div>
   <div style="padding:12px 17px 4px">
-    <input class="search" id="cust-search" type="text" placeholder="搜尋姓名 / 電話…" oninput="renderCustomers()" style="width:100%">
+    <div style="display:flex;gap:8px">
+      <input class="search" id="cust-search" type="text" placeholder="搜尋姓名 / 電話…" oninput="renderCustomers()" style="flex:1">
+      <select id="cust-lamp" onchange="renderCustomers()" style="height:34px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:#fff;padding:0 8px;flex-shrink:0">
+        <option value="">全部風險燈號</option>
+        <option value="r">🚫 黑名單</option>
+        <option value="o">🟠 橙燈 謹慎承租</option>
+        <option value="y">🟡 黃燈 列入觀察</option>
+        <option value="g">🟢 綠燈 正常</option>
+      </select>
+    </div>
   </div>
   <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">風險</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">姓名</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">電話</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">歸屬業務</th>
@@ -6982,7 +7220,9 @@ init();
   <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
     <div style="font-size:10.5px;color:var(--muted);line-height:1.6">
       點擊任一列可查看與編輯該客戶資料。依電話號碼歸戶，無電話之訂單不會歸戶；取消訂單不計入次數與金額。<br>
-      歸屬業務預設帶入該客戶最早一筆訂單的負責業務，企業管理者可在此直接調整。
+      歸屬業務預設帶入該客戶最早一筆訂單的負責業務，企業管理者可在此直接調整。<br>
+      <strong>風險燈號</strong>由取消次數、逾期未付款、已付款未入住、逾期未退房自動判定（最高至橙燈）；
+      黑名單須由企業管理者人工標記並填寫原因，不會自動產生，也不會提供給其他業者。
     </div>
     <button class="btn btn-ghost" onclick="closeCustomers()" style="flex-shrink:0">關閉</button>
   </div>
