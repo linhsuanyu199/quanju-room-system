@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Ping Supabase REST endpoint
         run: |
-          curl -sf -o /dev/null -w "HTTP %{http_code}\n" \
-            "https://cvryjcdcrebdnlemgabs.supabase.co/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}"
+          # 必須打真實資料表，anon key 打 /rest/v1/ 根路徑會被擋（只收 service_role）
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://cvryjcdcrebdnlemgabs.supabase.co/rest/v1/companies?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "HTTP $code"
+          test "$code" = "200"
