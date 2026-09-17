@@ -22,28 +22,46 @@ create table if not exists public.plans (
   price_yearly   int,                              -- 年繳總額；null 代表不提供年繳
   max_props      int,                              -- 館別數上限
   max_rooms      int,                              -- 總房間數上限
-  max_members    int,                              -- 可登入的成員數上限
+  max_members    int,                              -- 「方案內含」的成員數；加購後以 subscriptions.seats 為準
   features       jsonb       not null default '{}'::jsonb,
   sort           int         not null default 0,
   active         boolean     not null default true
 );
 
--- 方案內容為初版草案，價格與額度請依實際成本與市場回饋調整。
--- 改這張表即時生效，不需要動程式。
-insert into public.plans (code, name, price_monthly, price_yearly, max_props, max_rooms, max_members, features, sort) values
-  ('trial',    '試用',   0,     null,   1,    10,   2,
+-- 加購席次的單價。null 代表該方案不開放加購（免費版就是這樣）。
+alter table public.plans add column if not exists price_extra_seat int;
+
+-- 三階：免費 / 進階 / 企業。
+--
+-- 免費版同時卡「3 個館別」與「10 間房」，兩個條件**先撞到哪個就擋哪個**。
+-- 例如 3 個館別共 21 間房，會在第 11 間房就被擋下，不會因為館別還沒滿而放行。
+--
+-- 進階版起不再限制館別數，改用房間數當計價軸——房間數才直接對應客戶的
+-- 營收規模，館別多寡只是經營型態差異，拿它收錢會讓小坪數多點位的客戶被誤傷。
+--
+-- 成員：所有方案都內含 1 人，第 2 人起依 price_extra_seat 逐人加購。
+-- 加購後由平台方把 subscriptions.seats 調高，額度檢查以 seats 為準。
+insert into public.plans
+  (code, name, price_monthly, price_yearly, max_props, max_rooms, max_members, price_extra_seat, features, sort) values
+  ('free',     '免費',  0,     null,   3,    10,   1,  null,
      '{"estimate":true,"market":false,"complaint":true,"photo":true,"export":true}'::jsonb, 0),
-  ('starter',  '入門',   1200,  12000,  2,    30,   3,
+  ('advanced', '進階',  999,   9990,   null, 19,   1,  500,
      '{"estimate":true,"market":false,"complaint":true,"photo":true,"export":true}'::jsonb, 1),
-  ('pro',      '專業',   2800,  28000,  8,    120,  10,
-     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 2),
-  ('business', '企業',   6000,  60000,  null, null, null,
-     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 3)
+  ('business', '企業',  1999,  19990,  null, null, 1,  300,
+     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 2)
 on conflict (code) do update set
   name = excluded.name, price_monthly = excluded.price_monthly,
   price_yearly = excluded.price_yearly, max_props = excluded.max_props,
   max_rooms = excluded.max_rooms, max_members = excluded.max_members,
-  features = excluded.features, sort = excluded.sort;
+  price_extra_seat = excluded.price_extra_seat,
+  features = excluded.features, sort = excluded.sort, active = true;
+
+-- 舊的四階草案（試用／入門／專業）併入新的三階。
+-- 先搬 subscriptions 再刪 plans，否則外鍵會擋下來。
+update public.subscriptions set plan = 'free'     where plan = 'trial';
+update public.subscriptions set plan = 'advanced' where plan = 'starter';
+update public.subscriptions set plan = 'business' where plan = 'pro';
+delete from public.plans where code in ('trial','starter','pro');
 
 alter table public.plans enable row level security;
 
@@ -118,13 +136,17 @@ create policy subscriptions_read_own on public.subscriptions
 revoke insert, update, delete on public.subscriptions from authenticated, anon;
 
 
--- ── 4. 新公司自動獲得試用 ─────────────────────────────────
--- 註冊完就能直接用，不必等我們手動開通。
+-- ── 4. 新公司自動落在免費版 ───────────────────────────────
+-- 刻意不做「限時試用」：試用一到期就變唯讀，客戶的觀感是被收走東西，
+-- 而且到期前後那幾天正是最容易流失的時候。改成永久免費但有量體上限，
+-- 客戶是「長大了才需要付錢」，升級動機來自他自己的成長而不是倒數計時。
+--
+-- current_period_end 留 null＝永不到期，第 10 段的到期掃描不會動到它。
 create or replace function public.tg_company_start_trial()
 returns trigger language plpgsql security definer set search_path = public as $fn$
 begin
-  insert into public.subscriptions (company_id, plan, status, trial_ends_at, current_period_end)
-  values (NEW.id, 'trial', 'trialing', now() + interval '14 days', now() + interval '14 days')
+  insert into public.subscriptions (company_id, plan, status, current_period_end)
+  values (NEW.id, 'free', 'active', null)
   on conflict (company_id) do nothing;
   return NEW;
 end;
@@ -136,10 +158,10 @@ create trigger company_start_trial
   for each row execute function public.tg_company_start_trial();
 
 -- 既有公司補上訂閱紀錄。
--- 現有客戶是在沒有訂閱制的前提下進來的，直接給 active 而非 trialing，
+-- 現有客戶是在沒有訂閱制的前提下進來的，直接給 active 而非限時試用，
 -- 避免他們隔天打開系統發現變成唯讀。要轉成付費是商務溝通，不是技術動作。
 insert into public.subscriptions (company_id, plan, status, current_period_end, note)
-select c.id, 'pro', 'active', now() + interval '10 years', '訂閱制上線前既有客戶，沿用原有權益'
+select c.id, 'business', 'active', now() + interval '10 years', '訂閱制上線前既有客戶，沿用原有權益'
 from public.companies c
 where not exists (select 1 from public.subscriptions s where s.company_id = c.id);
 
@@ -214,6 +236,11 @@ begin
       'max_props',   v_plan.max_props,
       'max_rooms',   v_plan.max_rooms,
       'max_members', coalesce(v_sub.seats, v_plan.max_members)
+    ),
+    'pricing', jsonb_build_object(
+      'monthly',    v_plan.price_monthly,
+      'yearly',     v_plan.price_yearly,
+      'extra_seat', v_plan.price_extra_seat   -- null＝該方案不開放加購席次
     ),
     'features', coalesce(v_plan.features, '{}'::jsonb),
     'usage',    public.company_usage(v_company)
@@ -421,6 +448,67 @@ $fn$;
 
 revoke all on function public.expire_subscriptions() from public, anon;
 grant execute on function public.expire_subscriptions() to authenticated;
+
+
+-- ── 10b. 客戶公司管理者失聯時的救援 ───────────────────────
+-- 情境：某家客戶公司唯一的管理者離職、帳號停用或聯絡不上，
+-- 公司內部就再也沒有人能新增成員、指派客戶、停用離職同事——整家公司卡死。
+-- set_member_role() 幫不上忙，因為它本身就要求呼叫者是該公司的在職管理者。
+--
+-- 這支是唯一的出口，而且刻意設計得很窄：
+--   * 只有平台方能叫
+--   * 對象必須已經是該公司的成員（不能把外人塞進客戶公司）
+--   * 必須寫理由，而且留下稽核紀錄
+-- 「在別人的公司裡指派管理者」是很大的權力，沒有紙本紀錄不該做。
+create table if not exists public.platform_actions (
+  id          bigserial primary key,
+  actor       uuid        not null,
+  action      text        not null,
+  company_id  uuid,
+  target_user uuid,
+  reason      text,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.platform_actions enable row level security;
+-- 同 platform_admins：不建 policy，只給 security definer 函數內部寫。
+revoke all on public.platform_actions from authenticated, anon;
+
+create or replace function public.admin_grant_company_admin(
+  p_company_id uuid,
+  p_user_id    uuid,
+  p_reason     text
+)
+returns jsonb
+language plpgsql volatile security definer set search_path = public as $fn$
+declare v_name text;
+begin
+  if not public.is_platform_admin() then
+    raise exception 'platform admin only';
+  end if;
+  if coalesce(btrim(p_reason), '') = '' then
+    raise exception 'reason required';
+  end if;
+
+  select display_name into v_name from public.profiles
+  where id = p_user_id and company_id = p_company_id;
+  if v_name is null then
+    raise exception 'target is not a member of that company';
+  end if;
+
+  update public.profiles
+  set role = 'admin', active = true, left_at = null, left_by = null
+  where id = p_user_id and company_id = p_company_id;
+
+  insert into public.platform_actions (actor, action, company_id, target_user, reason)
+  values (auth.uid(), 'grant_company_admin', p_company_id, p_user_id, p_reason);
+
+  return jsonb_build_object('ok', true, 'user', v_name);
+end;
+$fn$;
+
+revoke all on function public.admin_grant_company_admin(uuid, uuid, text) from public, anon;
+grant execute on function public.admin_grant_company_admin(uuid, uuid, text) to authenticated;
 
 
 -- ── 11. 開通平台管理員 + 排程 ─────────────────────────────
