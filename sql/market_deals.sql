@@ -89,6 +89,13 @@ begin
     return jsonb_build_object('level', 'none', 'n', 0, 'reason', 'not_in_company');
   end if;
 
+  -- 行情庫是分級功能（企業方案以上）。前端藏掉按鈕擋不住直接呼叫 RPC 的人，
+  -- 所以這道判斷必須在這裡；而且要排在 share_market 之前，
+  -- 否則訊息會誤導成「你自己把行情共享關掉了」。
+  if not public.company_has_feature(v_company, 'market') then
+    return jsonb_build_object('level', 'none', 'n', 0, 'reason', 'plan_locked');
+  end if;
+
   select c.share_market into v_share from public.companies c where c.id = v_company;
   if coalesce(v_share, true) = false then
     return jsonb_build_object('level', 'none', 'n', 0, 'reason', 'opted_out');
@@ -136,6 +143,12 @@ begin
   v_company := public.get_my_company_id();
   if v_company is null then
     return jsonb_build_object('ok', false, 'reason', 'not_in_company');
+  end if;
+
+  -- 沒有行情庫功能的方案也不該往裡面寫資料：既然查不到，
+  -- 就不應該還要貢獻自己的成交價給別人看。
+  if not public.company_has_feature(v_company, 'market') then
+    return jsonb_build_object('ok', false, 'reason', 'plan_locked');
   end if;
 
   select c.share_market into v_share from public.companies c where c.id = v_company;

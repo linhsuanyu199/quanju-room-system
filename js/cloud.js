@@ -42,13 +42,37 @@ const Cloud = {
   get(key, defVal) {
     return key in KV_CACHE ? KV_CACHE[key] : defVal;
   },
+  // 刻意維持同步介面（呼叫端遍布整個 index.html），雲端寫入在背景進行。
+  // 但寫入被資料庫擋下時（方案額度、訂閱到期）不能只寫 console：畫面上會留著
+  // 存不進去的資料，使用者重新整理才發現東西消失，會以為系統把他的資料吃了。
+  // 所以失敗時把本機快取退回原值、明確告知，再請畫面重畫。
   set(key, value) {
+    const had = key in KV_CACHE;
+    const prev = KV_CACHE[key];
     KV_CACHE[key] = value;
+    this._syncUsage(key, value);
     _sb.from('company_kv').upsert({
       company_id: this.companyId, key, value, updated_at: new Date().toISOString()
     }, { onConflict: 'company_id,key' }).then(({ error }) => {
-      if (error) console.error('雲端儲存失敗：', key, error.message);
+      if (!error) return;
+      if (had) KV_CACHE[key] = prev; else delete KV_CACHE[key];
+      console.error('雲端儲存失敗：', key, error.message);
+      alert('❌ ' + this._translateWriteError(error));
+      this.loadSubscription().then(() => {
+        if (typeof window.onCloudWriteRejected === 'function') window.onCloudWriteRejected();
+      });
     });
+  },
+
+  _translateWriteError(err) {
+    const msg = String((err && err.message) || '');
+    const hint = String((err && err.hint) || '');
+    if (/PLAN_LIMIT_PROPS|PLAN_LIMIT_ROOMS|PLAN_LIMIT_MEMBERS/.test(msg))
+      return (hint || '已達目前方案的使用上限。') + '\n\n剛才的變更沒有存上去。';
+    if (/SUBSCRIPTION_INACTIVE/.test(msg))
+      return (hint || '訂閱已到期，系統目前為唯讀模式。') + '\n\n剛才的變更沒有存上去。';
+    return '雲端儲存失敗，剛才的變更沒有存上去：\n' + (msg || '未知錯誤') +
+           '\n\n請確認網路後重新整理，再檢查資料是否正確。';
   },
 
   async _loadKV() {
@@ -101,6 +125,62 @@ const Cloud = {
     if (!path) return;
     const { error } = await _sb.storage.from(this.PHOTO_BUCKET).remove([path]);
     if (error) console.error('照片刪除失敗：', error.message);
+  },
+
+  // ── 訂閱方案 ───────────────────────────────────────────────
+  // 真正的額度鎖長在資料庫的 trigger（sql/subscriptions.sql §7、§8）。
+  // 這裡讀回來的資料只用於「事前告知」——先把按鈕鎖起來、把用量寫在畫面上，
+  // 讓使用者在按下去之前就知道會被擋，而不是按了才吃一個錯誤訊息。
+  sub: null,     // my_subscription() 的結果；null 代表讀不到（例如尚未加入企業）
+  plans: [],     // 價目表
+
+  async loadSubscription() {
+    if (!this.companyId) { this.sub = null; return null; }
+    const { data, error } = await _sb.rpc('my_subscription');
+    if (error) { console.error('讀取訂閱狀態失敗：', error.message); return null; }
+    this.sub = (data && data.ok) ? data : null;
+    return this.sub;
+  },
+
+  async loadPlans() {
+    if (this.plans.length) return this.plans;
+    const { data, error } = await _sb.from('plans')
+      .select('code,name,price_monthly,price_yearly,max_props,max_rooms,max_members,price_extra_seat,contact_only,features,sort')
+      .order('sort');
+    if (error) { console.error('讀取方案清單失敗：', error.message); return []; }
+    this.plans = data || [];
+    return this.plans;
+  },
+
+  // 方案有沒有開這個功能。讀不到訂閱時一律放行——寧可多給，
+  // 也不要因為一次 RPC 失敗就把付過錢的客戶鎖在門外。
+  planHas(feature) {
+    if (!this.sub || !this.sub.features) return true;
+    return this.sub.features[feature] !== false;
+  },
+  writable() { return !this.sub || this.sub.writable !== false; },
+
+  // kind: 'props' | 'rooms' | 'members'
+  quota(kind) {
+    const limits = (this.sub && this.sub.limits) || {};
+    const usage = (this.sub && this.sub.usage) || {};
+    const limit = limits['max_' + kind];
+    const used = usage[kind] || 0;
+    return {
+      used, limit: (limit === null || limit === undefined) ? null : limit,
+      full: limit !== null && limit !== undefined && used >= limit
+    };
+  },
+
+  // 本機即時更新用量，免得每動一筆房源就多打一次 RPC。
+  // 寫入失敗時 set() 會重新向伺服器取正確數字，不會一直錯下去。
+  _syncUsage(key, value) {
+    if (!this.sub || !this.sub.usage) return;
+    if (key === 'qj_cps' && Array.isArray(value)) {
+      this.sub.usage.props = value.length;
+      this.sub.usage.rooms = value.reduce(
+        (n, p) => n + ((p && Array.isArray(p.rooms)) ? p.rooms.length : 0), 0);
+    }
   },
 
   // ── 官網預約詢問單（獨立資料表，靠 RLS 隔離企業）──────────
@@ -196,6 +276,7 @@ const Cloud = {
     this.shareMarket = comp ? comp.share_market !== false : true;
     await this._loadKV();
     await this._loadCompanyMembers();
+    await this.loadSubscription();
     this.ready = true;
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('company-screen').classList.add('hidden');
@@ -221,6 +302,9 @@ const Cloud = {
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     const siteLink = document.getElementById('btn-public-site');
     if (siteLink && this.companyId) siteLink.href = this.getPublicUrl();
+    // 方案徽章／橫幅／額度顯示。放在最後是因為 applySubUI 會依方案再蓋掉
+    // 行情共享按鈕的顯示狀態（上面只判斷了角色，還沒判斷方案有沒有這個功能）。
+    if (typeof window.applySubUI === 'function') window.applySubUI();
   },
 
   // ── 對外公開房源頁連結（可分享給房客）──────────
@@ -246,6 +330,8 @@ const Cloud = {
       .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || '', 'zh-Hant'));
     this.companyMembers = this.memberRows.filter(m => m.active)
       .map(m => m.display_name).filter(Boolean).sort();
+    if (this.sub && this.sub.usage)
+      this.sub.usage.members = this.memberRows.filter(m => m.active).length;
   },
 
   // ── 成員管理 RPC（伺服器端會再驗一次 admin 與同公司，前端 gating 只是 UX）──
@@ -270,6 +356,10 @@ const Cloud = {
   },
   _translateMemberError(msg) {
     const m = String(msg || '');
+    if (/PLAN_LIMIT_MEMBERS/.test(m))
+      return '已達目前方案的成員人數上限。加購席次或升級方案後即可再邀請成員。';
+    if (/SUBSCRIPTION_INACTIVE/.test(m))
+      return '訂閱已到期，系統目前為唯讀模式，續訂後即可恢復操作。';
     if (/admin only/.test(m)) return '只有企業管理者可以執行這個動作';
     if (/not in company/.test(m)) return '您目前不屬於任何企業，或帳號已被停用';
     if (/cannot change your own status/.test(m)) return '不能停用自己的帳號';
@@ -374,6 +464,12 @@ const Cloud = {
     if (/profiles_company_display_name_uniq/.test(msg) || /duplicate key value violates unique constraint/i.test(msg)) {
       return '此顯示名稱在企業內已被使用，請更換一個名稱（例如加上姓氏區分）';
     }
+    // 邀請碼正確但企業的席次已滿。錯誤要落在加入的人身上才看得懂，
+    // 否則他只會看到一串英文代號，不知道該去找誰處理。
+    if (/PLAN_LIMIT_MEMBERS/.test(msg))
+      return '這家企業的成員人數已達方案上限，請聯繫該企業的管理者加購席次或升級方案';
+    if (/SUBSCRIPTION_INACTIVE/.test(msg))
+      return '這家企業的訂閱已到期，請聯繫該企業的管理者續訂後再加入';
     return msg;
   },
 

@@ -468,8 +468,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="login-err" id="login-err" style="display:none"></div>
     <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#bbb">
       註冊或登入即表示您同意
-      <a href="./terms.html" target="_blank" style="color:#999">服務條款</a> 與
-      <a href="./privacy.html" target="_blank" style="color:#999">隱私權政策</a>
+      <a href="./terms.html" target="_blank" style="color:#999">服務條款</a>、
+      <a href="./privacy.html" target="_blank" style="color:#999">隱私權政策</a> 與
+      <a href="./refund.html" target="_blank" style="color:#999">退訂與退費條款</a>
     </div>
   </div>
 </div>
@@ -515,6 +516,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="logo-main">短租排房系統</div>
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
+  <button id="plan-badge" onclick="openPlan()" title="查看方案、用量與價目表"
+    style="display:none;margin-left:8px;flex-shrink:0;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;border-radius:99px;padding:2px 9px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
@@ -545,6 +548,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
         <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
         <div class="more-sep"></div>
+        <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
         <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
         <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
       </div>
@@ -553,6 +557,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn-top btn-mgt-top" onclick="Cloud.doLogout()" title="登出系統" style="background:rgba(255,255,255,.1)">🚪</button>
   </div>
 </div>
+
+<!-- 訂閱狀態橫幅（唯讀／即將到期／額度將滿時才出現） -->
+<div id="sub-banner" style="display:none;padding:9px 16px;font-size:12.5px;font-weight:600;line-height:1.7"></div>
 
 <!-- Toolbar -->
 <div class="toolbar">
@@ -1060,10 +1067,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="modal-body" style="max-height:76vh;overflow-y:auto">
     <div class="pm-toolbar">
       <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
+      <span class="pm-tip" id="pm-quota" style="display:none;cursor:pointer" onclick="openPlan()" title="查看方案與價目表"></span>
       <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
       <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
       <button class="btn btn-ghost sm" id="pm-market-btn" onclick="openMarketShare()" title="設定是否參與全平台匿名成交行情共享">📈 行情共享</button>
-      <button class="btn btn-primary sm" onclick="scrollToAddProp()">＋ 新增館別</button>
+      <button class="btn btn-primary sm" id="pm-addprop-btn" onclick="scrollToAddProp()">＋ 新增館別</button>
     </div>
     <div id="pm-content"></div>
     <div class="pm-add-prop-section" id="pm-add-section">
@@ -1104,7 +1112,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <input id="np-building" type="text" placeholder="選填，如 國美世紀（用於同棟行情比對）">
         </div>
         <div class="field" style="align-self:flex-end">
-          <button class="btn btn-primary" onclick="doAddProp()">建立館別</button>
+          <button class="btn btn-primary" id="np-submit" onclick="doAddProp()">建立館別</button>
         </div>
       </div>
     </div>
@@ -1116,6 +1124,27 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       </div>
       <input type="file" id="import-file" accept=".csv,.xlsx,.xls" onchange="handleImportFile(this)">
       <div id="import-preview" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ 方案與用量 ═══ -->
+<div class="overlay" id="plan-ov" onclick="if(event.target===this)closePlan()">
+<div class="modal" style="max-width:820px">
+  <div class="modal-h"><h2>💎 方案與用量</h2><button class="close-btn" onclick="closePlan()">✕</button></div>
+  <div class="modal-body" style="max-height:78vh;overflow-y:auto">
+    <div id="plan-current"></div>
+    <div class="section-title" style="margin-top:20px">方案與價格（新台幣／未稅）</div>
+    <div id="plan-table" style="overflow-x:auto"></div>
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.8;margin-top:14px">
+      · 年繳＝月費 ×10，相當於付 10 個月用 12 個月。<br>
+      · 所有方案都內含 1 位成員，第 2 位起依各方案的加購席次單價逐人計費。<br>
+      · 免費方案的館別數與房間數<strong>兩個上限都要遵守，先碰到哪一個就以哪一個為準</strong>。
+        例如 3 個館別共 21 間房，會在第 11 間房被擋下。<br>
+      · 升級、加購席次與旗艦方案報價，請聯繫我們；相關規範詳見
+      <a href="./terms.html" target="_blank" style="color:var(--primary)">服務條款</a> 與
+      <a href="./refund.html" target="_blank" style="color:var(--primary)">退訂與退費條款</a>。
     </div>
   </div>
 </div>
@@ -5792,7 +5821,16 @@ function renderMembers(){
   const adminCnt=rows.filter(m=>m.active&&m.role==='admin').length;
   const el=document.getElementById('mb-list');
   if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px">目前沒有成員資料</div>';return;}
-  el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
+  const sq=Cloud.quota('members');
+  const seatBar=sq.limit===null?'':
+    '<div style="background:'+(sq.full?'#fff9db':'var(--primary-light,#e8f0fb)')+
+      ';border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.7">'+
+      '席次：<strong>'+sq.used+' / '+sq.limit+'</strong> 人（方案「'+
+      escH((Cloud.sub&&Cloud.sub.plan_name)||'')+'」）'+
+      (sq.full?'<br><span style="color:#a06000;font-weight:700">已滿，新成員將無法用邀請碼加入。</span>'+
+        '加購席次或升級方案請 <a href="#" onclick="closeMembers();openPlan();return false;" style="color:var(--primary)">查看方案</a>。':'')+
+    '</div>';
+  el.innerHTML=seatBar+'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
     '<thead><tr style="border-bottom:1px solid var(--border)">'+
       ['成員','角色','狀態','名下客戶','操作'].map((h,i)=>
         '<th style="padding:6px 8px;text-align:'+(i>=3?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
@@ -6367,6 +6405,10 @@ function reportMarketDeals(bk){
   });
 }
 function openMarketShare(){
+  if(!Cloud.planHas('market')){
+    alert('🔒 成交行情庫是企業方案以上才有的功能。\n\n可點右上角的方案徽章查看價目表與升級方式。');
+    openPlan();return;
+  }
   document.getElementById('ms-toggle').checked=Cloud.shareMarket!==false;
   document.getElementById('ms-ov').classList.add('open');
 }
@@ -6554,7 +6596,9 @@ async function loadEstMarket(id){
   const s=await Cloud.marketStats(q);
   if(!s){paint(mktNote('行情查詢失敗，請稍後再開一次。'));return;}
   if(s.level==='none'){
-    const why=s.reason==='opted_out'
+    const why=s.reason==='plan_locked'
+      ? '成交行情庫為企業方案以上的功能，目前方案尚未開通。可點右上角的方案徽章查看價目表。'
+      : s.reason==='opted_out'
       ? '貴公司已關閉行情共享，因此查不到其他公司貢獻的成交行情。可在房源管理的「📈 行情共享」重新開啟。'
       : s.reason==='not_in_company'
       ? '目前帳號尚未加入企業，無法查詢行情。'
@@ -6639,6 +6683,8 @@ function createPropFromEst(id){
   const svc=document.getElementById('np2-svc').value;
   const cps=loadCPs();
   if(cps.some(c=>c.name===nm)){alert('已經有同名的館別「'+nm+'」，請換一個名稱。');return;}
+  if(!planGuard('props',1))return;
+  if(!planGuard('rooms',1))return;
   if(!confirm('確定建立館別「'+nm+'」與房間 '+rno+'？\n\n地址：'+(i.addr||'—')+
     '\n房型：'+type+'\n月租金：'+(price?('$'+price.toLocaleString()):'未設定')))return;
   const newId='cp_'+Date.now();
@@ -6810,6 +6856,7 @@ async function uploadPhotos(input){
 }
 
 function renderPM(){
+  applySubUI();
   const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs();
   const content=document.getElementById('pm-content');
   content.innerHTML=ap.map(prop=>{
@@ -6957,7 +7004,9 @@ function setRT(pid,rno,input){
   if(!pi[pid].roomTypes)pi[pid].roomTypes={};
   pi[pid].roomTypes[rno]=val;savePropInfo(pi);
 }
-function showAF(pid){document.querySelectorAll('.pm-add-form').forEach(e=>e.style.display='none');document.getElementById('af-'+pid).style.display='block';}
+function showAF(pid){
+  if(!planGuard('rooms',1))return;
+  document.querySelectorAll('.pm-add-form').forEach(e=>e.style.display='none');document.getElementById('af-'+pid).style.display='block';}
 function hideAF(pid){document.getElementById('af-'+pid).style.display='none';}
 function doAR(pid){
   const rno=(document.getElementById('ar-r-'+pid).value||'').trim();
@@ -6966,6 +7015,7 @@ function doAR(pid){
   const rp=parseFloat(document.getElementById('ar-p-'+pid).value)||0;
   const cps=loadCPs();const p=cps.find(x=>String(x.id)===pid);if(!p)return;
   if(p.rooms.some(r=>r.room===rno)){alert('房號已存在');return;}
+  if(!planGuard('rooms',1))return;
   p.rooms.push({room:rno,type:rt,price:rp});saveCPs(cps);
   renderPM();
 }
@@ -7010,6 +7060,7 @@ function delProp(pid){
   saveCPs(loadCPs().filter(p=>String(p.id)!==pid));renderPM();
 }
 function doAddProp(){
+  if(!planGuard('props',1))return;
   const svc=(document.getElementById('np-svc').value||'').trim();
   if(!svc){alert('請選擇服務類型');return;}
   const nm=(document.getElementById('np-name').value||'').trim();
@@ -7031,6 +7082,154 @@ function doAddProp(){
   document.getElementById('np-dist').innerHTML='<option value="">— 請先選擇縣市 —</option>';
   renderPM();alert('館別「'+nm+'」已建立！');
 }
+
+// ════════════════════════════════════════════════
+// 訂閱方案（徽章／橫幅／用量／超額事前擋）
+//
+// 這裡做的全部是「事前告知」。真正的額度與到期鎖在資料庫的 trigger
+// （sql/subscriptions.sql §7、§8），打開 DevTools 直接呼叫 API 也繞不過。
+// 前端存在的意義是讓使用者在按下去之前就知道會被擋，而不是按了才吃錯誤。
+// ════════════════════════════════════════════════
+function quotaLabel(kind){
+  const q=Cloud.quota(kind);
+  return q.limit===null?(q.used+' / 不限'):(q.used+' / '+q.limit);
+}
+// 超額時直接攔在前端。回傳 false 代表不要繼續。
+// add＝這次要新增幾個，預設 1。
+function planGuard(kind,add){
+  if(!Cloud.writable()){
+    alert('❌ 訂閱已到期，系統目前為唯讀模式。\n\n您的資料都還在、也匯得出來，續訂後立即恢復編輯。');
+    return false;
+  }
+  const q=Cloud.quota(kind);
+  if(q.limit===null)return true;
+  if(q.used+(add||1)<=q.limit)return true;
+  const noun=kind==='props'?'館別':(kind==='rooms'?'房間':'成員');
+  const plan=(Cloud.sub&&Cloud.sub.plan_name)||'目前方案';
+  alert('❌ 已達方案上限，無法新增。\n\n方案「'+plan+'」最多 '+q.limit+' 個'+noun+
+        '，目前已有 '+q.used+' 個，本次要新增 '+(add||1)+' 個。\n\n'+
+        '請點選右上角的方案徽章查看用量與升級方式。');
+  return false;
+}
+function applySubUI(){
+  const s=Cloud.sub;
+  const badge=document.getElementById('plan-badge');
+  const banner=document.getElementById('sub-banner');
+  const quotaSpan=document.getElementById('pm-quota');
+
+  // 行情庫是分級功能，沒開通就連入口都不該出現（管理者才看得到這顆按鈕）
+  const mk=document.getElementById('pm-market-btn');
+  if(mk&&Cloud.myRole==='admin')mk.style.display=Cloud.planHas('market')?'':'none';
+
+  if(!s){
+    if(badge)badge.style.display='none';
+    if(banner)banner.style.display='none';
+    if(quotaSpan)quotaSpan.style.display='none';
+    return;
+  }
+
+  if(badge){
+    const d=s.days_left;
+    badge.style.display='';
+    // 唯讀狀態要寫在字面上。只把徽章染紅，使用者不會知道那代表「存不進去」。
+    badge.textContent='💎 '+s.plan_name+(!s.writable?' · 已到期'
+      :(d===null||d===undefined?'':(' · 剩 '+d+' 天')));
+    badge.style.background=!s.writable?'rgba(201,42,42,.85)'
+      :(d!==null&&d!==undefined&&d<=7?'rgba(230,119,0,.9)':'rgba(255,255,255,.12)');
+  }
+
+  if(quotaSpan){
+    quotaSpan.style.display='';
+    quotaSpan.textContent='💎 '+s.plan_name+'：館別 '+quotaLabel('props')+
+      '　房間 '+quotaLabel('rooms')+'　成員 '+quotaLabel('members');
+  }
+
+  // 橫幅只在真的需要行動時出現，平常不佔版面也不製造警示疲乏
+  let msg='',bg='',fg='';
+  if(!s.writable){
+    msg='🔒 訂閱已到期，系統目前為<strong>唯讀模式</strong>。您的資料都還在、也可以匯出，續訂後立即恢復編輯。';
+    bg='#fff5f5';fg='#c92a2a';
+  }else if(s.days_left!==null&&s.days_left!==undefined&&s.days_left<=7){
+    msg='⏰ 方案將於 <strong>'+s.days_left+' 天後</strong>到期（'+
+        String(s.current_period_end||'').slice(0,10)+'）。到期後系統會轉為唯讀，請及早續訂。';
+    bg='#fff9db';fg='#a06000';
+  }else{
+    const rq=Cloud.quota('rooms'),pq=Cloud.quota('props');
+    if(rq.limit!==null&&rq.used>=rq.limit){
+      msg='📦 房間數已達方案「'+s.plan_name+'」的上限 '+rq.limit+' 間，無法再新增房間。';
+      bg='#fff9db';fg='#a06000';
+    }else if(pq.limit!==null&&pq.used>=pq.limit){
+      msg='📦 館別數已達方案「'+s.plan_name+'」的上限 '+pq.limit+' 個，無法再新增館別。';
+      bg='#fff9db';fg='#a06000';
+    }
+  }
+  if(banner){
+    banner.style.display=msg?'':'none';
+    if(msg){
+      banner.innerHTML=msg+' <a href="#" onclick="openPlan();return false;" style="color:inherit;text-decoration:underline">查看方案</a>';
+      banner.style.background=bg;banner.style.color=fg;
+      banner.style.borderBottom='1px solid rgba(0,0,0,.08)';
+    }
+  }
+}
+// Cloud.set() 被資料庫擋下時會呼叫這支：畫面上那筆存不進去的資料要立刻消失，
+// 使用者才不會以為存好了。
+window.onCloudWriteRejected=function(){
+  applySubUI();
+  if(document.getElementById('pm-ov').classList.contains('open'))renderPM();
+  render();
+};
+
+function fmtMoney(n){return n?('$'+Number(n).toLocaleString()):'—';}
+function planLimitCell(v,unit){return v===null||v===undefined?'不限':(v+' '+unit);}
+async function openPlan(){
+  document.getElementById('plan-ov').classList.add('open');
+  const cur=document.getElementById('plan-current');
+  const s=Cloud.sub;
+  cur.innerHTML=s?(
+    '<div style="background:var(--primary-light,#e8f0fb);border-radius:10px;padding:14px 16px">'+
+      '<div style="font-size:15px;font-weight:800;color:var(--primary-d,#143e7a)">目前方案：'+escH(s.plan_name)+
+        (s.writable?'':' <span style="color:#c92a2a">（已到期·唯讀）</span>')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.9">'+
+        (s.current_period_end
+          ? '有效期限：'+String(s.current_period_end).slice(0,10)+
+            (s.days_left!==null&&s.days_left!==undefined?'（剩 '+s.days_left+' 天）':'')
+          : '有效期限：無期限（免費方案不會到期）')+'<br>'+
+        '目前用量：館別 <strong>'+quotaLabel('props')+'</strong>　'+
+        '房間 <strong>'+quotaLabel('rooms')+'</strong>　'+
+        '成員 <strong>'+quotaLabel('members')+'</strong><br>'+
+        '行情庫：'+(Cloud.planHas('market')?'✅ 已開通':'🔒 僅企業方案以上')+
+      '</div>'+
+    '</div>'
+  ):'<div style="font-size:12px;color:var(--muted)">讀不到訂閱狀態，請重新整理後再試。</div>';
+
+  const box=document.getElementById('plan-table');
+  box.innerHTML='<div style="font-size:12px;color:var(--muted)">正在讀取價目表…</div>';
+  const plans=await Cloud.loadPlans();
+  if(!plans.length){box.innerHTML='<div style="font-size:12px;color:var(--muted)">價目表讀取失敗，請稍後再試。</div>';return;}
+  const rows=[
+    ['月費',p=>p.contact_only?'洽談報價':(p.price_monthly?fmtMoney(p.price_monthly)+' /月':'免費')],
+    ['年費',p=>p.contact_only?'洽談報價':(p.price_yearly?fmtMoney(p.price_yearly)+' /年':'—')],
+    ['館別數',p=>planLimitCell(p.max_props,'個')],
+    ['房間數',p=>p.code==='free'?'10 間':(p.max_rooms===null?'100 間以上':p.max_rooms+' 間以下')],
+    ['內含成員',p=>(p.max_members||1)+' 人'],
+    ['加購席次',p=>p.price_extra_seat?('+'+fmtMoney(p.price_extra_seat)+' /人/月'):(p.contact_only?'洽談報價':'不開放')],
+    ['成交行情庫',p=>(p.features&&p.features.market)?'✅':'—']
+  ];
+  const cur_code=s?s.plan:null;
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">'+
+    '<thead><tr><th style="text-align:left;padding:8px;border-bottom:2px solid var(--border)"></th>'+
+      plans.map(p=>'<th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;'+
+        (p.code===cur_code?'background:var(--primary-light,#e8f0fb);':'')+'">'+
+        '<div style="font-weight:800;font-size:13px">'+escH(p.name)+'</div>'+
+        (p.code===cur_code?'<div style="font-size:10px;color:var(--primary,#1a56a0);font-weight:700">目前方案</div>':'')+
+        '</th>').join('')+'</tr></thead><tbody>'+
+    rows.map(([label,fn])=>'<tr><td style="padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);white-space:nowrap">'+
+      label+'</td>'+plans.map(p=>'<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;'+
+      (p.code===cur_code?'background:var(--primary-light,#e8f0fb);':'')+'">'+fn(p)+'</td>').join('')+'</tr>').join('')+
+    '</tbody></table>';
+}
+function closePlan(){document.getElementById('plan-ov').classList.remove('open');}
 
 // ════════════════════════════════════════════════
 // BULK IMPORT（Excel / CSV 批次匯入房源）
@@ -7139,6 +7338,19 @@ function renderImportPreview(properties,errors){
 function confirmImport(){
   if(!importParsed||!importParsed.length)return;
   const cps=loadCPs();
+  // 批次匯入是最容易一口氣爆掉額度的入口：先算清楚這批會新增幾個館別、幾間房，
+  // 整批擋下來並說明差多少，不要讓使用者匯進一半才失敗。
+  {
+    const names=new Set(cps.map(c=>c.name));
+    let np=0,nr=0;
+    importParsed.forEach(p=>{
+      const exist=cps.find(c=>c.name===p.name);
+      if(exist){nr+=p.rooms.filter(r=>!exist.rooms.some(er=>er.room===r.room)).length;}
+      else if(!names.has(p.name)){names.add(p.name);np++;nr+=p.rooms.length;}
+    });
+    if(np&&!planGuard('props',np))return;
+    if(nr&&!planGuard('rooms',nr))return;
+  }
   let newCount=0,mergedCount=0,addedRooms=0;
   importParsed.forEach(p=>{
     const exist=cps.find(c=>c.name===p.name);

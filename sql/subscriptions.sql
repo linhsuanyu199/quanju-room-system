@@ -31,7 +31,11 @@ create table if not exists public.plans (
 -- 加購席次的單價。null 代表該方案不開放加購（免費版就是這樣）。
 alter table public.plans add column if not exists price_extra_seat int;
 
--- 三階：免費 / 進階 / 企業。
+-- 價格另議的方案（旗艦版）。價目表上顯示「洽談報價」而不是金額，
+-- 也不會出現在客戶自助升級的選項裡。
+alter table public.plans add column if not exists contact_only boolean not null default false;
+
+-- 四階：免費 / 進階 / 企業 / 旗艦。
 --
 -- 免費版同時卡「3 個館別」與「10 間房」，兩個條件**先撞到哪個就擋哪個**。
 -- 例如 3 個館別共 21 間房，會在第 11 間房就被擋下，不會因為館別還沒滿而放行。
@@ -39,21 +43,28 @@ alter table public.plans add column if not exists price_extra_seat int;
 -- 進階版起不再限制館別數，改用房間數當計價軸——房間數才直接對應客戶的
 -- 營收規模，館別多寡只是經營型態差異，拿它收錢會讓小坪數多點位的客戶被誤傷。
 --
+-- 企業版封頂 100 間房。原本設 null（不限）會出現 20 間房和 200 間房付一樣的錢，
+-- 但後者的儲存、流量與支援成本是前者的十倍，等於用大客戶補貼小客戶。
+-- 超過 100 間走旗艦版個別報價，才能照實際規模談。
+--
 -- 成員：所有方案都內含 1 人，第 2 人起依 price_extra_seat 逐人加購。
 -- 加購後由平台方把 subscriptions.seats 調高，額度檢查以 seats 為準。
 insert into public.plans
-  (code, name, price_monthly, price_yearly, max_props, max_rooms, max_members, price_extra_seat, features, sort) values
-  ('free',     '免費',  0,     null,   3,    10,   1,  null,
+  (code, name, price_monthly, price_yearly, max_props, max_rooms, max_members, price_extra_seat, contact_only, features, sort) values
+  ('free',     '免費',  0,     null,   3,    10,   1,  null, false,
      '{"estimate":true,"market":false,"complaint":true,"photo":true,"export":true}'::jsonb, 0),
-  ('advanced', '進階',  999,   9990,   null, 19,   1,  500,
+  ('advanced', '進階',  999,   9990,   null, 19,   1,  500,  false,
      '{"estimate":true,"market":false,"complaint":true,"photo":true,"export":true}'::jsonb, 1),
-  ('business', '企業',  1999,  19990,  null, null, 1,  300,
-     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 2)
+  ('business', '企業',  1999,  19990,  null, 100,  1,  300,  false,
+     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 2),
+  ('flagship', '旗艦',  0,     null,   null, null, 1,  null, true,
+     '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 3)
 on conflict (code) do update set
   name = excluded.name, price_monthly = excluded.price_monthly,
   price_yearly = excluded.price_yearly, max_props = excluded.max_props,
   max_rooms = excluded.max_rooms, max_members = excluded.max_members,
   price_extra_seat = excluded.price_extra_seat,
+  contact_only = excluded.contact_only,
   features = excluded.features, sort = excluded.sort, active = true;
 
 -- 舊的四階草案（試用／入門／專業）併入新的三階。
@@ -197,6 +208,23 @@ $$;
 revoke all on function public.company_usage(uuid) from public, anon;
 grant execute on function public.company_usage(uuid) to authenticated;
 
+-- 分級功能的後端判斷。像行情庫這種「只有某些方案才有」的功能，
+-- 光在前端隱藏按鈕沒有用——對方直接呼叫 RPC 一樣拿得到資料。
+-- 訂閱不存在或已失效時回 false：分級功能寧可少給也不能白送，
+-- 這和額度檢查（寧可少擋，避免把付費客戶鎖在門外）的取捨方向刻意相反。
+create or replace function public.company_has_feature(p_company_id uuid, p_feature text)
+returns boolean
+language sql stable security definer set search_path = public as $fn$
+  select coalesce(bool_or((pl.features ->> p_feature)::boolean), false)
+  from public.subscriptions s
+  join public.plans pl on pl.code = s.plan
+  where s.company_id = p_company_id
+    and s.status in ('trialing', 'active', 'past_due')
+$fn$;
+
+revoke all on function public.company_has_feature(uuid, text) from public, anon;
+grant execute on function public.company_has_feature(uuid, text) to authenticated;
+
 
 -- ── 6. 前端要的一包資料 ───────────────────────────────────
 -- 方案 + 狀態 + 目前用量，一次拿齊，前端據此決定要鎖哪些按鈕。
@@ -238,9 +266,10 @@ begin
       'max_members', coalesce(v_sub.seats, v_plan.max_members)
     ),
     'pricing', jsonb_build_object(
-      'monthly',    v_plan.price_monthly,
-      'yearly',     v_plan.price_yearly,
-      'extra_seat', v_plan.price_extra_seat   -- null＝該方案不開放加購席次
+      'monthly',      v_plan.price_monthly,
+      'yearly',       v_plan.price_yearly,
+      'extra_seat',   v_plan.price_extra_seat,  -- null＝該方案不開放加購席次
+      'contact_only', coalesce(v_plan.contact_only, false)
     ),
     'features', coalesce(v_plan.features, '{}'::jsonb),
     'usage',    public.company_usage(v_company)
@@ -292,16 +321,19 @@ begin
   if v_plan.max_props is not null and v_props > v_plan.max_props then
     if v_props > coalesce((public.company_usage(NEW.company_id)->>'props')::int, 0) then
       raise exception 'PLAN_LIMIT_PROPS'
-        using hint = format('目前方案「%s」最多 %s 個館別，請升級後再新增。',
-                            v_plan.name, v_plan.max_props);
+        using hint = format('目前方案「%s」最多 %s 個館別（本次要存 %s 個），請升級後再新增。',
+                            v_plan.name, v_plan.max_props, v_props);
     end if;
   end if;
 
   if v_plan.max_rooms is not null and v_rooms > v_plan.max_rooms then
     if v_rooms > coalesce((public.company_usage(NEW.company_id)->>'rooms')::int, 0) then
       raise exception 'PLAN_LIMIT_ROOMS'
-        using hint = format('目前方案「%s」最多 %s 間房，請升級後再新增。',
-                            v_plan.name, v_plan.max_rooms);
+        using hint = format('目前方案「%s」最多 %s 間房（本次要存 %s 間）。%s',
+                            v_plan.name, v_plan.max_rooms, v_rooms,
+                            case when v_plan.code = 'business'
+                                 then '超過 100 間請與我們聯繫，改用旗艦方案個別報價。'
+                                 else '請升級方案後再新增。' end);
     end if;
   end if;
 
