@@ -306,6 +306,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   margin-bottom:11px;padding:7px 11px;background:#f8f9fa;
   border-radius:7px;border:1px solid var(--border)}
 .pm-tip{font-size:10px;color:var(--muted)}
+.bg-row{padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
+.bg-row:last-child{border-bottom:none}
+.bg-row:hover{background:#f1f5f9}
+.bg-row.on{background:#e7f5ff;box-shadow:inset 3px 0 0 var(--primary)}
 .pm-prop{border:1.5px solid var(--border);border-radius:9px;margin-bottom:9px;overflow:hidden}
 .pm-prop-hdr{padding:8px 11px;background:var(--primary);color:#fff;
   display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -1069,6 +1073,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
       <span class="pm-tip" id="pm-quota" style="display:none;cursor:pointer" onclick="openPlan()" title="查看方案與價目表"></span>
       <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
+      <button class="btn btn-ghost sm" id="pm-bulkgeo-btn" onclick="openBulkGeo()" title="一次替多個館別標定地圖位置（批次匯入後用這個最快）">📍 批次定位</button>
       <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
       <button class="btn btn-ghost sm" id="pm-market-btn" onclick="openMarketShare()" title="設定是否參與全平台匿名成交行情共享">📈 行情共享</button>
       <button class="btn btn-primary sm" id="pm-addprop-btn" onclick="scrollToAddProp()">＋ 新增館別</button>
@@ -6855,6 +6860,289 @@ async function uploadPhotos(input){
   if(fail.length)alert('以下檔案未能上傳：\n\n'+fail.join('\n'));
 }
 
+// ── 地圖定位 ────────────────────────────────────
+// 館別只存文字地址，官網地圖需要經緯度。不接地理編碼 API（要錢、且台灣巷弄常解析錯），
+// 改由後台在地圖上手動拖曳選點：零成本且位置絕對正確。
+// 沒定位的館別不會出現在官網地圖上（但仍會出現在列表）。
+const DISTRICT_CENTER={
+  '南港區':{lat:25.0554,lng:121.6066},'信義區':{lat:25.0330,lng:121.5710},
+  '大安區':{lat:25.0266,lng:121.5436},'大同區':{lat:25.0632,lng:121.5130},
+  '士林區':{lat:25.0925,lng:121.5240},'中山區':{lat:25.0685,lng:121.5330},
+  '中正區':{lat:25.0324,lng:121.5180},'萬華區':{lat:25.0281,lng:121.4997},
+  '板橋區':{lat:25.0096,lng:121.4590},'永和區':{lat:25.0078,lng:121.5152},
+  '中和區':{lat:24.9993,lng:121.4990},'新店區':{lat:24.9678,lng:121.5421},
+  '三重區':{lat:25.0614,lng:121.4869},'林口區':{lat:25.0776,lng:121.3917},
+  '淡水區':{lat:25.1690,lng:121.4406},
+};
+const TAIPEI_CENTER={lat:25.0375,lng:121.5637};
+
+function propLatLng(pid){
+  const d=loadPropInfo()[String(pid)]||{};
+  return (typeof d.lat==='number'&&typeof d.lng==='number')?{lat:d.lat,lng:d.lng}:null;
+}
+
+// MapLibre 只有開定位視窗時才需要，改成用到才載，不拖慢後台首次開啟
+let _mlPromise=null;
+function loadMapLibre(){
+  if(window.maplibregl)return Promise.resolve();
+  if(_mlPromise)return _mlPromise;
+  _mlPromise=new Promise((res,rej)=>{
+    const css=document.createElement('link');
+    css.rel='stylesheet';css.href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+    document.head.appendChild(css);
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+    s.onload=()=>res();
+    s.onerror=()=>{_mlPromise=null;rej(new Error('地圖元件載入失敗，請檢查網路連線後再試一次。'));};
+    document.head.appendChild(s);
+  });
+  return _mlPromise;
+}
+
+let geoPid='',geoMap=null,geoMarker=null;
+async function openGeo(pid){
+  geoPid=String(pid);
+  const p=getAllProps().find(x=>String(x.id)===geoPid);
+  document.getElementById('geo-title').textContent='📍 '+((p&&p.name)||'房源')+' 地圖定位';
+  document.getElementById('geo-addr').textContent=(p&&p.address)||'（尚未設定地址）';
+  document.getElementById('geo-ov').classList.add('open');
+  const msg=document.getElementById('geo-msg');
+  msg.textContent='地圖載入中…';msg.style.color='var(--muted)';
+  try{ await loadMapLibre(); }
+  catch(e){ msg.textContent=e.message;msg.style.color='#c92a2a';return; }
+  msg.textContent='';
+  const saved=propLatLng(geoPid);
+  const c=saved||DISTRICT_CENTER[(p&&p.district)||'']||TAIPEI_CENTER;
+  const z=saved?17:14;
+  if(!geoMap){
+    geoMap=new maplibregl.Map({
+      container:'geo-map',
+      style:'https://tiles.openfreemap.org/styles/bright',
+      center:[c.lng,c.lat],zoom:z,
+    });
+    geoMap.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+    geoMarker=new maplibregl.Marker({draggable:true,color:'#1a56a0'})
+      .setLngLat([c.lng,c.lat]).addTo(geoMap);
+    geoMarker.on('dragend',renderGeoReadout);
+    geoMap.on('click',e=>{geoMarker.setLngLat(e.lngLat);renderGeoReadout();});
+  }else{
+    geoMap.jumpTo({center:[c.lng,c.lat],zoom:z});
+    geoMarker.setLngLat([c.lng,c.lat]);
+  }
+  // modal 剛打開時容器還沒量到尺寸，地圖會畫成 0×0
+  setTimeout(()=>geoMap.resize(),80);
+  renderGeoReadout();
+}
+function renderGeoReadout(){
+  if(!geoMarker)return;
+  const ll=geoMarker.getLngLat();
+  document.getElementById('geo-coord').textContent=
+    ll.lat.toFixed(6)+', '+ll.lng.toFixed(6);
+}
+function saveGeo(){
+  if(!geoMarker){alert('地圖尚未載入完成');return;}
+  const ll=geoMarker.getLngLat();
+  const d=loadPropInfo();
+  if(!d[geoPid])d[geoPid]={};
+  d[geoPid].lat=+ll.lat.toFixed(6);
+  d[geoPid].lng=+ll.lng.toFixed(6);
+  delete d[geoPid].geoAuto;   // 人工確認過了，不再算「待確認」
+  savePropInfo(d);
+  closeGeo();
+  alert('定位已儲存，官網地圖即刻生效。\n（對外顯示時會隨機偏移到路段，不會曝光確切門牌）');
+}
+function clearGeo(){
+  if(!propLatLng(geoPid)){closeGeo();return;}
+  if(!confirm('清除定位後，這個館別就不會出現在官網地圖上（列表仍會顯示）。確定要清除嗎？'))return;
+  const d=loadPropInfo();
+  if(d[geoPid]){delete d[geoPid].lat;delete d[geoPid].lng;savePropInfo(d);}
+  closeGeo();
+}
+function closeGeo(){
+  document.getElementById('geo-ov').classList.remove('open');
+  renderPM();
+}
+
+// ── 批次定位 ────────────────────────────────────
+// 批次匯入 20～100 戶後，一間一間開 modal 不可行。這裡是「一張地圖 + 一份清單」：
+// 點清單 → 地圖點一下 → 儲存並自動跳下一個，手不用離開地圖。
+// 另外提供 Nominatim（OpenStreetMap 官方、免金鑰）依地址自動粗定位，
+// 抓到的座標一律標記 geoAuto:true 當作「待確認」，人工確認過才拿掉標記。
+let bgPid='',bgMap=null,bgMarker=null,bgOrder=[],bgBusy=false,bgAbort=false;
+
+function bulkGeoProps(){
+  const info=loadPropInfo();
+  return getAllProps().map(p=>{
+    const pid=String(p.id), d=info[pid]||{};
+    const has=typeof d.lat==='number'&&typeof d.lng==='number';
+    return {pid,name:p.name||'（未命名）',address:p.address||'',district:p.district||'',
+            has,auto:has&&d.geoAuto===true};
+  });
+}
+function bgFilterMode(){return document.getElementById('bg-filter').value;}
+
+async function openBulkGeo(){
+  bgAbort=false;
+  document.getElementById('bg-ov').classList.add('open');
+  const msg=document.getElementById('bg-msg');
+  msg.textContent='地圖載入中…';msg.style.color='var(--muted)';
+  try{ await loadMapLibre(); }
+  catch(e){ msg.textContent=e.message;msg.style.color='#c92a2a';return; }
+  msg.textContent='';
+  if(!bgMap){
+    bgMap=new maplibregl.Map({
+      container:'bg-map',
+      style:'https://tiles.openfreemap.org/styles/bright',
+      center:[TAIPEI_CENTER.lng,TAIPEI_CENTER.lat],zoom:12,
+    });
+    bgMap.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+    bgMarker=new maplibregl.Marker({draggable:true,color:'#1a56a0'})
+      .setLngLat([TAIPEI_CENTER.lng,TAIPEI_CENTER.lat]).addTo(bgMap);
+    bgMarker.on('dragend',renderBgReadout);
+    bgMap.on('click',e=>{ if(!bgPid){bgMsg('請先從左側選一個館別。','#e8590c');return;}
+      bgMarker.setLngLat(e.lngLat);renderBgReadout(); });
+  }
+  setTimeout(()=>bgMap.resize(),80);   // 同 openGeo：modal 剛開時容器尺寸是 0
+  renderBulkList();
+  if(bgOrder.length) selectBulk(bgOrder[0]); else selectBulk('');
+}
+function bgMsg(t,c){const e=document.getElementById('bg-msg');e.textContent=t;e.style.color=c||'var(--muted)';}
+
+function renderBulkList(){
+  const mode=bgFilterMode(), all=bulkGeoProps();
+  const list=all.filter(x=>mode==='todo'?!x.has:mode==='auto'?x.auto:true);
+  bgOrder=list.map(x=>x.pid);
+  document.getElementById('bg-list').innerHTML=list.length?list.map(x=>{
+    const chip=!x.has?'<span style="background:#fff4e6;color:#e8590c;border-radius:4px;padding:1px 5px">未定位</span>'
+      :x.auto?'<span style="background:#fff9db;color:#a1690a;border-radius:4px;padding:1px 5px">待確認</span>'
+      :'<span style="background:#e7f5ff;color:#1971c2;border-radius:4px;padding:1px 5px">已定位</span>';
+    return '<div class="bg-row'+(x.pid===bgPid?' on':'')+'" onclick="selectBulk(\''+x.pid+'\')">'+
+      '<div style="display:flex;justify-content:space-between;gap:6px;align-items:center">'+
+        '<strong style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+bgEscape(x.name)+'</strong>'+
+        '<span style="font-size:10px;flex:none">'+chip+'</span>'+
+      '</div>'+
+      '<div style="font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+        bgEscape(x.address||'（尚未設定地址）')+'</div>'+
+    '</div>';
+  }).join(''):'<div style="padding:16px;font-size:11.5px;color:var(--muted);text-align:center">沒有符合的館別 🎉</div>';
+  const done=all.filter(x=>x.has&&!x.auto).length, pend=all.filter(x=>x.auto).length, todo=all.filter(x=>!x.has).length;
+  document.getElementById('bg-progress').textContent=
+    '已確認 '+done+' · 待確認 '+pend+' · 未定位 '+todo+' · 共 '+all.length+' 個館別';
+}
+function bgEscape(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function selectBulk(pid){
+  bgPid=String(pid||'');
+  const p=getAllProps().find(x=>String(x.id)===bgPid);
+  document.getElementById('bg-cur').textContent=p?p.name:'— 請先從左側選一個館別 —';
+  document.getElementById('bg-addr').textContent=p?(p.address||'（尚未設定地址）'):'\u00a0';
+  renderBulkList();
+  if(!p||!bgMap){renderBgReadout();return;}
+  const saved=propLatLng(bgPid);
+  const c=saved||DISTRICT_CENTER[p.district||'']||TAIPEI_CENTER;
+  bgMap.flyTo({center:[c.lng,c.lat],zoom:saved?17:15,speed:1.6});
+  bgMarker.setLngLat([c.lng,c.lat]);
+  renderBgReadout();
+  bgMsg(saved?'':'尚未定位，地圖已帶到行政區中心，請點出實際位置。',saved?'':'#e8590c');
+}
+function renderBgReadout(){
+  if(!bgMarker)return;
+  const ll=bgMarker.getLngLat();
+  document.getElementById('bg-coord').textContent=
+    bgPid?(ll.lat.toFixed(6)+', '+ll.lng.toFixed(6)):'—';
+}
+function saveBulkAndNext(){
+  if(!bgPid){bgMsg('請先從左側選一個館別。','#e8590c');return;}
+  const ll=bgMarker.getLngLat();
+  const d=loadPropInfo();
+  if(!d[bgPid])d[bgPid]={};
+  d[bgPid].lat=+ll.lat.toFixed(6);
+  d[bgPid].lng=+ll.lng.toFixed(6);
+  delete d[bgPid].geoAuto;
+  savePropInfo(d);
+  // 先記住在「儲存前」的清單位置：存完之後這一筆常會被目前的篩選條件濾掉
+  const idx=bgOrder.indexOf(bgPid);
+  const prevOrder=bgOrder.slice();
+  renderBulkList();
+  const next=prevOrder.slice(idx+1).find(x=>bgOrder.includes(x))||bgOrder[0]||'';
+  selectBulk(next);
+  bgMsg(next?'已儲存，已跳到下一個。':'已儲存，這批都完成了 🎉','#16a34a');
+}
+
+// 台灣的 OSM 幾乎沒有門牌資料（查「○○路二段106號」一律回空陣列），
+// 但路段（○○路二段）命中率很高。所以由細到粗逐層退，命中就停。
+function geoCandidates(addr){
+  const a=String(addr||'').trim();
+  if(!a)return[];
+  const out=[a];
+  let cur=a;
+  [/[0-9０-９]+\s*號.*$/,/[0-9０-９]+\s*弄.*$/,/[0-9０-９]+\s*巷.*$/,/[一二三四五六七八九十]\s*段.*$/]
+    .forEach(re=>{
+      const n=cur.replace(re,'').replace(/[\s,，、－-]+$/,'');
+      if(n&&n!==cur){ if(!out.includes(n))out.push(n); cur=n; }
+    });
+  // 帶門牌的原字串在台灣一定查不到，直接跳過省一次請求
+  return /[0-9０-９]\s*號/.test(a)?out.slice(1):out;
+}
+
+async function autoGeocodeAll(){
+  if(bgBusy)return;
+  const targets=bulkGeoProps().filter(x=>!x.has&&x.address);
+  if(!targets.length){bgMsg('沒有「未定位且已填地址」的館別。','#e8590c');return;}
+  if(!confirm('將對 '+targets.length+' 個館別依地址自動推算座標。\n\n'+
+    '· 使用 OpenStreetMap 免費服務，每秒 1 筆，不會產生費用\n'+
+    '· 台灣的圖資沒有門牌，只能定位到「路段」，落點可能離實際位置數百公尺\n'+
+    '· 結果一律標為「待確認」，跑完請務必逐一校正\n\n'+
+    '預估需要 '+Math.ceil(targets.length*2.2/60)+' 分鐘左右。要開始嗎？'))return;
+  bgBusy=true;bgAbort=false;
+  const btn=document.getElementById('bg-auto-btn');
+  btn.disabled=true;
+  let ok=0,fail=0,pending=0;
+  const d=loadPropInfo();
+  for(let i=0;i<targets.length&&!bgAbort;i++){
+    const t=targets[i];
+    btn.textContent='⏳ 推算中 '+(i+1)+'/'+targets.length;
+    let hit=null;
+    for(const q of geoCandidates(t.address)){
+      if(bgAbort)break;
+      bgMsg('正在查「'+q+'」…');
+      try{
+        const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tw&q='+
+          encodeURIComponent(q),{headers:{'Accept':'application/json'}});
+        if(r.ok){
+          const j=await r.json();
+          if(j&&j[0]&&j[0].lat&&j[0].lon)hit={lat:+j[0].lat,lng:+j[0].lon};
+        }
+      }catch(e){/* 單筆失敗不該中斷整批，留給下一個候選字串或人工 */}
+      await new Promise(s=>setTimeout(s,1100));   // Nominatim 政策：每秒最多 1 筆
+      if(hit)break;
+    }
+    if(hit){
+      if(!d[t.pid])d[t.pid]={};
+      d[t.pid].lat=+hit.lat.toFixed(6);
+      d[t.pid].lng=+hit.lng.toFixed(6);
+      d[t.pid].geoAuto=true;
+      ok++;pending++;
+      if(pending>=10){savePropInfo(d);pending=0;}  // 中途關掉最多只掉 9 筆推算結果
+    }else fail++;
+  }
+  savePropInfo(d);
+  btn.disabled=false;btn.textContent='🔍 自動粗定位（未定位者）';
+  bgBusy=false;
+  document.getElementById('bg-filter').value=ok?'auto':'todo';
+  renderBulkList();
+  if(bgOrder.length)selectBulk(bgOrder[0]);
+  bgMsg('推算完成：成功 '+ok+' 筆、查不到 '+fail+' 筆。'+
+    (ok?'落點只到路段，請逐一點開拖到正確位置後按「儲存並跳下一個」。':'請改用手動定位。'),
+    ok?'#e8590c':'#c92a2a');
+}
+function closeBulkGeo(){
+  if(bgBusy&&!confirm('自動粗定位還在執行，要中斷嗎？（已完成的結果會保留）'))return;
+  bgAbort=true;
+  document.getElementById('bg-ov').classList.remove('open');
+  renderPM();
+}
+
 function renderPM(){
   applySubUI();
   const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs();
@@ -6910,6 +7198,13 @@ function renderPM(){
           })()+
           '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\'\')" '+
             'title="管理館別層級的照片（外觀、公設、周邊）">📷 館別照片 '+photoBadge(pid,'')+'</button>'+
+          (function(){
+            const has=!!propLatLng(pid);
+            return '<button class="pm-icon-btn" onclick="openGeo(\''+pid+'\')" '+
+              'title="'+(has?'已標定地圖位置，點擊調整':'尚未標定位置，官網地圖不會顯示此館別')+'" '+
+              'style="background:'+(has?'#e7f5ff;color:#1971c2':'#fff4e6;color:#e8590c')+'">'+
+              (has?'📍 已定位':'📍 未定位')+'</button>';
+          })()+
           '<button class="pm-icon-btn" onclick="togglePropEdit(\''+pid+'\')">✏️ 編輯</button>'+
           (isCustom?'<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')+
         '</div>'+
@@ -7534,6 +7829,80 @@ init();
       <div id="ph-grid"></div>
     </div>
     <div class="modal-f"><button class="btn btn-primary" onclick="closePhotos()">完成</button></div>
+  </div>
+</div>
+
+<!-- ═══ 地圖定位 Modal ═══ -->
+<div class="overlay" id="geo-ov" onclick="if(event.target===this)closeGeo()">
+  <div class="modal" style="width:760px;max-width:98vw">
+    <div class="modal-h">
+      <h2 id="geo-title">📍 地圖定位</h2>
+      <button class="close-btn" onclick="closeGeo()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:8px">
+        地址：<strong id="geo-addr" style="color:var(--text)"></strong><br>
+        在地圖上<strong>點擊或拖曳圖釘</strong>標出這個館別的實際位置。
+        官網地圖只顯示已定位的館別；對外展示時座標會隨機偏移約 100–200 公尺、地址只顯示到路名。
+      </div>
+      <div id="geo-map" style="height:420px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#eef1f5"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted)">座標：<code id="geo-coord" style="font-size:11px">—</code></span>
+        <span id="geo-msg" style="font-size:11px;font-weight:700"></span>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-ghost" onclick="clearGeo()">清除定位</button>
+      <button class="btn btn-ghost" onclick="closeGeo()">取消</button>
+      <button class="btn btn-primary" onclick="saveGeo()">💾 儲存定位</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 批次定位 Modal ═══ -->
+<div class="overlay" id="bg-ov" onclick="if(event.target===this)closeBulkGeo()">
+  <div class="modal" style="width:1040px;max-width:98vw">
+    <div class="modal-h">
+      <h2>📍 批次定位</h2>
+      <button class="close-btn" onclick="closeBulkGeo()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:8px">
+        左邊點館別 → 右邊地圖點一下放針 → 按「儲存並跳下一個」。
+        也可以先按「自動粗定位」由地址推算，再逐一校正即可。
+        <strong style="color:#e8590c">自動推算結果不保證正確（台灣巷弄常抓歪），請務必逐一確認。</strong>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:290px;flex:none;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="bg-filter" onchange="renderBulkList()"
+              style="flex:1;font-size:11.5px;padding:5px 6px;border:1px solid var(--border);border-radius:6px">
+              <option value="todo">只看未定位</option>
+              <option value="auto">只看自動推算（待確認）</option>
+              <option value="all">全部館別</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost sm" id="bg-auto-btn" onclick="autoGeocodeAll()"
+            title="用 OpenStreetMap 免費地理編碼，依地址推算座標。每秒 1 筆，不會產生費用。">🔍 自動粗定位（未定位者）</button>
+          <div id="bg-list" style="border:1px solid var(--border);border-radius:8px;
+            max-height:400px;overflow-y:auto;background:var(--light)"></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px">
+            <strong id="bg-cur" style="font-size:12.5px">— 請先從左側選一個館別 —</strong>
+            <span style="font-size:11px;color:var(--muted)">座標：<code id="bg-coord" style="font-size:11px">—</code></span>
+          </div>
+          <div id="bg-addr" style="font-size:11px;color:var(--muted);margin-bottom:6px">&nbsp;</div>
+          <div id="bg-map" style="height:400px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#eef1f5"></div>
+        </div>
+      </div>
+      <div id="bg-msg" style="font-size:11.5px;font-weight:700;margin-top:8px;min-height:16px"></div>
+    </div>
+    <div class="modal-f">
+      <span id="bg-progress" style="font-size:11.5px;color:var(--muted);margin-right:auto"></span>
+      <button class="btn btn-ghost" onclick="closeBulkGeo()">關閉</button>
+      <button class="btn btn-primary" onclick="saveBulkAndNext()">💾 儲存並跳下一個</button>
+    </div>
   </div>
 </div>
 

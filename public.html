@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>短租公寓 — 找到你的理想居所</title>
+<title>短租公寓 — 地圖找房</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/cloud-config.js"></script>
 <style>
@@ -15,23 +17,20 @@
   --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
   --shadow-lg:0 8px 32px rgba(0,0,0,.12);
   --radius:12px;--radius-sm:8px;--radius-pill:999px;
+  --h-header:64px;--h-filter:56px;
 }
-html{scroll-behavior:smooth}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
   background:var(--bg);color:var(--text);line-height:1.6;font-size:15px}
 
 /* HEADER */
-header{
-  position:sticky;top:0;z-index:100;
-  background:rgba(26,58,107,.95);
+header{position:sticky;top:0;z-index:100;background:rgba(26,58,107,.96);
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border-bottom:1px solid rgba(255,255,255,.1);
-}
-.nav-inner{max-width:1200px;margin:0 auto;padding:0 20px;
-  display:flex;align-items:center;justify-content:space-between;height:64px}
+  border-bottom:1px solid rgba(255,255,255,.1)}
+.nav-inner{max-width:1600px;margin:0 auto;padding:0 20px;
+  display:flex;align-items:center;justify-content:space-between;height:var(--h-header)}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
 .logo-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;
-  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
 .logo-text{line-height:1.1}
 .logo-name{font-size:18px;font-weight:700;letter-spacing:.5px}
 .logo-sub{font-size:10px;opacity:.7;letter-spacing:1px;text-transform:uppercase}
@@ -39,103 +38,125 @@ nav{display:flex;align-items:center;gap:4px}
 nav a{color:rgba(255,255,255,.85);text-decoration:none;padding:8px 16px;
   border-radius:var(--radius-pill);font-size:14px;transition:all .2s}
 nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
-.hamburger{display:none;background:none;border:none;cursor:pointer;
-  flex-direction:column;gap:5px;padding:4px}
-.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:.3s}
+.hamburger{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:5px;padding:4px}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px}
 .mobile-nav{display:none}
 
-/* HERO */
-.hero{
-  background:linear-gradient(135deg,#0f2550 0%,#1a3a6b 40%,#1d4ed8 100%);
-  padding:80px 20px 60px;text-align:center;color:#fff;
-  position:relative;overflow:hidden;
-}
-.hero::before{
-  content:'';position:absolute;inset:0;
-  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-.hero-content{position:relative;max-width:700px;margin:0 auto}
-.hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;
-  letter-spacing:-0.5px;margin-bottom:12px;line-height:1.2}
-.hero p{font-size:clamp(14px,2vw,18px);opacity:.8;margin-bottom:36px}
-.search-bar{
-  background:#fff;border-radius:var(--radius);padding:8px;
-  display:flex;flex-wrap:wrap;gap:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.25);
-}
-.search-bar select,.search-bar button{
-  border:none;outline:none;padding:10px 16px;border-radius:var(--radius-sm);
-  font-size:14px;font-family:inherit;cursor:pointer;
-}
-.search-bar select{
-  flex:1;min-width:140px;background:var(--light);color:var(--text);
-  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
-}
-.search-bar button{
-  background:var(--accent);color:#fff;font-weight:600;
-  padding:10px 24px;letter-spacing:.3px;transition:background .2s;
-}
-.search-bar button:hover{background:#1d4ed8}
-
-/* STATS */
-.stats{background:#fff;border-bottom:1px solid var(--border)}
-.stats-inner{max-width:1200px;margin:0 auto;padding:0 20px;
-  display:grid;grid-template-columns:repeat(4,1fr)}
-.stat-item{padding:20px;text-align:center;border-right:1px solid var(--border)}
-.stat-item:last-child{border-right:none}
-.stat-num{font-size:28px;font-weight:800;color:var(--primary);line-height:1}
-.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
-
-/* FILTERS */
+/* FILTER BAR */
 .filter-bar{background:#fff;border-bottom:1px solid var(--border);
-  position:sticky;top:64px;z-index:90;}
-.filter-inner{max-width:1200px;margin:0 auto;padding:12px 20px;
-  display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  position:sticky;top:var(--h-header);z-index:95}
+.filter-inner{max-width:1600px;margin:0 auto;padding:10px 20px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:var(--h-filter)}
 .filter-inner select,.filter-inner input[type=text]{
   border:1px solid var(--border);border-radius:var(--radius-sm);
   padding:8px 12px;font-size:13px;font-family:inherit;
-  background:#fff;color:var(--text);outline:none;transition:border .2s;
-}
+  background:#fff;color:var(--text);outline:none;transition:border .2s}
 .filter-inner select:focus,.filter-inner input[type=text]:focus{border-color:var(--accent)}
-.filter-inner select{
-  appearance:none;
+.filter-inner select{appearance:none;padding-right:28px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
-}
-.filter-inner input[type=text]{flex:1;min-width:160px}
-.checkbox-label{display:flex;align-items:center;gap:6px;
-  font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap}
-.checkbox-label input{accent-color:var(--accent);width:15px;height:15px}
-.filter-inner .spacer{flex:1}
-.result-count{font-size:13px;color:var(--muted);white-space:nowrap}
+  background-repeat:no-repeat;background-position:right 10px center}
+.filter-inner input[type=text]{flex:1;min-width:150px;max-width:280px}
+.ghost-btn{border:1px solid var(--border);background:#fff;color:var(--muted);
+  border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;font-family:inherit;cursor:pointer}
+.ghost-btn:hover{border-color:var(--accent);color:var(--accent)}
+.result-count{font-size:13px;color:var(--muted);white-space:nowrap;margin-left:auto}
 
-/* GRID */
-.main{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
-.section-title{font-size:20px;font-weight:700;color:var(--primary);margin-bottom:20px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.no-results{text-align:center;padding:60px 20px;color:var(--muted)}
-.no-results .icon{font-size:48px;margin-bottom:12px}
-.no-results p{font-size:16px}
+/* MULTI-SELECT DROPDOWN */
+.ms{position:relative}
+.ms-btn{display:flex;align-items:center;gap:6px;
+  border:1px solid var(--border);background:#fff;color:var(--text);
+  border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;font-family:inherit;cursor:pointer;
+  white-space:nowrap;transition:border .2s}
+.ms-btn:hover{border-color:#cbd5e1}
+.ms-btn[aria-expanded="true"],.ms-btn.has-sel{border-color:var(--accent);color:var(--accent)}
+.ms-btn .caret{font-size:9px;opacity:.6}
+.ms-cnt{background:var(--accent);color:#fff;border-radius:var(--radius-pill);
+  font-size:11px;font-weight:700;padding:0 7px;line-height:17px}
+.ms-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:120;
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg);padding:6px;min-width:190px;max-height:320px;overflow-y:auto}
+.ms-pop[hidden]{display:none}
+.ms-pop label{display:flex;align-items:center;gap:8px;padding:7px 9px;
+  font-size:13px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.ms-pop label:hover{background:var(--light)}
+.ms-pop input{accent-color:var(--accent);width:15px;height:15px;flex-shrink:0}
+.ms-pop .ms-clear{width:100%;margin-top:4px;border:none;border-top:1px solid var(--border);
+  background:none;color:var(--muted);font-size:12px;font-family:inherit;
+  padding:7px 0 3px;cursor:pointer}
+.ms-pop .ms-clear:hover{color:var(--accent)}
+
+/* APP SPLIT */
+.split{display:flex;height:calc(100dvh - var(--h-header) - var(--h-filter));min-height:520px;
+  position:relative;background:var(--light)}
+.panel{width:390px;flex-shrink:0;background:var(--bg);border-right:1px solid var(--border);
+  overflow-y:auto;transition:width .25s ease,opacity .2s}
+.split.collapsed .panel{width:0;opacity:0;border-right:none;overflow:hidden}
+.panel-head{position:sticky;top:0;z-index:2;background:var(--bg);
+  padding:12px 16px 8px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel-head .ph-title{font-size:13px;font-weight:700;color:var(--muted)}
+.panel-head select{border:1px solid var(--border);border-radius:6px;padding:5px 8px;
+  font-size:12px;font-family:inherit;background:#fff;color:var(--text);outline:none}
+.panel-list{padding:12px 16px 32px;display:flex;flex-direction:column;gap:12px}
+.mapwrap{flex:1;position:relative;min-width:0}
+#map{position:absolute;inset:0}
+.map-tools{position:absolute;left:12px;bottom:26px;z-index:5;display:flex;flex-direction:column;gap:6px}
+.map-tools button{background:#fff;border:1px solid var(--border);border-radius:8px;
+  width:36px;height:36px;font-size:15px;cursor:pointer;box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center}
+.map-tools button:hover{border-color:var(--accent)}
+.collapse-btn{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:6;
+  width:22px;height:54px;border:1px solid var(--border);border-left:none;background:#fff;
+  border-radius:0 8px 8px 0;cursor:pointer;color:var(--muted);font-size:13px;
+  box-shadow:2px 0 8px rgba(0,0,0,.06)}
+.collapse-btn:hover{color:var(--accent)}
+.map-legend{position:absolute;right:12px;bottom:26px;z-index:5;background:rgba(255,255,255,.94);
+  border:1px solid var(--border);border-radius:8px;padding:8px 11px;
+  font-size:11px;color:var(--muted);box-shadow:var(--shadow);line-height:1.9}
+.map-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
+  vertical-align:middle}
+.maplibregl-popup-content{padding:9px 12px;border-radius:8px;box-shadow:var(--shadow-lg);font-size:13px}
+.popup-name{font-weight:700;color:var(--primary)}
+.popup-sub{font-size:11.5px;color:var(--muted)}
+.unlocated-note{margin:0 16px 10px;padding:8px 10px;background:#fff7ed;border:1px solid #fed7aa;
+  border-radius:8px;font-size:11.5px;color:#9a3412;line-height:1.7}
 
 /* CARD */
-.card{
-  background:var(--card);border-radius:var(--radius);
-  box-shadow:var(--shadow);overflow:hidden;cursor:pointer;
-  transition:transform .25s,box-shadow .25s;border:1px solid var(--border);
-  display:flex;flex-direction:column;
-}
-.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
-.card-cover{position:relative;width:100%;aspect-ratio:4/3;background:#eef1f5;overflow:hidden}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  overflow:hidden;cursor:pointer;border:1px solid var(--border);
+  transition:transform .2s,box-shadow .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.18),var(--shadow-lg)}
+.card-cover{position:relative;width:100%;aspect-ratio:16/10;background:#eef1f5;overflow:hidden}
 .card-cover img{width:100%;height:100%;object-fit:cover;display:block}
 .card-cover .cover-more{position:absolute;right:8px;bottom:8px;background:rgba(15,23,42,.72);
   color:#fff;font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--radius-pill)}
-.card-head{padding:18px 18px 0}
-/* 相簿 */
+.card-in{padding:13px 15px 15px}
+.card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;
+  border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
+.badge-district{background:#e0f2fe;color:#0369a1}
+.badge-service{background:#fef9c3;color:#854d0e}
+.badge-type{background:var(--light);color:var(--muted)}
+.card-name{font-size:16px;font-weight:700;color:var(--primary);line-height:1.3}
+.card-addr{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
+.card-types{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.card-price{font-size:20px;font-weight:800;color:var(--accent)}
+.card-price span{font-size:12.5px;font-weight:400;color:var(--muted)}
+.card-divider{height:1px;background:var(--border);margin:11px 0}
+.card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-meta{font-size:12.5px;color:var(--muted)}
+.card-btn-ask{background:var(--accent);color:#fff;border:none;padding:7px 14px;
+  border-radius:var(--radius-sm);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.card-btn-ask:hover{background:#1d4ed8}
+.no-results{text-align:center;padding:48px 20px;color:var(--muted)}
+.no-results .icon{font-size:40px;margin-bottom:10px}
+
+/* GALLERY / LIGHTBOX */
 .gal{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scroll-snap-type:x mandatory}
 .gal img{flex:0 0 auto;width:190px;height:142px;object-fit:cover;border-radius:10px;
   background:#eef1f5;cursor:zoom-in;scroll-snap-align:start}
-.gal-cap{font-size:12px;color:var(--muted,#64748b);margin:2px 0 6px}
+.gal-cap{font-size:12px;color:var(--muted);margin:2px 0 6px}
 .room-thumb{width:52px;height:40px;object-fit:cover;border-radius:6px;background:#eef1f5;
   display:block;cursor:zoom-in}
 .lightbox{position:fixed;inset:0;background:rgba(15,23,42,.88);display:none;
@@ -144,65 +165,21 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .lightbox img{max-width:min(1100px,94vw);max-height:88vh;border-radius:10px;display:block}
 .lightbox-x{position:absolute;top:18px;right:22px;background:none;border:0;color:#fff;
   font-size:30px;line-height:1;cursor:pointer}
-.card-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.badge{display:inline-flex;align-items:center;padding:3px 10px;
-  border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
-.badge-district{background:#e0f2fe;color:#0369a1}
-.badge-service{background:#fef9c3;color:#854d0e}
-.badge-type{background:var(--light);color:var(--muted);font-size:11px}
-.badge-avail{font-size:11px;font-weight:700}
-.card-name{font-size:17px;font-weight:700;color:var(--primary);margin-bottom:6px;line-height:1.3}
-.card-addr{font-size:13px;color:var(--muted);margin-bottom:12px}
-.card-addr span{margin-right:2px}
-.card-types{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px}
-.card-price{font-size:22px;font-weight:800;color:var(--accent)}
-.card-price span{font-size:13px;font-weight:400;color:var(--muted)}
-.card-divider{height:1px;background:var(--border);margin:14px 0}
-.card-foot{padding:0 18px 16px;display:flex;align-items:center;justify-content:space-between}
-.card-meta{font-size:13px;color:var(--muted)}
-.card-meta strong{color:var(--success);font-weight:700}
-.card-btn{
-  background:var(--primary);color:#fff;border:none;
-  padding:8px 16px;border-radius:var(--radius-sm);
-  font-size:13px;font-weight:600;cursor:pointer;
-  transition:background .2s;white-space:nowrap;
-}
-.card-btn:hover{background:var(--accent)}
-.card-btn-ask{
-  background:var(--accent);color:#fff;border:none;
-  padding:8px 16px;border-radius:var(--radius-sm);
-  font-size:13px;font-weight:600;cursor:pointer;
-  transition:background .2s;white-space:nowrap;
-}
-.card-btn-ask:hover{background:#1d4ed8}
-.card-actions{display:flex;gap:8px}
-.card-body{padding:0 18px;flex:1}
-
-/* MODAL OVERLAY */
-.overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.45);
-  z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;
-}
-.overlay.open{opacity:1;pointer-events:all}
 
 /* DETAIL MODAL */
-.detail-modal{
-  position:fixed;top:0;right:0;bottom:0;width:min(600px,100%);
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.open{opacity:1;pointer-events:all}
+.detail-modal{position:fixed;top:0;right:0;bottom:0;width:min(600px,100%);
   background:#fff;z-index:201;overflow-y:auto;
   transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
-  display:flex;flex-direction:column;
-}
+  display:flex;flex-direction:column}
 .detail-modal.open{transform:translateX(0)}
-.modal-header{
-  padding:24px 24px 16px;border-bottom:1px solid var(--border);
-  position:sticky;top:0;background:#fff;z-index:2;
-}
+.modal-header{padding:24px 24px 16px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:#fff;z-index:2}
 .modal-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.modal-close{
-  background:none;border:none;cursor:pointer;font-size:22px;
-  color:var(--muted);line-height:1;padding:2px 6px;border-radius:6px;
-  transition:background .2s;flex-shrink:0;
-}
+.modal-close{background:none;border:none;cursor:pointer;font-size:22px;
+  color:var(--muted);line-height:1;padding:2px 6px;border-radius:6px;flex-shrink:0}
 .modal-close:hover{background:var(--light);color:var(--text)}
 .modal-prop-name{font-size:22px;font-weight:800;color:var(--primary);line-height:1.2}
 .modal-prop-addr{font-size:14px;color:var(--muted);margin-top:6px}
@@ -211,92 +188,77 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .modal-section-title{font-size:13px;font-weight:700;color:var(--muted);
   text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
 .room-table{width:100%;border-collapse:collapse}
-.room-table th{text-align:left;padding:8px 12px;font-size:12px;
-  color:var(--muted);font-weight:600;text-transform:uppercase;
-  border-bottom:2px solid var(--border);letter-spacing:.5px}
+.room-table th{text-align:left;padding:8px 12px;font-size:12px;color:var(--muted);
+  font-weight:600;border-bottom:2px solid var(--border);letter-spacing:.5px}
 .room-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
 .room-table tr:last-child td{border-bottom:none}
 .room-table tr:hover td{background:var(--light)}
-.room-ask{
-  background:#fff;color:var(--accent);border:1px solid var(--accent);
+.room-ask{background:#fff;color:var(--accent);border:1px solid var(--accent);
   padding:5px 12px;border-radius:var(--radius-pill);
-  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
-  transition:all .2s;
-}
+  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .room-ask:hover{background:var(--accent);color:#fff}
-.status-badge{
-  display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);
-  font-size:11px;font-weight:700;
-}
-.modal-footer{
-  padding:16px 24px;border-top:1px solid var(--border);
-  position:sticky;bottom:0;background:#fff;
-}
-.inquiry-btn{
-  width:100%;background:var(--accent);color:#fff;border:none;
-  padding:14px;border-radius:var(--radius-sm);font-size:15px;
-  font-weight:700;cursor:pointer;transition:background .2s;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
+.status-badge{display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);
+  font-size:11px;font-weight:700}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);
+  position:sticky;bottom:0;background:#fff;display:flex;gap:10px}
+.inquiry-btn{flex:1;background:var(--accent);color:#fff;border:none;
+  padding:14px;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px}
 .inquiry-btn:hover{background:#1d4ed8}
+.inquiry-btn.alt{background:#fff;color:var(--primary);border:1px solid var(--border)}
+.inquiry-btn.alt:hover{background:var(--light)}
+.addr-note{font-size:11.5px;color:var(--muted);background:var(--light);
+  border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.7}
 
-/* FOOTER */
+/* SERVICES / FOOTER */
+.section{background:#fff;padding:56px 20px;border-top:1px solid var(--border)}
+.section-in{max-width:1200px;margin:0 auto}
+.section h2{font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px}
+.section .lead{text-align:center;color:var(--muted);margin-bottom:32px}
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.svc{padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center}
+.svc .ico{font-size:34px;margin-bottom:10px}
+.svc h3{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px}
+.svc p{font-size:13px;color:var(--muted)}
 footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
-.footer-inner{max-width:1200px;margin:0 auto;
-  display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
 .footer-brand .logo-name{font-size:20px;color:#fff;font-weight:800}
 .footer-brand .logo-sub{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
 .footer-brand p{font-size:13px;margin-top:12px;line-height:1.7;opacity:.75}
-.footer-col h4{font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;
-  text-transform:uppercase;letter-spacing:.5px}
+.footer-col h4{font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:.5px}
 .footer-col ul{list-style:none}
 .footer-col li{font-size:13px;margin-bottom:8px;opacity:.75}
-.footer-col a{color:rgba(255,255,255,.75);text-decoration:none;transition:color .2s}
+.footer-col a{color:rgba(255,255,255,.75);text-decoration:none}
 .footer-col a:hover{color:#fff}
-.footer-bottom{
-  max-width:1200px;margin:32px auto 0;padding-top:20px;
+.footer-bottom{max-width:1200px;margin:32px auto 0;padding-top:20px;
   border-top:1px solid rgba(255,255,255,.1);
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
-}
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .footer-bottom p{font-size:12px;opacity:.5}
-.mgmt-link{font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;
-  transition:color .2s;letter-spacing:.3px}
+.mgmt-link{font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;letter-spacing:.3px}
 .mgmt-link:hover{color:rgba(255,255,255,.65)}
 
 /* RESPONSIVE */
-@media(max-width:900px){
-  .grid{grid-template-columns:repeat(2,1fr)}
-  .stats-inner{grid-template-columns:repeat(2,1fr)}
-  .stats-inner .stat-item:nth-child(2){border-right:none}
-  .stats-inner .stat-item:nth-child(3){border-top:1px solid var(--border)}
-  .footer-inner{grid-template-columns:1fr 1fr}
+@media(max-width:860px){
+  /* 手機改成上下堆疊。DOM 順序是「列表→地圖」，用 column-reverse 讓地圖顯示在上方 */
+  .split{flex-direction:column-reverse;height:auto;min-height:0}
+  .mapwrap{flex:none;height:46vh;min-height:280px}
+  .panel{width:100%;border-right:none;overflow:visible;border-top:1px solid var(--border)}
+  .split.collapsed .panel{width:100%;opacity:1;overflow:visible}
+  .panel-head{position:static}
+  .collapse-btn{display:none}
+  .panel-head{top:0}
+  .filter-inner{padding:8px 14px;gap:6px}
+  .result-count{width:100%;margin-left:0;order:9}
 }
 @media(max-width:640px){
-  .grid{grid-template-columns:1fr}
   nav{display:none}
   .hamburger{display:flex}
-  .mobile-nav{
-    background:rgba(26,58,107,.97);padding:12px 0;
-    border-top:1px solid rgba(255,255,255,.1);
-  }
+  .mobile-nav{background:rgba(26,58,107,.97);padding:12px 0;border-top:1px solid rgba(255,255,255,.1)}
   .mobile-nav.open{display:block}
-  .mobile-nav a{display:block;color:rgba(255,255,255,.85);text-decoration:none;
-    padding:12px 24px;font-size:15px}
-  .mobile-nav a:hover{background:rgba(255,255,255,.1)}
-  .stats-inner{grid-template-columns:repeat(2,1fr)}
+  .mobile-nav a{display:block;color:rgba(255,255,255,.85);text-decoration:none;padding:12px 24px;font-size:15px}
   .footer-inner{grid-template-columns:1fr}
   .footer-bottom{flex-direction:column;align-items:flex-start}
-  .search-bar{flex-direction:column}
-  .search-bar select,.search-bar button{width:100%}
 }
-
-/* Loading skeleton */
-.skeleton{
-  background:linear-gradient(90deg,var(--light) 25%,#e8edf2 50%,var(--light) 75%);
-  background-size:200% 100%;animation:shimmer 1.5s infinite;
-  border-radius:6px;height:16px;
-}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 </head>
 <body>
@@ -307,146 +269,79 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     <a class="logo" href="#">
       <div class="logo-icon">租</div>
       <div class="logo-text">
-        <div class="logo-name">短租公寓</div>
+        <div class="logo-name" id="brandName">短租公寓</div>
         <div class="logo-sub">Short Term Rental Apartment</div>
       </div>
     </a>
     <nav>
-      <a href="#listing">找房</a>
+      <a href="#app">地圖找房</a>
       <a href="#services">服務項目</a>
       <a href="#contact">聯絡我們</a>
-      <a href="#" id="navInquiry" onclick="return goInquiry()">預約詢問</a>
+      <a href="#" onclick="return goInquiry()">預約看房</a>
     </nav>
-    <button class="hamburger" id="hamburgerBtn" aria-label="選單">
-      <span></span><span></span><span></span>
-    </button>
+    <button class="hamburger" id="hamburgerBtn" aria-label="選單"><span></span><span></span><span></span></button>
   </div>
   <div class="mobile-nav" id="mobileNav">
-    <a href="#listing" onclick="closeMobileNav()">找房</a>
+    <a href="#app" onclick="closeMobileNav()">地圖找房</a>
     <a href="#services" onclick="closeMobileNav()">服務項目</a>
     <a href="#contact" onclick="closeMobileNav()">聯絡我們</a>
-    <a href="#" onclick="closeMobileNav();return goInquiry()">預約詢問</a>
+    <a href="#" onclick="closeMobileNav();return goInquiry()">預約看房</a>
   </div>
 </header>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-content">
-    <h1>找到你的理想居所</h1>
-    <p>精選台北市各行政區優質短租公寓，彈性租期，即刻入住</p>
-    <div class="search-bar">
-      <select id="heroDistrict">
-        <option value="">全部行政區</option>
-      </select>
-      <select id="heroType">
-        <option value="">全部房型</option>
-        <option value="分租套房">分租套房</option>
-        <option value="分租雅房">分租雅房</option>
-        <option value="獨立套房">獨立套房</option>
-        <option value="兩房">兩房</option>
-        <option value="三房">三房</option>
-        <option value="四房">四房</option>
-      </select>
-      <select id="heroBudget">
-        <option value="">不限預算</option>
-        <option value="low">$30,000 以下</option>
-        <option value="mid">$30,000–$50,000</option>
-        <option value="high">$50,000 以上</option>
-      </select>
-      <button onclick="applyHeroSearch()">搜尋房源</button>
-    </div>
-  </div>
-</section>
-
-<!-- STATS -->
-<section class="stats" id="stats">
-  <div class="stats-inner">
-    <div class="stat-item">
-      <div class="stat-num" id="statTotal">—</div>
-      <div class="stat-label">總物件數</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num" id="statAvail">—</div>
-      <div class="stat-label">可租房間數</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num" id="statMin">—</div>
-      <div class="stat-label">最低月租</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num" id="statDistricts">—</div>
-      <div class="stat-label">涵蓋行政區數</div>
-    </div>
-  </div>
-</section>
-
 <!-- FILTERS -->
-<div class="filter-bar" id="listing">
+<div class="filter-bar" id="app">
   <div class="filter-inner">
-    <select id="filterDistrict" onchange="applyFilters()">
-      <option value="">全部行政區</option>
-    </select>
-    <select id="filterType" onchange="applyFilters()">
-      <option value="">全部房型</option>
-      <option value="分租套房">分租套房</option>
-      <option value="分租雅房">分租雅房</option>
-      <option value="獨立套房">獨立套房</option>
-      <option value="兩房">兩房</option>
-      <option value="三房">三房</option>
-      <option value="四房">四房</option>
-    </select>
-    <select id="filterBudget" onchange="applyFilters()">
-      <option value="">全部預算</option>
-      <option value="low">$30,000 以下</option>
-      <option value="mid">$30,000–$50,000</option>
-      <option value="high">$50,000 以上</option>
-    </select>
-    <label class="checkbox-label">
-      <input type="checkbox" id="filterAvail" onchange="applyFilters()">
-      只顯示有空房
-    </label>
-    <div class="spacer"></div>
-    <input type="text" id="filterSearch" placeholder="搜尋物件名稱或地址…" oninput="applyFilters()">
+    <select id="filterDistrict"><option value="">全部行政區</option></select>
+    <div class="ms" id="msType"></div>
+    <div class="ms" id="msBudget"></div>
+    <div class="ms" id="msCond"></div>
+    <input type="text" id="filterSearch" placeholder="搜尋物件名稱或路名…">
+    <button class="ghost-btn" id="resetBtn">重設</button>
     <span class="result-count" id="resultCount"></span>
   </div>
 </div>
 
-<!-- MAIN GRID -->
-<main class="main">
-  <div class="section-title" id="sectionTitle">所有物件</div>
-  <div class="grid" id="propGrid"></div>
-  <div class="no-results" id="noResults" style="display:none">
-    <div class="icon">🏠</div>
-    <p>找不到符合條件的物件，請調整篩選條件</p>
+<!-- MAP + LIST -->
+<div class="split" id="split">
+  <aside class="panel" id="panel">
+    <div class="panel-head">
+      <span class="ph-title" id="panelTitle">房源列表</span>
+      <select id="sortSel">
+        <option value="default">預設排序</option>
+        <option value="price_asc">租金低到高</option>
+        <option value="price_desc">租金高到低</option>
+        <option value="avail">可租間數多到少</option>
+      </select>
+    </div>
+    <div class="unlocated-note" id="unlocatedNote" style="display:none"></div>
+    <div class="panel-list" id="propList"></div>
+  </aside>
+  <div class="mapwrap">
+    <div id="map"></div>
+    <button class="collapse-btn" id="collapseBtn" title="收合房源列表" aria-label="收合房源列表">‹</button>
+    <div class="map-tools">
+      <button id="btnFit" title="顯示全部房源">⤢</button>
+      <button id="btnLocate" title="定位我的位置">◎</button>
+    </div>
+    <div class="map-legend">
+      <div><i style="background:#2563eb"></i>有空房</div>
+      <div><i style="background:#94a3b8"></i>可預約下一檔</div>
+      <div style="margin-top:3px;opacity:.8">圖示位置為概略路段</div>
+    </div>
   </div>
-</main>
+</div>
 
-<!-- SERVICES SECTION -->
-<section id="services" style="background:#fff;padding:60px 20px;border-top:1px solid var(--border)">
-  <div style="max-width:1200px;margin:0 auto">
-    <h2 style="font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px">服務項目</h2>
-    <p style="text-align:center;color:var(--muted);margin-bottom:36px">全方位租屋服務，讓您安心居住</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px">
-      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
-        <div style="font-size:36px;margin-bottom:12px">🏢</div>
-        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">精選物件</h3>
-        <p style="font-size:13px;color:var(--muted)">嚴選台北市各區優質公寓，品質保證</p>
-      </div>
-      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
-        <div style="font-size:36px;margin-bottom:12px">🛠️</div>
-        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">維修保固</h3>
-        <p style="font-size:13px;color:var(--muted)">專業維修團隊，設備故障快速處理</p>
-      </div>
-      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
-        <div style="font-size:36px;margin-bottom:12px">🧹</div>
-        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">定期清潔</h3>
-        <p style="font-size:13px;color:var(--muted)">定期公共區域清潔，維持整潔環境</p>
-      </div>
-      <div style="padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center">
-        <div style="font-size:36px;margin-bottom:12px">📞</div>
-        <h3 style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px">24H客服</h3>
-        <p style="font-size:13px;color:var(--muted)">全天候客服支援，緊急問題即時回應</p>
-      </div>
+<!-- SERVICES -->
+<section class="section" id="services">
+  <div class="section-in">
+    <h2>服務項目</h2>
+    <p class="lead">全方位租屋服務，讓您安心居住</p>
+    <div class="svc-grid">
+      <div class="svc"><div class="ico">🏢</div><h3>精選物件</h3><p>嚴選各區優質公寓，品質保證</p></div>
+      <div class="svc"><div class="ico">🛠️</div><h3>維修保固</h3><p>專業維修團隊，設備故障快速處理</p></div>
+      <div class="svc"><div class="ico">🧹</div><h3>定期清潔</h3><p>定期公共區域清潔，維持整潔環境</p></div>
+      <div class="svc"><div class="ico">📞</div><h3>24H客服</h3><p>全天候客服支援，緊急問題即時回應</p></div>
     </div>
   </div>
 </section>
@@ -455,14 +350,14 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 <footer id="contact">
   <div class="footer-inner">
     <div class="footer-brand footer-col">
-      <div class="logo-name">短租公寓</div>
+      <div class="logo-name" id="footBrand">短租公寓</div>
       <div class="logo-sub">Short Term Rental Apartment</div>
-      <p>提供台北市各行政區優質短租公寓，讓您的居住體驗更加舒適便利。</p>
+      <p>提供各行政區優質短租公寓，讓您的居住體驗更加舒適便利。</p>
     </div>
     <div class="footer-col">
       <h4>快速連結</h4>
       <ul>
-        <li><a href="#listing">找房源</a></li>
+        <li><a href="#app">地圖找房</a></li>
         <li><a href="#services">服務項目</a></li>
         <li><a href="#contact">聯絡我們</a></li>
       </ul>
@@ -482,10 +377,8 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   </div>
 </footer>
 
-<!-- OVERLAY -->
-<div class="overlay" id="overlay" onclick="closeAll()"></div>
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
 
-<!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-x" onclick="closeLightbox()" aria-label="關閉">✕</button>
   <img id="lightboxImg" alt="">
@@ -505,62 +398,67 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   </div>
   <div class="modal-body">
     <div id="modalGallery"></div>
+    <div class="addr-note">
+      為保護住戶隱私，地圖圖示與地址僅顯示到路段，
+      <strong>完整地址與門牌會在預約看房後由專人提供</strong>。
+    </div>
     <div class="modal-section-title">房間列表</div>
     <table class="room-table">
-      <thead>
-        <tr>
-          <th>房號</th>
-          <th>類型</th>
-          <th>月租</th>
-          <th>狀態</th>
-          <th></th>
-        </tr>
-      </thead>
+      <thead><tr><th>房號</th><th>類型</th><th>月租</th><th>狀態</th><th></th></tr></thead>
       <tbody id="roomTableBody"></tbody>
     </table>
   </div>
   <div class="modal-footer">
-    <button class="inquiry-btn" id="detailInquiryBtn" onclick="goInquiry(currentProp&&currentProp.id)">
-      📞 詢問此物件
-    </button>
+    <button class="inquiry-btn alt" onclick="focusOnMap()">🗺 在地圖上查看</button>
+    <button class="inquiry-btn" onclick="goInquiry(currentProp&&currentProp.id)">📅 預約看房</button>
   </div>
 </div>
 
 <script>
 'use strict';
 
-// ── CLOUD DATA（改為向 Supabase RPC 讀取指定企業的公開房源資料）──────────────
+// ── CLOUD DATA ────────────────────────────────────────────────────────────
+// 資料來源就是排房系統後台：館別、房間、房價、照片、上下架、即時房態全部同一份，
+// 後台改完官網立刻反映，不需要另外維護一份房源資料。
 let _pub = null; // { company_name, cps, ovr, ext, propinfo, vis, tasks, segs }
 
+function fatal(msg){
+  document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">'+msg+'</div>';
+}
+
 async function loadPublicData(){
-  const params = new URLSearchParams(location.search);
-  const companyId = params.get('co');
-  if(!companyId){
-    document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">此連結缺少企業識別碼，請向物業管理方索取正確的公開房源連結。</div>';
-    return false;
-  }
+  const params=new URLSearchParams(location.search);
+  const companyId=params.get('co');
+  if(!companyId){ fatal('此連結缺少企業識別碼，請向物業管理方索取正確的公開房源連結。'); return false; }
   try{
     const sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
-    const { data, error } = await sb.rpc('public_company_listings', { p_company_id: companyId });
-    if(error || !data){
-      document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">找不到此企業的公開房源資料，請確認連結是否正確。</div>';
-      return false;
-    }
+    const { data, error }=await sb.rpc('public_company_listings', { p_company_id: companyId });
+    if(error||!data){ fatal('找不到此企業的公開房源資料，請確認連結是否正確。'); return false; }
     _pub=data;
     window._pubCompanyId=companyId;
     return true;
   }catch(e){
-    document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">房源資料載入失敗，請稍後再試。</div>';
+    fatal('房源資料載入失敗，請稍後再試。');
     return false;
   }
 }
 
-// ── CONSTANTS ──────────────────────────────────────────────────────────────
-const TYPE_MAP = {'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房','兩房':'兩房','三房':'三房','四房':'四房'};
+// ── CONSTANTS ─────────────────────────────────────────────────────────────
+const TYPE_MAP={'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房','兩房':'兩房','三房':'三房','四房':'四房'};
 function normalizeType(t){ return TYPE_MAP[t]||t||'未分類'; }
 
-// District inference map (address prefix → district)
-const ADDR_DISTRICT_MAP = [
+const BUDGETS=[
+  {key:'b1',name:'$20,000 以下',min:0,max:20000},
+  {key:'b2',name:'$20,000–$30,000',min:20000,max:30000},
+  {key:'b3',name:'$30,000–$50,000',min:30000,max:50000},
+  {key:'b4',name:'$50,000 以上',min:50000,max:Infinity},
+];
+const CONDS=[
+  {key:'avail',name:'現在可租'},
+  {key:'photo',name:'有實景照片'},
+];
+
+const ADDR_DISTRICT_MAP=[
   {keys:['汀洲','羅斯福','金門','景興','景美','浦城','和平東','同安','晉江'],district:'大安區'},
   {keys:['忠孝東'],district:'大安區'},
   {keys:['信義'],district:'信義區'},
@@ -572,163 +470,136 @@ const ADDR_DISTRICT_MAP = [
   {keys:['基隆'],district:'信義區'},
   {keys:['泰順'],district:'大安區'},
 ];
-
 function inferDistrict(addr=''){
-  for(const e of ADDR_DISTRICT_MAP){
-    if(e.keys.some(k=>addr.includes(k))) return e.district;
-  }
+  for(const e of ADDR_DISTRICT_MAP){ if(e.keys.some(k=>addr.includes(k))) return e.district; }
   return '';
 }
 
-// ── DATE HELPERS ──────────────────────────────────────────────────────────
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-// ── AVAILABILITY ──────────────────────────────────────────────────────────
-function getRoomStatus(propId, roomNo){
-  const tod = todayStr();
-  const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
-  const pid=String(propId);
-  // 已結案的排程不再佔住房態，否則房間早就打掃／維修完了官網還掛著「打掃中」，房客看到就跳過不問。
-  // 舊資料或 RPC 未帶 status 時視為未結案，維持原本行為。
-  const open=t=>t.status!=='done'&&t.status!=='replaced';
-  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='repair'&&t.start<=tod&&t.end>tod&&open(t)))
-    return{status:'repair',label:'維修中',color:'#c92a2a'};
-  if(tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type==='cleaning'&&t.start<=tod&&t.end>tod&&open(t)))
-    return{status:'cleaning',label:'打掃中',color:'#0c8599'};
-  if(segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod))
-    return{status:'occupied',label:'已出租',color:'#e67700'};
-  return{status:'available',label:'可租',color:'#16a34a'};
+// ── 位置模糊化 ────────────────────────────────────────────────────────────
+// 精準座標等於公開告訴外人「這幾戶現在沒人住」，因此對外一律打散到路段等級。
+// 偏移量用館別 id 推導，同一個館別每次載入都落在同一點，不會在地圖上飄來飄去。
+function hashStr(s){
+  let h=2166136261;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0;
+}
+function fuzzLngLat(lat,lng,id){
+  const h=hashStr(String(id));
+  const ang=(h%3600)/3600*Math.PI*2;
+  const dist=90+((h>>>12)%110);            // 90–200 公尺
+  const dLat=dist*Math.cos(ang)/111320;
+  const dLng=dist*Math.sin(ang)/(111320*Math.cos(lat*Math.PI/180));
+  return [lng+dLng, lat+dLat];
+}
+// 砍掉巷／弄／號之後的所有內容，只留到路段
+function maskAddr(a){
+  const s=String(a||'');
+  if(!s) return '';
+  const m=s.match(/^(.*?)(?=[0-9０-９]+\s*(?:巷|弄|號))/);
+  const cut=(m?m[1]:s).replace(/[\s,，、－-]+$/,'');
+  return cut||s;
+}
+function displayAddr(p){
+  const m=maskAddr(p.address);
+  return m===p.address?m:(m+' 一帶');
 }
 
-// ── GET ALL PROPERTIES ────────────────────────────────────────────────────
+// ── 即時房態 ──────────────────────────────────────────────────────────────
+function fmtMD(d){
+  const p=String(d||'').split('-');
+  return p.length===3?(+p[1])+'/'+(+p[2]):String(d||'');
+}
+// 短租的房間「租掉不下架」：仍然留在官網上，改成公告下一次可以進場的日期。
+// 會擋住房間的區間有兩種來源（租約 segs、維修／清潔 tasks），而且常常首尾相接
+// （退房當天接著清潔）。只看單一區間的結束日會報出一個其實還被佔用的日期，
+// 所以要一路往後串，直到沒有任何區間覆蓋該日為止。
+function blockersOf(pid,roomNo){
+  const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
+  const P=String(pid), out=[];
+  tasks.forEach(t=>{
+    if(String(t.prop_id)===P&&t.room===roomNo&&(t.type==='repair'||t.type==='cleaning'))
+      out.push({s:t.start,e:t.end});
+  });
+  segs.forEach(s=>{
+    if(String(s.prop_id)===P&&s.room===roomNo) out.push({s:s.checkin,e:s.checkout});
+  });
+  return out.filter(x=>x.s&&x.e&&x.e>x.s);
+}
+function nextFreeDate(pid,roomNo){
+  const tod=todayStr(), bl=blockersOf(pid,roomNo);
+  let free=tod, moved=true, guard=0;
+  while(moved&&guard++<50){
+    moved=false;
+    bl.forEach(b=>{ if(b.s<=free&&b.e>free){ free=b.e; moved=true; } });
+  }
+  return free===tod?null:free;
+}
+function getRoomStatus(propId, roomNo){
+  const tod=todayStr();
+  const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
+  const pid=String(propId);
+  const task=type=>tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type===type&&t.start<=tod&&t.end>tod);
+  let st=null;
+  if(task('repair')) st={status:'repair',label:'整修中',color:'#c92a2a'};
+  else if(task('cleaning')) st={status:'cleaning',label:'整備中',color:'#0c8599'};
+  else if(segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod))
+    st={status:'occupied',label:'出租中',color:'#e67700'};
+  if(!st) return{status:'available',label:'可租',color:'#16a34a',freeFrom:null};
+  st.freeFrom=nextFreeDate(pid,roomNo);
+  if(st.freeFrom) st.label=fmtMD(st.freeFrom)+' 起可租';
+  return st;
+}
+// 館別層級摘要：有空房就報間數，全部被佔用就報最快可以進場的日期（而不是「滿租」）。
+function availSummary(p){
+  const sts=p.matched.map(r=>getRoomStatus(p.id,r.room));
+  const availCnt=sts.filter(s=>s.status==='available').length;
+  if(availCnt) return{availCnt,text:'✓ '+availCnt+' 間可租',color:'#16a34a'};
+  const dates=sts.map(s=>s.freeFrom).filter(Boolean).sort();
+  return dates.length
+    ?{availCnt:0,text:'最快 '+fmtMD(dates[0])+' 可租',color:'#e67700',soonest:dates[0]}
+    :{availCnt:0,text:'暫無可租房間',color:'#94a3b8'};
+}
+
+// ── 房源 ──────────────────────────────────────────────────────────────────
+// 下架有兩層：vis[pid]===false 整個館別不上官網；offSale[房號]===true 單間停售。
 function getAllProps(){
   if(!_pub) return [];
   const cps=_pub.cps||[], ovr=_pub.ovr||{}, ext=_pub.ext||{}, info=_pub.propinfo||{}, vis=_pub.vis||{};
   return cps.map(p=>{
     const pid=String(p.id);
     if(vis[pid]===false) return null;
-    const rooms=[...(p.rooms||[]),...(ext[pid]||[])].map(r=>({
-      ...r,
-      price:(ovr[pid]&&ovr[pid][r.room]!==undefined)?ovr[pid][r.room]:r.price
-    }));
     const extra=info[pid]||{};
+    const offSale=extra.offSale||{}, rtOvr=extra.roomTypes||{};
+    const rooms=[...(p.rooms||[]),...(ext[pid]||[])]
+      .filter(r=>offSale[r.room]!==true)
+      .map(r=>({
+        ...r,
+        type:rtOvr[r.room]!==undefined?rtOvr[r.room]:r.type,
+        price:(ovr[pid]&&ovr[pid][r.room]!==undefined)?ovr[pid][r.room]:r.price,
+      }));
+    if(!rooms.length) return null;
     const addr=extra.address||p.address||'';
     const district=extra.district||p.district||inferDistrict(addr)||'';
-    return{...p,rooms,district,address:addr,serviceType:extra.serviceType||'',photos:extra.photos||{}};
+    const hasGeo=typeof extra.lat==='number'&&typeof extra.lng==='number';
+    return{
+      ...p, rooms, district, address:addr,
+      serviceType:extra.serviceType||'', photos:extra.photos||{},
+      lngLat:hasGeo?fuzzLngLat(extra.lat,extra.lng,pid):null,
+    };
   }).filter(Boolean);
 }
 
-// ── STATE ─────────────────────────────────────────────────────────────────
-let allProps=[];
-let currentProp=null;
-let currentFilters={district:'',type:'',budget:'',availOnly:false,search:''};
-
-// ── INIT ──────────────────────────────────────────────────────────────────
-async function init(){
-  const ok=await loadPublicData();
-  if(!ok) return;
-  allProps=getAllProps();
-  populateDistrictDropdowns();
-  renderStats();
-  renderGrid(allProps);
-}
-
-function populateDistrictDropdowns(){
-  const districts=[...new Set(allProps.map(p=>p.district).filter(Boolean))].sort();
-  ['heroDistrict','filterDistrict'].forEach(id=>{
-    const sel=document.getElementById(id);
-    const cur=sel.value;
-    while(sel.options.length>1) sel.remove(1);
-    districts.forEach(d=>{
-      const o=document.createElement('option');
-      o.value=d; o.textContent=d;
-      sel.appendChild(o);
-    });
-    sel.value=cur;
-  });
-}
-
-// ── STATS ─────────────────────────────────────────────────────────────────
-function renderStats(){
-  const total=allProps.length;
-  let availCount=0,minPrice=Infinity;
-  const districts=new Set();
-  for(const p of allProps){
-    if(p.district) districts.add(p.district);
-    for(const r of p.rooms){
-      if(r.price&&r.price<minPrice) minPrice=r.price;
-      const st=getRoomStatus(p.id,r.room);
-      if(st.status==='available') availCount++;
-    }
-  }
-  document.getElementById('statTotal').textContent=total;
-  document.getElementById('statAvail').textContent=availCount;
-  document.getElementById('statMin').textContent=minPrice===Infinity?'—':'$'+minPrice.toLocaleString();
-  document.getElementById('statDistricts').textContent=districts.size;
-}
-
-// ── FILTERS ───────────────────────────────────────────────────────────────
-function applyHeroSearch(){
-  document.getElementById('filterDistrict').value=document.getElementById('heroDistrict').value;
-  document.getElementById('filterType').value=document.getElementById('heroType').value;
-  document.getElementById('filterBudget').value=document.getElementById('heroBudget').value;
-  applyFilters();
-  document.getElementById('listing').scrollIntoView({behavior:'smooth'});
-}
-
-function applyFilters(){
-  currentFilters.district=document.getElementById('filterDistrict').value;
-  currentFilters.type=document.getElementById('filterType').value;
-  currentFilters.budget=document.getElementById('filterBudget').value;
-  currentFilters.availOnly=document.getElementById('filterAvail').checked;
-  currentFilters.search=document.getElementById('filterSearch').value.trim().toLowerCase();
-  const filtered=filterProps(allProps,currentFilters);
-  renderGrid(filtered);
-}
-
-function filterProps(props,f){
-  return props.filter(p=>{
-    if(f.district&&p.district!==f.district) return false;
-    if(f.search){
-      const hay=(p.name+' '+p.address+' '+p.district).toLowerCase();
-      if(!hay.includes(f.search)) return false;
-    }
-    // type filter: prop must have at least one room of that type
-    if(f.type){
-      if(!p.rooms.some(r=>normalizeType(r.type)===f.type)) return false;
-    }
-    // budget filter: check min price of matching rooms
-    if(f.budget){
-      const prices=p.rooms
-        .filter(r=>!f.type||normalizeType(r.type)===f.type)
-        .map(r=>r.price).filter(Boolean);
-      if(!prices.length) return false;
-      const mn=Math.min(...prices);
-      if(f.budget==='low'&&mn>=30000) return false;
-      if(f.budget==='mid'&&(mn<30000||mn>50000)) return false;
-      if(f.budget==='high'&&mn<=50000) return false;
-    }
-    // avail only
-    if(f.availOnly){
-      const hasAvail=p.rooms.some(r=>getRoomStatus(p.id,r.room).status==='available');
-      if(!hasAvail) return false;
-    }
-    return true;
-  });
-}
-
-// ── PHOTOS ────────────────────────────────────────────────────────────────
-// 後台把照片網址存在 propinfo[pid].photos，key 是房號，館別層級用 '_cover'。
+// ── 照片 ──────────────────────────────────────────────────────────────────
 const PHOTO_COVER_KEY='_cover';
 function roomPhotos(p,roomNo){ return (p.photos&&p.photos[roomNo])||[]; }
 function coverPhotos(p){ return (p.photos&&p.photos[PHOTO_COVER_KEY])||[]; }
-// 館別照片優先當封面；沒有的話退而用第一間有照片的房間，才不會整張卡片空著
 function allPhotos(p){
   const out=coverPhotos(p).map(u=>({url:u,cap:'館別'}));
   for(const r of p.rooms) for(const u of roomPhotos(p,r.room)) out.push({url:u,cap:r.room});
   return out;
 }
-
 function openLightbox(url){
   document.getElementById('lightboxImg').src=url;
   document.getElementById('lightbox').classList.add('open');
@@ -738,117 +609,380 @@ function closeLightbox(){
   document.getElementById('lightboxImg').src='';
 }
 
-// ── RENDER GRID ───────────────────────────────────────────────────────────
-function renderGrid(props){
-  const grid=document.getElementById('propGrid');
-  const noRes=document.getElementById('noResults');
-  const cnt=document.getElementById('resultCount');
-  cnt.textContent=props.length?`共 ${props.length} 個物件`:'';
-  if(!props.length){
-    grid.innerHTML='';
-    noRes.style.display='block';
+// ── 多選下拉 ──────────────────────────────────────────────────────────────
+const sel={type:new Set(),budget:new Set(),cond:new Set()};
+
+function buildMultiSelect(hostId,label,group,options){
+  const host=document.getElementById(hostId);
+  host.innerHTML=
+    '<button class="ms-btn" type="button" aria-expanded="false">'+
+      '<span>'+label+'</span><span class="ms-cnt" hidden>0</span><span class="caret">▼</span>'+
+    '</button>'+
+    '<div class="ms-pop" hidden>'+
+      options.map(o=>'<label><input type="checkbox" value="'+esc(o.key)+'"><span>'+esc(o.name)+'</span></label>').join('')+
+      '<button class="ms-clear" type="button">清除</button>'+
+    '</div>';
+  const btn=host.querySelector('.ms-btn'), pop=host.querySelector('.ms-pop');
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const willOpen=pop.hidden;
+    closeAllMultiSelects();
+    pop.hidden=!willOpen;
+    btn.setAttribute('aria-expanded',String(willOpen));
+  });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  pop.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',()=>{
+    if(cb.checked) sel[group].add(cb.value); else sel[group].delete(cb.value);
+    syncMultiSelect(host,group,label);
+    applyFilters();
+  }));
+  pop.querySelector('.ms-clear').addEventListener('click',()=>{
+    sel[group].clear();
+    pop.querySelectorAll('input').forEach(cb=>{cb.checked=false;});
+    syncMultiSelect(host,group,label);
+    applyFilters();
+  });
+  syncMultiSelect(host,group,label);
+}
+function syncMultiSelect(host,group,label){
+  const n=sel[group].size;
+  const cnt=host.querySelector('.ms-cnt');
+  cnt.hidden=n===0; cnt.textContent=n;
+  host.querySelector('.ms-btn').classList.toggle('has-sel',n>0);
+}
+function closeAllMultiSelects(){
+  document.querySelectorAll('.ms-pop').forEach(p=>{p.hidden=true;});
+  document.querySelectorAll('.ms-btn').forEach(b=>b.setAttribute('aria-expanded','false'));
+}
+document.addEventListener('click',closeAllMultiSelects);
+
+// ── 篩選 ──────────────────────────────────────────────────────────────────
+// 組與組之間是 AND，組內是 OR。房型／預算／現在可租都作用在「房間」層級，
+// 館別只要有一間房同時符合這些條件就會出現在地圖與列表上。
+let allProps=[], shownProps=[], currentProp=null, activeId=null;
+
+function inBudget(price,key){
+  const b=BUDGETS.find(x=>x.key===key);
+  return !!b&&price>=b.min&&price<b.max;
+}
+function roomMatches(p,r){
+  if(sel.type.size&&!sel.type.has(normalizeType(r.type))) return false;
+  if(sel.budget.size){
+    const pr=r.price||0;
+    if(![...sel.budget].some(k=>inBudget(pr,k))) return false;
+  }
+  if(sel.cond.has('avail')&&getRoomStatus(p.id,r.room).status!=='available') return false;
+  return true;
+}
+function filterProps(){
+  const dist=document.getElementById('filterDistrict').value;
+  const q=document.getElementById('filterSearch').value.trim().toLowerCase();
+  return allProps.map(p=>{
+    if(dist&&p.district!==dist) return null;
+    if(q){
+      const hay=(p.name+' '+maskAddr(p.address)+' '+p.district).toLowerCase();
+      if(!hay.includes(q)) return null;
+    }
+    if(sel.cond.has('photo')&&!allPhotos(p).length) return null;
+    const rooms=p.rooms.filter(r=>roomMatches(p,r));
+    if(!rooms.length) return null;
+    return {...p,matched:rooms};
+  }).filter(Boolean);
+}
+function sortProps(list){
+  const key=document.getElementById('sortSel').value;
+  const minP=p=>{
+    const prices=p.matched.map(r=>r.price).filter(Boolean);
+    return prices.length?Math.min(...prices):Infinity;
+  };
+  const avail=p=>p.matched.filter(r=>getRoomStatus(p.id,r.room).status==='available').length;
+  if(key==='price_asc') return [...list].sort((a,b)=>minP(a)-minP(b));
+  if(key==='price_desc') return [...list].sort((a,b)=>minP(b)-minP(a));
+  if(key==='avail') return [...list].sort((a,b)=>avail(b)-avail(a));
+  return list;
+}
+function applyFilters(){
+  shownProps=sortProps(filterProps());
+  renderList();
+  MapView.setData(shownProps);
+  const n=shownProps.length;
+  document.getElementById('resultCount').textContent=n?('共 '+n+' 個物件'):'';
+  document.getElementById('panelTitle').textContent=n?('房源列表 '+n):'房源列表';
+  const noGeo=shownProps.filter(p=>!p.lngLat).length;
+  const note=document.getElementById('unlocatedNote');
+  if(noGeo){
+    note.style.display='block';
+    note.textContent='其中 '+noGeo+' 個物件尚未標定地圖位置，只會出現在下方列表。';
+  }else{
+    note.style.display='none';
+  }
+  if(activeId!==null&&!shownProps.some(p=>String(p.id)===String(activeId))) setActive(null);
+}
+
+// ── 列表 ──────────────────────────────────────────────────────────────────
+function renderList(){
+  const box=document.getElementById('propList');
+  if(!shownProps.length){
+    box.innerHTML='<div class="no-results"><div class="icon">🏠</div><p>找不到符合條件的物件，請調整篩選條件</p></div>';
     return;
   }
-  noRes.style.display='none';
-  grid.innerHTML=props.map(p=>cardHTML(p)).join('');
+  box.innerHTML=shownProps.map(cardHTML).join('');
 }
-
 function cardHTML(p){
-  const prices=p.rooms.map(r=>r.price).filter(Boolean);
+  const prices=p.matched.map(r=>r.price).filter(Boolean);
   const minP=prices.length?Math.min(...prices):0;
-  const types=[...new Set(p.rooms.map(r=>normalizeType(r.type)))];
-  let availCnt=0;
-  for(const r of p.rooms){
-    if(getRoomStatus(p.id,r.room).status==='available') availCnt++;
-  }
-  const availColor=availCnt>0?'#16a34a':'#94a3b8';
-  const availBg=availCnt>0?'#dcfce7':'#f1f5f9';
-  const typeTags=types.map(t=>`<span class="badge badge-type">${t}</span>`).join('');
-  const districtBadge=p.district?`<span class="badge badge-district">${p.district}</span>`:'';
-  const svcBadge=p.serviceType?`<span class="badge badge-service">${p.serviceType}</span>`:'';
-
+  const types=[...new Set(p.matched.map(r=>normalizeType(r.type)))];
+  const sum=availSummary(p);
   const pics=allPhotos(p);
-  const cover=pics.length?`<div class="card-cover">
-    <img src="${esc(pics[0].url)}" alt="${esc(p.name)}" loading="lazy">
-    ${pics.length>1?`<span class="cover-more">📷 ${pics.length}</span>`:''}
-  </div>`:'';
-
-  return `<div class="card" onclick="openDetail(${p.id})">
-  ${cover}
-  <div class="card-head">
-    <div class="card-badges">${districtBadge}${svcBadge}</div>
-    <div class="card-name">${esc(p.name)}</div>
-    <div class="card-addr"><span>📍</span>${esc(p.address)}</div>
-  </div>
-  <div class="card-body">
-    <div class="card-types">${typeTags}</div>
-    <div class="card-price">NT$${minP.toLocaleString()}<span> 起／月</span></div>
-    <div class="card-divider"></div>
-  </div>
-  <div class="card-foot">
-    <div class="card-meta">
-      共${p.rooms.length}間 │ <strong style="color:${availColor}">✓ ${availCnt}間可租</strong>
-    </div>
-    <div class="card-actions">
-      <button class="card-btn">查看詳情</button>
-      <button class="card-btn-ask" onclick="event.stopPropagation();goInquiry('${esc(p.id)}')">我要詢問</button>
-    </div>
-  </div>
-</div>`;
+  const cover=pics.length?
+    '<div class="card-cover"><img src="'+esc(pics[0].url)+'" alt="'+esc(p.name)+'" loading="lazy">'+
+    (pics.length>1?'<span class="cover-more">📷 '+pics.length+'</span>':'')+'</div>':'';
+  return '<div class="card'+(String(p.id)===String(activeId)?' active':'')+'" data-id="'+esc(p.id)+'">'+
+    cover+
+    '<div class="card-in">'+
+      '<div class="card-badges">'+
+        (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
+        (p.serviceType?'<span class="badge badge-service">'+esc(p.serviceType)+'</span>':'')+
+      '</div>'+
+      '<div class="card-name">'+esc(p.name)+'</div>'+
+      '<div class="card-addr">📍 '+esc(displayAddr(p))+'</div>'+
+      '<div class="card-types">'+types.map(t=>'<span class="badge badge-type">'+esc(t)+'</span>').join('')+'</div>'+
+      '<div class="card-price">NT$'+minP.toLocaleString()+'<span> 起／月</span></div>'+
+      '<div class="card-divider"></div>'+
+      '<div class="card-foot">'+
+        '<div class="card-meta">'+p.matched.length+' 間符合 │ '+
+          '<strong style="color:'+sum.color+'">'+esc(sum.text)+'</strong></div>'+
+        '<button class="card-btn-ask" data-ask="'+esc(p.id)+'">預約看房</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
 }
 
-// ── DETAIL MODAL ──────────────────────────────────────────────────────────
+// ── 地圖 ──────────────────────────────────────────────────────────────────
+const MapView=(()=>{
+  const SRC='props';
+  const C={avail:'#2563eb',full:'#94a3b8',active:'#ea580c'};
+  let map=null,popup=null,ready=false,pending=null,geoMarker=null;
+
+  // 價格膠囊：畫一張可拉伸的圓角底圖，交給 icon-text-fit 依文字寬度自動撐開
+  function pillImage(fill){
+    const R=2,w=44*R,h=26*R,radius=h/2;
+    const cv=document.createElement('canvas');
+    cv.width=w;cv.height=h;
+    const ctx=cv.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(radius,0);
+    ctx.arcTo(w,0,w,h,radius); ctx.arcTo(w,h,0,h,radius);
+    ctx.arcTo(0,h,0,0,radius); ctx.arcTo(0,0,w,0,radius);
+    ctx.closePath();
+    ctx.fillStyle=fill;ctx.fill();
+    ctx.lineWidth=2*R;ctx.strokeStyle='rgba(255,255,255,.95)';ctx.stroke();
+    return {
+      image:{width:w,height:h,data:ctx.getImageData(0,0,w,h).data},
+      options:{pixelRatio:R,stretchX:[[16*R,28*R]],stretchY:[[10*R,16*R]],
+        content:[6*R,4*R,38*R,22*R]},
+    };
+  }
+  function priceLabel(v){
+    if(!v) return '洽詢';
+    if(v>=10000){ const n=v/10000; return (Number.isInteger(n)?n:n.toFixed(1))+'萬'; }
+    return Math.round(v/1000)+'千';
+  }
+  function toGeoJSON(items){
+    return {type:'FeatureCollection',features:items.filter(p=>p.lngLat).map(p=>{
+      const prices=p.matched.map(r=>r.price).filter(Boolean);
+      const minP=prices.length?Math.min(...prices):0;
+      const sum=availSummary(p);
+      return {
+        type:'Feature',
+        geometry:{type:'Point',coordinates:p.lngLat},
+        properties:{
+          id:String(p.id),name:p.name,district:p.district,
+          addr:displayAddr(p),price:minP,label:priceLabel(minP),
+          avail:sum.availCnt>0?1:0,rooms:p.matched.length,
+          availCnt:sum.availCnt,availText:sum.text,
+        },
+      };
+    })};
+  }
+
+  function addLayers(){
+    [['pill-avail',C.avail],['pill-full',C.full],['pill-active',C.active]].forEach(([n,c])=>{
+      if(map.hasImage(n)) return;
+      const {image,options}=pillImage(c);
+      map.addImage(n,image,options);
+    });
+    map.addSource(SRC,{type:'geojson',data:{type:'FeatureCollection',features:[]},
+      cluster:true,clusterRadius:52,clusterMaxZoom:15});
+    map.addLayer({id:'clusters',type:'circle',source:SRC,filter:['has','point_count'],
+      paint:{'circle-color':C.avail,'circle-opacity':.9,
+        'circle-radius':['step',['get','point_count'],17,10,22,30,28],
+        'circle-stroke-width':2.5,'circle-stroke-color':'rgba(255,255,255,.9)'}});
+    map.addLayer({id:'cluster-count',type:'symbol',source:SRC,filter:['has','point_count'],
+      layout:{'text-field':['get','point_count_abbreviated'],'text-font':['Noto Sans Bold'],'text-size':13},
+      paint:{'text-color':'#ffffff'}});
+    map.addLayer({id:'points',type:'symbol',source:SRC,filter:['!',['has','point_count']],
+      layout:{'icon-image':['case',['==',['get','avail'],1],'pill-avail','pill-full'],
+        'icon-text-fit':'both','icon-text-fit-padding':[2,9,2,9],
+        'icon-allow-overlap':true,'text-allow-overlap':true,
+        'text-field':['get','label'],'text-font':['Noto Sans Bold'],'text-size':12},
+      paint:{'text-color':'#ffffff'}});
+    // 選取中的那一支獨立一層，確保永遠疊在最上面
+    map.addLayer({id:'points-active',type:'symbol',source:SRC,filter:['==',['get','id'],'__none__'],
+      layout:{'icon-image':'pill-active','icon-text-fit':'both','icon-text-fit-padding':[3,11,3,11],
+        'icon-allow-overlap':true,'text-allow-overlap':true,
+        'text-field':['get','label'],'text-font':['Noto Sans Bold'],'text-size':14},
+      paint:{'text-color':'#ffffff'}});
+  }
+
+  function bindEvents(){
+    map.on('click','clusters',e=>{
+      const f=e.features[0];
+      map.getSource(SRC).getClusterExpansionZoom(f.properties.cluster_id)
+        .then(z=>map.easeTo({center:f.geometry.coordinates,zoom:z}));
+    });
+    ['points','points-active'].forEach(layer=>{
+      map.on('click',layer,e=>{
+        e.originalEvent.stopPropagation();
+        selectProp(e.features[0].properties.id,{fromMap:true});
+      });
+      map.on('mouseenter',layer,e=>{
+        map.getCanvas().style.cursor='pointer';
+        const p=e.features[0].properties;
+        popup.setLngLat(e.features[0].geometry.coordinates).setHTML(
+          '<div class="popup-name">'+esc(p.name)+'</div>'+
+          '<div class="popup-sub">'+esc(p.addr)+'　NT$'+Number(p.price).toLocaleString()+' 起</div>'+
+          '<div class="popup-sub">'+esc(p.availText||'')+'</div>'
+        ).addTo(map);
+      });
+      map.on('mouseleave',layer,()=>{ map.getCanvas().style.cursor=''; popup.remove(); });
+    });
+    map.on('mouseenter','clusters',()=>{ map.getCanvas().style.cursor='pointer'; });
+    map.on('mouseleave','clusters',()=>{ map.getCanvas().style.cursor=''; });
+  }
+
+  function init(){
+    map=new maplibregl.Map({
+      container:'map',
+      style:'https://tiles.openfreemap.org/styles/bright',
+      center:[121.5375,25.0375],zoom:11.4,
+      attributionControl:{compact:true},
+    });
+    map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+    popup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:16});
+    map.on('error',e=>console.warn('[map]',(e&&e.error&&e.error.message)||e));
+    map.on('load',()=>{
+      addLayers(); bindEvents(); ready=true;
+      if(pending){ setData(pending); fitAll(); pending=null; }
+    });
+  }
+  function setData(items){
+    if(!ready){ pending=items; return; }
+    map.getSource(SRC).setData(toGeoJSON(items));
+  }
+  function setActive(id){
+    if(!ready) return;
+    map.setFilter('points-active',['==',['get','id'],id===null?'__none__':String(id)]);
+  }
+  function flyToProp(p,zoom){
+    if(!ready||!p||!p.lngLat) return;
+    map.flyTo({center:p.lngLat,zoom:Math.max(map.getZoom(),zoom||16),speed:1.3});
+  }
+  function fitAll(){
+    if(!ready) return;
+    const pts=shownProps.filter(p=>p.lngLat);
+    if(!pts.length) return;
+    const b=new maplibregl.LngLatBounds();
+    pts.forEach(p=>b.extend(p.lngLat));
+    map.fitBounds(b,{padding:80,maxZoom:15,duration:700});
+  }
+  function showUser(lng,lat){
+    if(!ready) return;
+    const el=document.createElement('div');
+    el.style.cssText='width:16px;height:16px;border-radius:50%;background:#2563eb;'+
+      'border:3px solid #fff;box-shadow:0 0 0 6px rgba(37,99,235,.22)';
+    if(geoMarker) geoMarker.remove();
+    geoMarker=new maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(map);
+    map.flyTo({center:[lng,lat],zoom:15});
+  }
+  function resize(){ if(ready) map.resize(); }
+  return {init,setData,setActive,flyToProp,fitAll,showUser,resize};
+})();
+
+// ── 選取連動 ──────────────────────────────────────────────────────────────
+function setActive(id){
+  activeId=id===null?null:String(id);
+  MapView.setActive(activeId);
+  document.querySelectorAll('#propList .card').forEach(el=>{
+    el.classList.toggle('active',el.dataset.id===activeId);
+  });
+}
+function selectProp(id,opts={}){
+  setActive(id);
+  const p=shownProps.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  if(!opts.fromMap) MapView.flyToProp(p);
+  if(opts.fromMap){
+    const el=document.querySelector('#propList .card[data-id="'+CSS.escape(String(id))+'"]');
+    if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  openDetail(p.id);
+}
+
+// ── 詳情 ──────────────────────────────────────────────────────────────────
 function openDetail(propId){
-  const p=allProps.find(x=>x.id===propId);
+  const p=shownProps.find(x=>String(x.id)===String(propId))||allProps.find(x=>String(x.id)===String(propId));
   if(!p) return;
   currentProp=p;
+  const rooms=p.matched||p.rooms;
   document.getElementById('modalPropName').textContent=p.name;
-  document.getElementById('modalPropAddr').textContent='📍 '+p.address;
+  document.getElementById('modalPropAddr').textContent='📍 '+displayAddr(p);
   const badges=document.getElementById('modalBadges');
-  badges.innerHTML='';
-  if(p.district) badges.innerHTML+=`<span class="badge badge-district">${esc(p.district)}</span>`;
-  if(p.serviceType) badges.innerHTML+=`<span class="badge badge-service">${esc(p.serviceType)}</span>`;
+  badges.innerHTML=
+    (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
+    (p.serviceType?'<span class="badge badge-service">'+esc(p.serviceType)+'</span>':'');
 
   const pics=allPhotos(p);
   document.getElementById('modalGallery').innerHTML=pics.length?
-    `<div class="modal-section-title">照片（${pics.length}）</div>
-     <div class="gal">${pics.map(x=>
-       `<img src="${esc(x.url)}" alt="${esc(p.name+' '+x.cap)}" loading="lazy"
-             onclick="openLightbox(this.src)">`).join('')}</div>
-     <div class="gal-cap">點圖可放大。實際狀況以現場為準。</div>`:'';
+    '<div class="modal-section-title">照片（'+pics.length+'）</div>'+
+    '<div class="gal">'+pics.map(x=>
+      '<img src="'+esc(x.url)+'" alt="'+esc(p.name+' '+x.cap)+'" loading="lazy" onclick="openLightbox(this.src)">'
+    ).join('')+'</div>'+
+    '<div class="gal-cap">點圖可放大。實際狀況以現場為準。</div>':'';
 
-  const tbody=document.getElementById('roomTableBody');
-  tbody.innerHTML=p.rooms.map(r=>{
+  document.getElementById('roomTableBody').innerHTML=rooms.map(r=>{
     const st=getRoomStatus(p.id,r.room);
-    const typNorm=normalizeType(r.type);
     const rp=roomPhotos(p,r.room);
-    const thumb=rp.length?`<img class="room-thumb" src="${esc(rp[0])}" alt="${esc(r.room)}"
-      loading="lazy" onclick="openLightbox(this.src)">`:'';
-    return `<tr>
-      <td><strong>${esc(r.room)}</strong>${thumb}</td>
-      <td>${esc(typNorm)}</td>
-      <td>NT$${(r.price||0).toLocaleString()}</td>
-      <td><span class="status-badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
-      <td style="text-align:right"><button class="room-ask" onclick="goInquiry('${esc(p.id)}','${esc(r.room)}')">詢問</button></td>
-    </tr>`;
+    const thumb=rp.length?'<img class="room-thumb" src="'+esc(rp[0])+'" alt="'+esc(r.room)+
+      '" loading="lazy" onclick="openLightbox(this.src)">':'';
+    return '<tr>'+
+      '<td><strong>'+esc(r.room)+'</strong>'+thumb+'</td>'+
+      '<td>'+esc(normalizeType(r.type))+'</td>'+
+      '<td>NT$'+(r.price||0).toLocaleString()+'</td>'+
+      '<td><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td>'+
+      '<td style="text-align:right"><button class="room-ask" onclick="goInquiry(\''+esc(p.id)+'\',\''+esc(r.room)+'\')">'+
+        (st.status==='available'?'預約':'預約下一檔')+'</button></td>'+
+    '</tr>';
   }).join('');
 
   document.getElementById('detailModal').classList.add('open');
   document.getElementById('overlay').classList.add('open');
-  document.body.style.overflow='hidden';
 }
-
 function closeDetail(){
   document.getElementById('detailModal').classList.remove('open');
   document.getElementById('overlay').classList.remove('open');
-  document.body.style.overflow='';
+}
+function focusOnMap(){
+  if(!currentProp) return;
+  closeDetail();
+  if(!currentProp.lngLat){ alert('這個物件尚未標定地圖位置。'); return; }
+  document.getElementById('app').scrollIntoView({behavior:'smooth'});
+  MapView.flyToProp(currentProp,17);
 }
 
-function closeAll(){ closeDetail(); }
-
-// ── 導向獨立詢問頁 ─────────────────────────────────────────────────────────
+// ── 詢問單 ────────────────────────────────────────────────────────────────
 function goInquiry(propId, room){
-  if(!window._pubCompanyId){alert('系統錯誤，請重新整理頁面後再試');return false;}
+  if(!window._pubCompanyId){ alert('系統錯誤，請重新整理頁面後再試'); return false; }
   let url='inquiry.html?co='+encodeURIComponent(window._pubCompanyId);
   if(propId) url+='&prop='+encodeURIComponent(propId);
   if(room) url+='&room='+encodeURIComponent(room);
@@ -856,30 +990,99 @@ function goInquiry(propId, room){
   return false;
 }
 
-// ── MOBILE NAV ────────────────────────────────────────────────────────────
-document.getElementById('hamburgerBtn').addEventListener('click',()=>{
-  document.getElementById('mobileNav').classList.toggle('open');
-});
-function closeMobileNav(){
-  document.getElementById('mobileNav').classList.remove('open');
-}
-
-// ── ESCAPE ────────────────────────────────────────────────────────────────
 function esc(s){
-  return String(s||'')
+  return String(s==null?'':s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ── KEYBOARD ──────────────────────────────────────────────────────────────
-document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape') return;
-  // 燈箱疊在詳情視窗之上，要先關掉最上層那一個，不然詳情會連帶被關掉
-  if(document.getElementById('lightbox').classList.contains('open')) closeLightbox();
-  else if(document.getElementById('detailModal').classList.contains('open')) closeDetail();
-});
+// ── 事件 ──────────────────────────────────────────────────────────────────
+function bindUI(){
+  document.getElementById('filterDistrict').addEventListener('change',applyFilters);
+  document.getElementById('sortSel').addEventListener('change',applyFilters);
+  document.getElementById('filterSearch').addEventListener('input',applyFilters);
+  document.getElementById('resetBtn').addEventListener('click',()=>{
+    document.getElementById('filterDistrict').value='';
+    document.getElementById('filterSearch').value='';
+    document.getElementById('sortSel').value='default';
+    Object.values(sel).forEach(s=>s.clear());
+    document.querySelectorAll('.ms-pop input').forEach(cb=>{cb.checked=false;});
+    syncMultiSelect(document.getElementById('msType'),'type','房型');
+    syncMultiSelect(document.getElementById('msBudget'),'budget','預算');
+    syncMultiSelect(document.getElementById('msCond'),'cond','承租條件');
+    setActive(null);
+    applyFilters();
+    MapView.fitAll();
+  });
 
-// ── BOOT ──────────────────────────────────────────────────────────────────
+  document.getElementById('propList').addEventListener('click',e=>{
+    const ask=e.target.closest('[data-ask]');
+    if(ask){ e.stopPropagation(); goInquiry(ask.dataset.ask); return; }
+    const card=e.target.closest('.card');
+    if(card) selectProp(card.dataset.id);
+  });
+
+  document.getElementById('collapseBtn').addEventListener('click',()=>{
+    const split=document.getElementById('split');
+    const on=split.classList.toggle('collapsed');
+    const btn=document.getElementById('collapseBtn');
+    btn.textContent=on?'›':'‹';
+    btn.title=on?'展開房源列表':'收合房源列表';
+    // 寬度是 transition 的，等動畫跑完再讓地圖重新量尺寸
+    setTimeout(()=>MapView.resize(),280);
+  });
+
+  document.getElementById('btnFit').addEventListener('click',()=>MapView.fitAll());
+  document.getElementById('btnLocate').addEventListener('click',()=>{
+    if(!navigator.geolocation){ alert('此瀏覽器不支援定位功能'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>MapView.showUser(pos.coords.longitude,pos.coords.latitude),
+      ()=>alert('無法取得您的位置，請確認已允許瀏覽器定位權限。')
+    );
+  });
+
+  document.getElementById('hamburgerBtn').addEventListener('click',()=>{
+    document.getElementById('mobileNav').classList.toggle('open');
+  });
+
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape') return;
+    // 燈箱疊在詳情之上，要先關最上層那一個
+    if(document.getElementById('lightbox').classList.contains('open')) closeLightbox();
+    else if(document.getElementById('detailModal').classList.contains('open')) closeDetail();
+    else closeAllMultiSelects();
+  });
+}
+function closeMobileNav(){ document.getElementById('mobileNav').classList.remove('open'); }
+
+// ── 啟動 ──────────────────────────────────────────────────────────────────
+async function init(){
+  const ok=await loadPublicData();
+  if(!ok) return;
+  const name=(_pub&&_pub.company_name)||'';
+  if(name){
+    document.getElementById('brandName').textContent=name;
+    document.getElementById('footBrand').textContent=name;
+    document.title=name+' — 地圖找房';
+  }
+  allProps=getAllProps();
+
+  const districts=[...new Set(allProps.map(p=>p.district).filter(Boolean))].sort();
+  const dsel=document.getElementById('filterDistrict');
+  districts.forEach(d=>{
+    const o=document.createElement('option');
+    o.value=d;o.textContent=d;dsel.appendChild(o);
+  });
+
+  const types=[...new Set(allProps.flatMap(p=>p.rooms.map(r=>normalizeType(r.type))))].sort();
+  buildMultiSelect('msType','房型','type',types.map(t=>({key:t,name:t})));
+  buildMultiSelect('msBudget','預算','budget',BUDGETS);
+  buildMultiSelect('msCond','承租條件','cond',CONDS);
+
+  bindUI();
+  MapView.init();
+  applyFilters();
+}
 document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
