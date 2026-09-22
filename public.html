@@ -120,6 +120,10 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .popup-sub{font-size:11.5px;color:var(--muted)}
 .unlocated-note{margin:0 16px 10px;padding:8px 10px;background:#fff7ed;border:1px solid #fed7aa;
   border-radius:8px;font-size:11.5px;color:#9a3412;line-height:1.7}
+.place-note{margin:0 16px 10px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;
+  border-radius:8px;font-size:11.5px;color:#1e40af;line-height:1.7}
+.place-note button{margin-left:6px;border:none;background:none;padding:0;cursor:pointer;
+  color:var(--accent);font-size:11.5px;text-decoration:underline;font-family:inherit}
 
 /* CARD */
 .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
@@ -136,7 +140,6 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .badge{display:inline-flex;align-items:center;padding:3px 10px;
   border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
 .badge-district{background:#e0f2fe;color:#0369a1}
-.badge-service{background:#fef9c3;color:#854d0e}
 .badge-type{background:var(--light);color:var(--muted)}
 .card-name{font-size:16px;font-weight:700;color:var(--primary);line-height:1.3}
 .card-addr{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
@@ -210,16 +213,7 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
 .addr-note{font-size:11.5px;color:var(--muted);background:var(--light);
   border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.7}
 
-/* SERVICES / FOOTER */
-.section{background:#fff;padding:56px 20px;border-top:1px solid var(--border)}
-.section-in{max-width:1200px;margin:0 auto}
-.section h2{font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px}
-.section .lead{text-align:center;color:var(--muted);margin-bottom:32px}
-.svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
-.svc{padding:24px;border:1px solid var(--border);border-radius:var(--radius);text-align:center}
-.svc .ico{font-size:34px;margin-bottom:10px}
-.svc h3{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:8px}
-.svc p{font-size:13px;color:var(--muted)}
+/* FOOTER */
 footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 .footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
 .footer-brand .logo-name{font-size:20px;color:#fff;font-weight:800}
@@ -275,7 +269,6 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     </a>
     <nav>
       <a href="#app">地圖找房</a>
-      <a href="#services">服務項目</a>
       <a href="#contact">聯絡我們</a>
       <a href="#" onclick="return goInquiry()">預約看房</a>
     </nav>
@@ -283,7 +276,6 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   </div>
   <div class="mobile-nav" id="mobileNav">
     <a href="#app" onclick="closeMobileNav()">地圖找房</a>
-    <a href="#services" onclick="closeMobileNav()">服務項目</a>
     <a href="#contact" onclick="closeMobileNav()">聯絡我們</a>
     <a href="#" onclick="closeMobileNav();return goInquiry()">預約看房</a>
   </div>
@@ -296,7 +288,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     <div class="ms" id="msType"></div>
     <div class="ms" id="msBudget"></div>
     <div class="ms" id="msCond"></div>
-    <input type="text" id="filterSearch" placeholder="搜尋物件名稱或路名…">
+    <input type="text" id="filterSearch" placeholder="搜尋物件名稱、路名或捷運站…">
     <button class="ghost-btn" id="resetBtn">重設</button>
     <span class="result-count" id="resultCount"></span>
   </div>
@@ -314,6 +306,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
         <option value="avail">可租間數多到少</option>
       </select>
     </div>
+    <div class="place-note" id="placeNote" style="display:none"></div>
     <div class="unlocated-note" id="unlocatedNote" style="display:none"></div>
     <div class="panel-list" id="propList"></div>
   </aside>
@@ -332,20 +325,6 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   </div>
 </div>
 
-<!-- SERVICES -->
-<section class="section" id="services">
-  <div class="section-in">
-    <h2>服務項目</h2>
-    <p class="lead">全方位租屋服務，讓您安心居住</p>
-    <div class="svc-grid">
-      <div class="svc"><div class="ico">🏢</div><h3>精選物件</h3><p>嚴選各區優質公寓，品質保證</p></div>
-      <div class="svc"><div class="ico">🛠️</div><h3>維修保固</h3><p>專業維修團隊，設備故障快速處理</p></div>
-      <div class="svc"><div class="ico">🧹</div><h3>定期清潔</h3><p>定期公共區域清潔，維持整潔環境</p></div>
-      <div class="svc"><div class="ico">📞</div><h3>24H客服</h3><p>全天候客服支援，緊急問題即時回應</p></div>
-    </div>
-  </div>
-</section>
-
 <!-- FOOTER -->
 <footer id="contact">
   <div class="footer-inner">
@@ -358,7 +337,6 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
       <h4>快速連結</h4>
       <ul>
         <li><a href="#app">地圖找房</a></li>
-        <li><a href="#services">服務項目</a></li>
         <li><a href="#contact">聯絡我們</a></li>
       </ul>
     </div>
@@ -475,7 +453,13 @@ function inferDistrict(addr=''){
   return '';
 }
 
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+// 一定要用當地日期。toISOString() 是 UTC，台灣時間半夜 0 點到早上 8 點會回成「昨天」，
+// 房態與可租日就會整整差一天。
+function todayStr(){
+  const d=new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
 
 // ── 位置模糊化 ────────────────────────────────────────────────────────────
 // 精準座標等於公開告訴外人「這幾戶現在沒人住」，因此對外一律打散到路段等級。
@@ -536,20 +520,20 @@ function nextFreeDate(pid,roomNo){
   }
   return free===tod?null:free;
 }
+// 官網只公告「下一次可以進場的日期」，不揭露房間現在是在出租、維修還是清潔——
+// 那是內部營運資訊，對租客也沒有意義（他要的只是「我什麼時候能搬進去」）。
 function getRoomStatus(propId, roomNo){
   const tod=todayStr();
   const tasks=(_pub&&_pub.tasks)||[], segs=(_pub&&_pub.segs)||[];
   const pid=String(propId);
-  const task=type=>tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&t.type===type&&t.start<=tod&&t.end>tod);
-  let st=null;
-  if(task('repair')) st={status:'repair',label:'整修中',color:'#c92a2a'};
-  else if(task('cleaning')) st={status:'cleaning',label:'整備中',color:'#0c8599'};
-  else if(segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod))
-    st={status:'occupied',label:'出租中',color:'#e67700'};
-  if(!st) return{status:'available',label:'可租',color:'#16a34a',freeFrom:null};
-  st.freeFrom=nextFreeDate(pid,roomNo);
-  if(st.freeFrom) st.label=fmtMD(st.freeFrom)+' 起可租';
-  return st;
+  const busy=
+    tasks.some(t=>String(t.prop_id)===pid&&t.room===roomNo&&
+      (t.type==='repair'||t.type==='cleaning')&&t.start<=tod&&t.end>tod)||
+    segs.some(s=>String(s.prop_id)===pid&&s.room===roomNo&&s.checkin<=tod&&s.checkout>tod);
+  if(!busy) return{status:'available',label:'可租',color:'#16a34a',freeFrom:null};
+  const freeFrom=nextFreeDate(pid,roomNo);
+  return{status:'booked',freeFrom,color:'#e67700',
+    label:freeFrom?fmtMD(freeFrom)+' 起可租':'已預訂'};
 }
 // 館別層級摘要：有空房就報間數，全部被佔用就報最快可以進場的日期（而不是「滿租」）。
 function availSummary(p){
@@ -585,7 +569,7 @@ function getAllProps(){
     const hasGeo=typeof extra.lat==='number'&&typeof extra.lng==='number';
     return{
       ...p, rooms, district, address:addr,
-      serviceType:extra.serviceType||'', photos:extra.photos||{},
+      photos:extra.photos||{},
       lngLat:hasGeo?fuzzLngLat(extra.lat,extra.lng,pid):null,
     };
   }).filter(Boolean);
@@ -674,14 +658,76 @@ function roomMatches(p,r){
   if(sel.cond.has('avail')&&getRoomStatus(p.id,r.room).status!=='available') return false;
   return true;
 }
+// ── 捷運站／地標搜尋 ──────────────────────────────────────────────────────
+// 文字比對只能找到名稱或地址裡出現過的字，打「古亭站」永遠是 0 筆。
+// 所以文字找不到時，改把關鍵字丟去 OpenStreetMap 問座標，再用距離篩房源。
+// 這樣捷運站、學校、公園、夜市都能找，不必在前端內建一份站點清單。
+const PLACE_RADIUS=1000;   // 公尺，約步行 12 分鐘
+let placeFilter=null;      // {label,lat,lng,radius}
+let placeSeq=0, placeTimer=null;
+
+function distM(lat1,lng1,lat2,lng2){
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLng=rad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function setPlaceNote(html){
+  const el=document.getElementById('placeNote');
+  el.innerHTML=html||'';
+  el.style.display=html?'block':'none';
+}
+function clearPlaceFilter(){
+  placeSeq++;                        // 讓還在路上的查詢結果作廢
+  clearTimeout(placeTimer);
+  placeFilter=null;
+  setPlaceNote('');
+}
+async function lookupPlace(q){
+  const seq=++placeSeq;
+  setPlaceNote('正在搜尋「'+esc(q)+'」附近的房源…');
+  // 台北捷運在 OSM 的名稱多半是「古亭站」，補上「站」可明顯提高命中率
+  const tries=/[站館]$/.test(q)?[q]:[q+'站',q];
+  for(const t of tries){
+    let hit=null;
+    try{
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tw&q='+
+        encodeURIComponent(t));
+      if(r.ok){ const j=await r.json(); if(j&&j.length) hit=j[0]; }
+    }catch(e){ /* 離線或被擋，往下走顯示找不到 */ }
+    if(seq!==placeSeq) return;       // 使用者已經改了關鍵字
+    if(hit){
+      placeFilter={label:t,lat:+hit.lat,lng:+hit.lon,radius:PLACE_RADIUS};
+      applyFilters();
+      // 1 公里內掛零時自動放寬一次，免得使用者以為搜尋壞掉
+      if(!shownProps.length){ placeFilter.radius=3000; applyFilters(); }
+      MapView.fitAll();
+      return;
+    }
+  }
+  if(seq!==placeSeq) return;
+  setPlaceNote('找不到「'+esc(q)+'」這個地點，請改用物件名稱或路名搜尋。');
+}
+function onSearchInput(){
+  clearPlaceFilter();
+  applyFilters();
+  const q=document.getElementById('filterSearch').value.trim();
+  // 只有在文字完全比不到東西時才動用外部查詢，避免每打一個字就發一次請求
+  if(q.length>=2&&!shownProps.length) placeTimer=setTimeout(()=>lookupPlace(q),700);
+}
+
 function filterProps(){
   const dist=document.getElementById('filterDistrict').value;
   const q=document.getElementById('filterSearch').value.trim().toLowerCase();
   return allProps.map(p=>{
     if(dist&&p.district!==dist) return null;
-    if(q){
+    if(q&&!placeFilter){
       const hay=(p.name+' '+maskAddr(p.address)+' '+p.district).toLowerCase();
       if(!hay.includes(q)) return null;
+    }
+    if(placeFilter){
+      if(!p.lngLat) return null;
+      if(distM(p.lngLat[1],p.lngLat[0],placeFilter.lat,placeFilter.lng)>placeFilter.radius) return null;
     }
     if(sel.cond.has('photo')&&!allPhotos(p).length) return null;
     const rooms=p.rooms.filter(r=>roomMatches(p,r));
@@ -691,13 +737,14 @@ function filterProps(){
 }
 function sortProps(list){
   const key=document.getElementById('sortSel').value;
+  // 沒有標價的物件（顯示「租金請洽詢」）在兩種排序都放最後，不要衝到高價那一端
   const minP=p=>{
     const prices=p.matched.map(r=>r.price).filter(Boolean);
-    return prices.length?Math.min(...prices):Infinity;
+    return prices.length?Math.min(...prices):null;
   };
   const avail=p=>p.matched.filter(r=>getRoomStatus(p.id,r.room).status==='available').length;
-  if(key==='price_asc') return [...list].sort((a,b)=>minP(a)-minP(b));
-  if(key==='price_desc') return [...list].sort((a,b)=>minP(b)-minP(a));
+  if(key==='price_asc') return [...list].sort((a,b)=>(minP(a)??Infinity)-(minP(b)??Infinity));
+  if(key==='price_desc') return [...list].sort((a,b)=>(minP(b)??-Infinity)-(minP(a)??-Infinity));
   if(key==='avail') return [...list].sort((a,b)=>avail(b)-avail(a));
   return list;
 }
@@ -716,6 +763,12 @@ function applyFilters(){
   }else{
     note.style.display='none';
   }
+  if(placeFilter) setPlaceNote(
+    (placeFilter.radius<=PLACE_RADIUS
+      ? '以「'+esc(placeFilter.label)+'」為中心，步行約 15 分鐘（1 公里）內有 '+n+' 個物件。'
+      : '「'+esc(placeFilter.label)+'」步行範圍內沒有房源，已放寬到 '+
+        (placeFilter.radius/1000)+' 公里，找到 '+n+' 個物件。')+
+    '<button type="button" onclick="clearPlaceFilter();applyFilters()">取消</button>');
   if(activeId!==null&&!shownProps.some(p=>String(p.id)===String(activeId))) setActive(null);
 }
 
@@ -742,12 +795,13 @@ function cardHTML(p){
     '<div class="card-in">'+
       '<div class="card-badges">'+
         (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
-        (p.serviceType?'<span class="badge badge-service">'+esc(p.serviceType)+'</span>':'')+
       '</div>'+
       '<div class="card-name">'+esc(p.name)+'</div>'+
       '<div class="card-addr">📍 '+esc(displayAddr(p))+'</div>'+
       '<div class="card-types">'+types.map(t=>'<span class="badge badge-type">'+esc(t)+'</span>').join('')+'</div>'+
-      '<div class="card-price">NT$'+minP.toLocaleString()+'<span> 起／月</span></div>'+
+      '<div class="card-price">'+(minP
+        ? 'NT$'+minP.toLocaleString()+'<span> 起／月</span>'
+        : '<span>租金請洽詢</span>')+'</div>'+
       '<div class="card-divider"></div>'+
       '<div class="card-foot">'+
         '<div class="card-meta">'+p.matched.length+' 間符合 │ '+
@@ -939,8 +993,7 @@ function openDetail(propId){
   document.getElementById('modalPropAddr').textContent='📍 '+displayAddr(p);
   const badges=document.getElementById('modalBadges');
   badges.innerHTML=
-    (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
-    (p.serviceType?'<span class="badge badge-service">'+esc(p.serviceType)+'</span>':'');
+    (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'');
 
   const pics=allPhotos(p);
   document.getElementById('modalGallery').innerHTML=pics.length?
@@ -958,7 +1011,7 @@ function openDetail(propId){
     return '<tr>'+
       '<td><strong>'+esc(r.room)+'</strong>'+thumb+'</td>'+
       '<td>'+esc(normalizeType(r.type))+'</td>'+
-      '<td>NT$'+(r.price||0).toLocaleString()+'</td>'+
+      '<td>'+(r.price?'NT$'+r.price.toLocaleString():'請洽詢')+'</td>'+
       '<td><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td>'+
       '<td style="text-align:right"><button class="room-ask" onclick="goInquiry(\''+esc(p.id)+'\',\''+esc(r.room)+'\')">'+
         (st.status==='available'?'預約':'預約下一檔')+'</button></td>'+
@@ -1000,10 +1053,19 @@ function esc(s){
 function bindUI(){
   document.getElementById('filterDistrict').addEventListener('change',applyFilters);
   document.getElementById('sortSel').addEventListener('change',applyFilters);
-  document.getElementById('filterSearch').addEventListener('input',applyFilters);
+  const searchBox=document.getElementById('filterSearch');
+  searchBox.addEventListener('input',onSearchInput);
+  searchBox.addEventListener('keydown',e=>{
+    if(e.key!=='Enter') return;
+    const q=searchBox.value.trim();
+    clearPlaceFilter();
+    applyFilters();
+    if(q.length>=2&&!shownProps.length) lookupPlace(q);   // 按 Enter 不等 debounce
+  });
   document.getElementById('resetBtn').addEventListener('click',()=>{
     document.getElementById('filterDistrict').value='';
     document.getElementById('filterSearch').value='';
+    clearPlaceFilter();
     document.getElementById('sortSel').value='default';
     Object.values(sel).forEach(s=>s.clear());
     document.querySelectorAll('.ms-pop input').forEach(cb=>{cb.checked=false;});
