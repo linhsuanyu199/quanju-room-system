@@ -302,9 +302,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   display:flex;gap:6px;justify-content:flex-end}
 
 /* Property Manager */
-.pm-toolbar{display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:11px;padding:7px 11px;background:#f8f9fa;
+/* 說明文字一行、功能鍵一行。全部擠成一列時按鈕字會被壓扁。 */
+.pm-toolbar{display:flex;flex-direction:column;gap:8px;
+  margin-bottom:11px;padding:9px 11px;background:#f8f9fa;
   border-radius:7px;border:1px solid var(--border)}
+.pm-toolbar-tips{display:flex;flex-wrap:wrap;align-items:center;gap:3px 14px}
+.pm-toolbar-btns{display:flex;flex-wrap:wrap;gap:6px}
+.pm-toolbar-btns .btn{white-space:nowrap}
 .pm-tip{font-size:10px;color:var(--muted)}
 .bg-row{padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
 .bg-row:last-child{border-bottom:none}
@@ -536,6 +540,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       style="display:none;background:rgba(255,255,255,.15);color:#fff;text-decoration:none;align-items:center;gap:4px"
       title="開啟外部租屋官網">🌐 官網</a>
     <button class="btn-top btn-mgt-top" onclick="Cloud.copyPublicLink()" title="複製可分享給房客的公開房源連結" style="background:rgba(255,255,255,.1)">官網連結</button>
+    <button class="btn-top btn-mgt-top" onclick="openSiteInfo()" title="設定官網頁尾顯示的聯絡方式與簡介" style="background:rgba(255,255,255,.1)">官網設定</button>
   </div>
   <div class="topbar-fixed">
     <button class="btn-top btn-mgt-top" id="btn-todo" onclick="openTodo()" title="今日待辦提醒"
@@ -1070,13 +1075,17 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="modal-body" style="max-height:76vh;overflow-y:auto">
     <div class="pm-toolbar">
-      <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
-      <span class="pm-tip" id="pm-quota" style="display:none;cursor:pointer" onclick="openPlan()" title="查看方案與價目表"></span>
-      <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
-      <button class="btn btn-ghost sm" id="pm-bulkgeo-btn" onclick="openBulkGeo()" title="一次替多個館別標定地圖位置（批次匯入後用這個最快）">📍 批次定位</button>
-      <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
-      <button class="btn btn-ghost sm" id="pm-market-btn" onclick="openMarketShare()" title="設定是否參與全平台匿名成交行情共享">📈 行情共享</button>
-      <button class="btn btn-primary sm" id="pm-addprop-btn" onclick="scrollToAddProp()">＋ 新增館別</button>
+      <div class="pm-toolbar-tips">
+        <span class="pm-tip">💡 直接點租金欄位即可修改 · 新增館別在最下方</span>
+        <span class="pm-tip" id="pm-quota" style="display:none;cursor:pointer" onclick="openPlan()" title="查看方案與價目表"></span>
+      </div>
+      <div class="pm-toolbar-btns">
+        <button class="btn btn-ghost sm" onclick="document.getElementById('pm-import-section').scrollIntoView({behavior:'smooth'})">📥 批次匯入</button>
+        <button class="btn btn-ghost sm" id="pm-bulkgeo-btn" onclick="openBulkGeo()" title="一次替多個館別標定地圖位置（批次匯入後用這個最快）">📍 批次定位</button>
+        <button class="btn btn-ghost sm" onclick="openEstimateNew()" title="還沒建檔的物件，先估價再決定要不要收">🧮 新物件估價</button>
+        <button class="btn btn-ghost sm" id="pm-market-btn" onclick="openMarketShare()" title="設定是否參與全平台匿名成交行情共享">📈 行情共享</button>
+        <button class="btn btn-primary sm" id="pm-addprop-btn" onclick="scrollToAddProp()">＋ 新增館別</button>
+      </div>
     </div>
     <div id="pm-content"></div>
     <div class="pm-add-prop-section" id="pm-add-section">
@@ -7143,6 +7152,28 @@ function closeBulkGeo(){
   renderPM();
 }
 
+// ── 官網設定（顯示在租屋地圖官網頁尾的聯絡方式）──────────────────────────
+// 存在 company_kv 的 qj_pub_info，由 public_company_listings 一併回傳給官網。
+const SITE_FIELDS={intro:'si-intro',email:'si-email',phone:'si-phone',line:'si-line',hours:'si-hours'};
+function openSiteInfo(){
+  const d=Cloud.get('qj_pub_info',{})||{};
+  for(const k in SITE_FIELDS) document.getElementById(SITE_FIELDS[k]).value=d[k]||'';
+  document.getElementById('si-msg').textContent='';
+  document.getElementById('si-ov').classList.add('open');
+}
+function closeSiteInfo(){ document.getElementById('si-ov').classList.remove('open'); }
+function saveSiteInfo(){
+  const d={};
+  for(const k in SITE_FIELDS){
+    const v=document.getElementById(SITE_FIELDS[k]).value.trim();
+    if(v) d[k]=v;
+  }
+  Cloud.set('qj_pub_info',d);
+  const msg=document.getElementById('si-msg');
+  msg.style.color='#16a34a';
+  msg.textContent='已儲存，租客重新整理官網就會看到。';
+}
+
 function renderPM(){
   applySubUI();
   const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs();
@@ -7902,6 +7933,44 @@ init();
       <span id="bg-progress" style="font-size:11.5px;color:var(--muted);margin-right:auto"></span>
       <button class="btn btn-ghost" onclick="closeBulkGeo()">關閉</button>
       <button class="btn btn-primary" onclick="saveBulkAndNext()">💾 儲存並跳下一個</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 官網設定 Modal ═══ -->
+<div class="overlay" id="si-ov" onclick="if(event.target===this)closeSiteInfo()">
+  <div class="modal" style="width:560px;max-width:96vw">
+    <div class="modal-h">
+      <h2>🌐 官網設定</h2>
+      <button class="close-btn" onclick="closeSiteInfo()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+        這裡填的內容會顯示在租屋地圖官網的頁尾。留白的欄位官網就不會出現那一行。
+        存檔後租客重新整理官網即可看到。
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <label style="font-size:11.5px;font-weight:700">簡介
+          <textarea id="si-intro" rows="2" placeholder="例：提供各行政區優質短租公寓，讓您的居住體驗更加舒適便利。"
+            style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;resize:vertical"></textarea></label>
+        <label style="font-size:11.5px;font-weight:700">Email
+          <input id="si-email" type="email" placeholder="例：service@yourcompany.tw"
+            style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"></label>
+        <label style="font-size:11.5px;font-weight:700">電話
+          <input id="si-phone" placeholder="例：(02) 2345-6789"
+            style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"></label>
+        <label style="font-size:11.5px;font-weight:700">LINE 官方帳號
+          <input id="si-line" placeholder="例：@yourcompany（只填帳號或整串連結都可以）"
+            style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"></label>
+        <label style="font-size:11.5px;font-weight:700">服務時間
+          <input id="si-hours" placeholder="例：週一至週五 09:00–18:00"
+            style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px"></label>
+      </div>
+      <div id="si-msg" style="font-size:11.5px;font-weight:700;margin-top:9px;min-height:16px"></div>
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-ghost" onclick="closeSiteInfo()">關閉</button>
+      <button class="btn btn-primary" onclick="saveSiteInfo()">💾 儲存</button>
     </div>
   </div>
 </div>
