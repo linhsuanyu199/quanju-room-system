@@ -418,9 +418,12 @@ async function loadPublicData(){
     const sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
     // 聯絡資訊是另一支小 RPC，跟房源平行抓。它失敗只會讓頁尾少幾行，
     // 不該連帶把整張地圖擋掉，所以另外接 catch。
+    // ⚠️ sb.rpc() 回的是 thenable（只有 then，沒有 catch/finally），
+    //    直接 .catch() 會丟 TypeError 把整頁打掉，必須先 Promise.resolve 包起來。
     const [listings, info]=await Promise.all([
       sb.rpc('public_company_listings', { p_company_id: companyId }),
-      sb.rpc('public_company_info', { p_company_id: companyId }).catch(()=>({data:null})),
+      Promise.resolve(sb.rpc('public_company_info', { p_company_id: companyId }))
+        .catch(()=>({data:null})),
     ]);
     if(listings.error||!listings.data){ fatal('找不到此企業的公開房源資料，請確認連結是否正確。'); return false; }
     _pub=listings.data;
