@@ -6985,7 +6985,8 @@ function bulkGeoProps(){
   return getAllProps().map(p=>{
     const pid=String(p.id), d=info[pid]||{};
     const has=typeof d.lat==='number'&&typeof d.lng==='number';
-    return {pid,name:p.name||'（未命名）',address:p.address||'',district:p.district||'',
+    return {pid,name:p.name||'（未命名）',address:p.address||'',
+            city:p.city||'',district:p.district||'',
             has,auto:has&&d.geoAuto===true};
   });
 }
@@ -7081,18 +7082,29 @@ function saveBulkAndNext(){
 
 // 台灣的 OSM 幾乎沒有門牌資料（查「○○路二段106號」一律回空陣列），
 // 但路段（○○路二段）命中率很高。所以由細到粗逐層退，命中就停。
-function geoCandidates(addr){
+//
+// 一定要補上縣市與行政區：館別地址常常只填「中山路1號2F」，光查「中山路」
+// 全台灣有幾十條，實測會定位到彰化縣的中山高速公路。但補完也可能查無
+// （行政區填錯、或 OSM 認為那條路屬於隔壁區），所以補過的排前面、原字串殿後。
+function geoCandidates(addr,city,district){
   const a=String(addr||'').trim();
   if(!a)return[];
-  const out=[a];
+  const steps=[a];
   let cur=a;
   [/[0-9０-９]+\s*號.*$/,/[0-9０-９]+\s*弄.*$/,/[0-9０-９]+\s*巷.*$/,/[一二三四五六七八九十]\s*段.*$/]
     .forEach(re=>{
       const n=cur.replace(re,'').replace(/[\s,，、－-]+$/,'');
-      if(n&&n!==cur){ if(!out.includes(n))out.push(n); cur=n; }
+      if(n&&n!==cur){ if(!steps.includes(n))steps.push(n); cur=n; }
     });
   // 帶門牌的原字串在台灣一定查不到，直接跳過省一次請求
-  return /[0-9０-９]\s*號/.test(a)?out.slice(1):out;
+  const base=/[0-9０-９]\s*號/.test(a)?steps.slice(1):steps;
+  const pre=String(city||'')+String(district||'');
+  if(!pre||(city&&a.startsWith(city)))return base;   // 地址本身已含縣市就不用補
+  // 每一層都是「先補縣市、查無再用原字串」，而不是整批補過的排前面。
+  // 路段本身的精確度比縣市限定更重要：行政區填錯時（和平東路一段其實在大安區
+  // 不在中正區），補過的會查無，此時該退回「和平東路一段」而不是更粗的
+  // 「台北市中正區和平東路」——後者實測會定位到新北市中和區的快速道路。
+  return base.flatMap(s=>[pre+s,s]);
 }
 
 async function autoGeocodeAll(){
@@ -7113,7 +7125,7 @@ async function autoGeocodeAll(){
     const t=targets[i];
     btn.textContent='⏳ 推算中 '+(i+1)+'/'+targets.length;
     let hit=null;
-    for(const q of geoCandidates(t.address)){
+    for(const q of geoCandidates(t.address,t.city,t.district)){
       if(bgAbort)break;
       bgMsg('正在查「'+q+'」…');
       try{
