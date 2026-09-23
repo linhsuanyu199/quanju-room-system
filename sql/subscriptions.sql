@@ -47,8 +47,12 @@ alter table public.plans add column if not exists contact_only boolean not null 
 -- 但後者的儲存、流量與支援成本是前者的十倍，等於用大客戶補貼小客戶。
 -- 超過 100 間走旗艦版個別報價，才能照實際規模談。
 --
--- 成員：所有方案都內含 1 人，第 2 人起依 price_extra_seat 逐人加購。
+-- 成員：付費前三階都內含 1 人，第 2 人起依 price_extra_seat 逐人加購。
 -- 加購後由平台方把 subscriptions.seats 調高，額度檢查以 seats 為準。
+--
+-- 旗艦版的 max_members 是 null＝不限人數。旗艦本來就個別報價，人力成本已經
+-- 含在合約裡，再按人頭收一次等於重複計價；而且旗艦客戶多半要把各分店店長
+-- 都拉進系統，卡人數等於把旗艦最該賣的東西鎖住。
 insert into public.plans
   (code, name, price_monthly, price_yearly, max_props, max_rooms, max_members, price_extra_seat, contact_only, features, sort) values
   ('free',     '免費',  0,     null,   3,    10,   1,  null, false,
@@ -57,7 +61,7 @@ insert into public.plans
      '{"estimate":true,"market":false,"complaint":true,"photo":true,"export":true}'::jsonb, 1),
   ('business', '企業',  1999,  19990,  null, 100,  1,  300,  false,
      '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 2),
-  ('flagship', '旗艦',  0,     null,   null, null, 1,  null, true,
+  ('flagship', '旗艦',  0,     null,   null, null, null, null, true,
      '{"estimate":true,"market":true,"complaint":true,"photo":true,"export":true}'::jsonb, 3)
 on conflict (code) do update set
   name = excluded.name, price_monthly = excluded.price_monthly,

@@ -6727,6 +6727,7 @@ function applyEstPrice(id,season){
   if(!ovr[String(e.prop_id)])ovr[String(e.prop_id)]={};
   ovr[String(e.prop_id)][e.room]=price;
   saveOvr(ovr);
+  logPriceChange(e.prop_id,e.room,prev,price);
   e.applied={season,price,prevPrice:prev,at:new Date().toISOString(),by:Cloud.myDisplayName||Cloud.myEmail||''};
   saveEstimates(all);
   renderPM();render();
@@ -7152,8 +7153,49 @@ function closeBulkGeo(){
   renderPM();
 }
 
+// ── 房源異動紀錄（官網「新上架」「降價」標籤的依據）────────────────────────
+// qj_roomlog = { _init:'YYYY-MM-DD', [館別id]: { [房號]: {first, prev, at} } }
+//   first ＝ 這間房第一次被看到的日期
+//   prev/at ＝ 上一次調價前的金額與調價日期
+// 完全由系統自動維護，不需要同仁額外操作——要人工勾「這是新房」一定會忘記勾，
+// 也一定會忘記取消，官網就會永遠掛著假的「新上架」。
+function loadRoomLog(){ return Cloud.get('qj_roomlog',{})||{}; }
+
+// 第一次啟用時，既有房源全部蓋上很舊的日期。否則上線當天所有房間都會
+// 變成「新上架」，標籤一失真就再也沒人相信它。
+function syncRoomLog(){
+  const log=loadRoomLog();
+  const firstRun=!log._init;
+  const stamp=firstRun?'2000-01-01':todayStr();
+  const ext=loadExtras();
+  let dirty=false;
+  for(const p of loadCPs()){
+    const pid=String(p.id);
+    const rooms=[...(p.rooms||[]),...(ext[pid]||[])];
+    for(const r of rooms){
+      if(!r||!r.room) continue;
+      if(!log[pid]){ log[pid]={}; dirty=true; }
+      if(!log[pid][r.room]){ log[pid][r.room]={first:stamp}; dirty=true; }
+    }
+  }
+  if(firstRun){ log._init=todayStr(); dirty=true; }
+  if(dirty) Cloud.set('qj_roomlog',log);
+}
+
+// 只記「調降」，調漲不需要對外宣傳，記了反而佔掉標籤欄位。
+function logPriceChange(pid,rno,before,after){
+  if(!(before>0)||!(after>0)||after>=before) return;
+  const log=loadRoomLog();
+  pid=String(pid);
+  if(!log[pid]) log[pid]={};
+  if(!log[pid][rno]) log[pid][rno]={first:'2000-01-01'};
+  log[pid][rno].prev=before;
+  log[pid][rno].at=todayStr();
+  Cloud.set('qj_roomlog',log);
+}
+
 // ── 官網設定（顯示在租屋地圖官網頁尾的聯絡方式）──────────────────────────
-// 存在 company_kv 的 qj_pub_info，由 public_company_listings 一併回傳給官網。
+// 存在 company_kv 的 qj_pub_info，由 public_company_info 回傳給官網。
 const SITE_FIELDS={intro:'si-intro',email:'si-email',phone:'si-phone',line:'si-line',hours:'si-hours'};
 function openSiteInfo(){
   const d=Cloud.get('qj_pub_info',{})||{};
@@ -7176,6 +7218,7 @@ function saveSiteInfo(){
 
 function renderPM(){
   applySubUI();
+  syncRoomLog();
   const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs();
   const content=document.getElementById('pm-content');
   content.innerHTML=ap.map(prop=>{
@@ -7296,8 +7339,9 @@ function renderPM(){
 }
 function setRP(pid,rno,input){
   const val=parseFloat(input.value);
+  const before=getRoomPrice(pid,rno);
   const ovr=loadOvr();if(!ovr[pid])ovr[pid]={};
-  if(!isNaN(val)&&val>=0){ovr[pid][rno]=val;saveOvr(ovr);}
+  if(!isNaN(val)&&val>=0){ovr[pid][rno]=val;saveOvr(ovr);logPriceChange(pid,rno,before,val);}
   const orig=loadCPs().find(p=>String(p.id)===pid);
   const or=orig?orig.rooms.find(r=>r.room===rno):null;
   input.classList.toggle('changed',!!(or&&or.price!==val));

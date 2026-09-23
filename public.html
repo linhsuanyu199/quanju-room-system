@@ -141,6 +141,13 @@ nav a:hover{color:#fff;background:rgba(255,255,255,.15)}
   border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.3px}
 .badge-district{background:#e0f2fe;color:#0369a1}
 .badge-type{background:var(--light);color:var(--muted)}
+/* 新上架用綠、降價用紅——紅色是唯一一個會讓人停下來看價格的顏色，
+   所以整個頁面只留給降價用，不要再有第二個紅色元素跟它搶注意力。 */
+.badge-new{background:#dcfce7;color:#15803d}
+.badge-drop{background:#fee2e2;color:#b91c1c}
+.badge.sm{padding:1px 6px;font-size:10px;margin-left:5px}
+.old-price{color:var(--muted);font-size:11.5px}
+.cut-price{color:#b91c1c;font-weight:700}
 .card-name{font-size:16px;font-weight:700;color:var(--primary);line-height:1.3}
 .card-addr{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
 .card-types{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
@@ -304,6 +311,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
         <option value="price_asc">租金低到高</option>
         <option value="price_desc">租金高到低</option>
         <option value="avail">可租間數多到少</option>
+        <option value="newest">最新上架</option>
       </select>
     </div>
     <div class="place-note" id="placeNote" style="display:none"></div>
@@ -396,6 +404,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 // 後台改完官網立刻反映，不需要另外維護一份房源資料。
 let _pub = null; // { company_name, cps, ovr, ext, propinfo, vis, tasks, segs }
 let _info = {};  // 後台「官網設定」填的頁尾聯絡資訊 { intro, email, phone, line, hours }
+let _rlog = {};  // 房源異動紀錄 { 館別id: { 房號: {first, prev, at} } }，用來標「新上架」「降價」
 
 function fatal(msg){
   document.body.innerHTML='<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:15px">'+msg+'</div>';
@@ -415,7 +424,9 @@ async function loadPublicData(){
     ]);
     if(listings.error||!listings.data){ fatal('找不到此企業的公開房源資料，請確認連結是否正確。'); return false; }
     _pub=listings.data;
-    _info=(info&&info.data)||{};
+    const aux=(info&&info.data)||{};
+    _info=aux.info||{};
+    _rlog=aux.roomlog||{};
     window._pubCompanyId=companyId;
     return true;
   }catch(e){
@@ -437,6 +448,8 @@ const BUDGETS=[
 const CONDS=[
   {key:'avail',name:'現在可租'},
   {key:'photo',name:'有實景照片'},
+  {key:'new',name:'最近新上架'},
+  {key:'drop',name:'最近降價'},
 ];
 
 const ADDR_DISTRICT_MAP=[
@@ -556,6 +569,29 @@ function availSummary(p){
     :{availCnt:0,text:'暫無可租房間',color:'#94a3b8'};
 }
 
+// ── 新上架／降價標籤 ──────────────────────────────────────────────────────
+// 兩個標籤都會「過期」：新鮮感本來就有賞味期，掛太久反而讓租客覺得這裡的房
+// 一直沒人租。降價也一樣——永遠顯示「降價中」等於沒有降價。
+const NEW_DAYS=14, DROP_DAYS=30;
+function daysSince(d){
+  const p=String(d||'').split('-');
+  if(p.length!==3) return Infinity;
+  const then=new Date(+p[0],+p[1]-1,+p[2]);
+  return Math.floor((new Date().setHours(0,0,0,0)-then.getTime())/86400000);
+}
+function roomFlags(propId,r){
+  const e=((_rlog&&_rlog[String(propId)])||{})[r.room]||{};
+  const isNew=daysSince(e.first)<=NEW_DAYS;
+  const drop=(e.prev&&r.price&&e.prev>r.price&&daysSince(e.at)<=DROP_DAYS)
+    ? e.prev-r.price : 0;
+  return {isNew, drop, prev:drop?e.prev:0};
+}
+// 館別層級：任一間房新上架就算新上架；降價取降幅最大的那間，數字比「有降價」有力。
+function propFlags(p){
+  const fs=(p.matched||p.rooms).map(r=>roomFlags(p.id,r));
+  return {isNew:fs.some(f=>f.isNew), drop:Math.max(0,...fs.map(f=>f.drop))};
+}
+
 // ── 房源 ──────────────────────────────────────────────────────────────────
 // 下架有兩層：vis[pid]===false 整個館別不上官網；offSale[房號]===true 單間停售。
 function getAllProps(){
@@ -666,6 +702,11 @@ function roomMatches(p,r){
     if(![...sel.budget].some(k=>inBudget(pr,k))) return false;
   }
   if(sel.cond.has('avail')&&getRoomStatus(p.id,r.room).status!=='available') return false;
+  if(sel.cond.has('new')||sel.cond.has('drop')){
+    const fl=roomFlags(p.id,r);
+    if(sel.cond.has('new')&&!fl.isNew) return false;
+    if(sel.cond.has('drop')&&!fl.drop) return false;
+  }
   return true;
 }
 // ── 捷運站／地標搜尋 ──────────────────────────────────────────────────────
@@ -693,21 +734,48 @@ function clearPlaceFilter(){
   placeFilter=null;
   setPlaceNote('');
 }
+// 地點座標快取。捷運站的位置一輩子不會變，同一個人反覆搜同一站卻要一直打
+// 外部服務，既慢又浪費別人的免費額度。存 30 天後過期，免得偶爾的錯誤結果
+// 永久卡在瀏覽器裡。
+const PLACE_CACHE_KEY='qj_place_cache', PLACE_CACHE_DAYS=30;
+// 回 undefined＝沒查過（要去問）；回 null＝查過而且確定沒這地點（不必再問）
+function placeCacheGet(k){
+  try{
+    const c=JSON.parse(localStorage.getItem(PLACE_CACHE_KEY)||'{}')[k];
+    if(!c||Date.now()-c.t>PLACE_CACHE_DAYS*86400000) return undefined;
+    return c.v;
+  }catch(e){ return undefined; }
+}
+function placeCacheSet(k,v){
+  try{
+    const all=JSON.parse(localStorage.getItem(PLACE_CACHE_KEY)||'{}');
+    all[k]={v,t:Date.now()};
+    localStorage.setItem(PLACE_CACHE_KEY,JSON.stringify(all));
+  }catch(e){ /* 無痕模式或配額滿，沒快取也能跑 */ }
+}
+
 async function lookupPlace(q){
   const seq=++placeSeq;
   setPlaceNote('正在搜尋「'+esc(q)+'」附近的房源…');
   // 台北捷運在 OSM 的名稱多半是「古亭站」，補上「站」可明顯提高命中率
   const tries=/[站館]$/.test(q)?[q]:[q+'站',q];
   for(const t of tries){
-    let hit=null;
-    try{
-      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tw&q='+
-        encodeURIComponent(t));
-      if(r.ok){ const j=await r.json(); if(j&&j.length) hit=j[0]; }
-    }catch(e){ /* 離線或被擋，往下走顯示找不到 */ }
+    let hit=placeCacheGet(t);
+    if(hit===undefined){
+      hit=null;
+      try{
+        const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tw&q='+
+          encodeURIComponent(t));
+        if(r.ok){
+          const j=await r.json();
+          hit=(j&&j.length)?{lat:+j[0].lat,lng:+j[0].lon}:null;
+          placeCacheSet(t,hit);
+        }
+      }catch(e){ /* 離線或被擋，往下走顯示找不到 */ }
+    }
     if(seq!==placeSeq) return;       // 使用者已經改了關鍵字
     if(hit){
-      placeFilter={label:t,lat:+hit.lat,lng:+hit.lon,radius:PLACE_RADIUS};
+      placeFilter={label:t,lat:hit.lat,lng:hit.lng,radius:PLACE_RADIUS};
       applyFilters();
       // 1 公里內掛零時自動放寬一次，免得使用者以為搜尋壞掉
       if(!shownProps.length){ placeFilter.radius=3000; applyFilters(); }
@@ -756,6 +824,16 @@ function sortProps(list){
   if(key==='price_asc') return [...list].sort((a,b)=>(minP(a)??Infinity)-(minP(b)??Infinity));
   if(key==='price_desc') return [...list].sort((a,b)=>(minP(b)??-Infinity)-(minP(a)??-Infinity));
   if(key==='avail') return [...list].sort((a,b)=>avail(b)-avail(a));
+  if(key==='newest'){
+    // 用「最近一次有房間上架」排序；沒有紀錄的排最後。
+    const newest=p=>{
+      const ds=(p.matched||p.rooms)
+        .map(r=>((_rlog&&_rlog[String(p.id)])||{})[r.room])
+        .map(e=>e&&e.first).filter(Boolean).sort();
+      return ds.length?ds[ds.length-1]:'';
+    };
+    return [...list].sort((a,b)=>newest(b).localeCompare(newest(a)));
+  }
   return list;
 }
 function applyFilters(){
@@ -791,6 +869,11 @@ function renderList(){
   }
   box.innerHTML=shownProps.map(cardHTML).join('');
 }
+function flagBadges(p){
+  const f=propFlags(p);
+  return (f.isNew?'<span class="badge badge-new">🆕 新上架</span>':'')+
+    (f.drop?'<span class="badge badge-drop">↓ 降價 NT$'+f.drop.toLocaleString()+'</span>':'');
+}
 function cardHTML(p){
   const prices=p.matched.map(r=>r.price).filter(Boolean);
   const minP=prices.length?Math.min(...prices):0;
@@ -805,6 +888,7 @@ function cardHTML(p){
     '<div class="card-in">'+
       '<div class="card-badges">'+
         (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
+        flagBadges(p)+
       '</div>'+
       '<div class="card-name">'+esc(p.name)+'</div>'+
       '<div class="card-addr">📍 '+esc(displayAddr(p))+'</div>'+
@@ -1003,7 +1087,8 @@ function openDetail(propId){
   document.getElementById('modalPropAddr').textContent='📍 '+displayAddr(p);
   const badges=document.getElementById('modalBadges');
   badges.innerHTML=
-    (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'');
+    (p.district?'<span class="badge badge-district">'+esc(p.district)+'</span>':'')+
+    flagBadges(p);
 
   const pics=allPhotos(p);
   document.getElementById('modalGallery').innerHTML=pics.length?
@@ -1015,13 +1100,20 @@ function openDetail(propId){
 
   document.getElementById('roomTableBody').innerHTML=rooms.map(r=>{
     const st=getRoomStatus(p.id,r.room);
+    const fl=roomFlags(p.id,r);
     const rp=roomPhotos(p,r.room);
     const thumb=rp.length?'<img class="room-thumb" src="'+esc(rp[0])+'" alt="'+esc(r.room)+
       '" loading="lazy" onclick="openLightbox(this.src)">':'';
+    // 降價時把原價劃掉擺在旁邊。只說「降價」沒有說服力，看到數字才有感。
+    const priceCell=r.price
+      ? (fl.drop?'<s class="old-price">NT$'+fl.prev.toLocaleString()+'</s> ':'')+
+        '<span'+(fl.drop?' class="cut-price"':'')+'>NT$'+r.price.toLocaleString()+'</span>'
+      : '請洽詢';
     return '<tr>'+
-      '<td><strong>'+esc(r.room)+'</strong>'+thumb+'</td>'+
+      '<td><strong>'+esc(r.room)+'</strong>'+
+        (fl.isNew?'<span class="badge badge-new sm">新</span>':'')+thumb+'</td>'+
       '<td>'+esc(normalizeType(r.type))+'</td>'+
-      '<td>'+(r.price?'NT$'+r.price.toLocaleString():'請洽詢')+'</td>'+
+      '<td>'+priceCell+'</td>'+
       '<td><span class="status-badge" style="background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td>'+
       '<td style="text-align:right"><button class="room-ask" onclick="goInquiry(\''+esc(p.id)+'\',\''+esc(r.room)+'\')">'+
         (st.status==='available'?'預約':'預約下一檔')+'</button></td>'+
