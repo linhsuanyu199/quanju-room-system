@@ -957,6 +957,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <option value="none">不需請款（自行吸收）</option>
           <option value="unbilled">未請款</option>
           <option value="billed">已請款</option>
+          <option value="tenant">房客自行負擔</option>
         </select>
       </div>
       <div class="field span2 tk-cost-only">
@@ -1758,6 +1759,7 @@ function renderVendorRows(){
       '<input class="vd-note" type="text" placeholder="備註" value="'+escH(v.note||'')+'" style="flex:1;min-width:110px;'+inpS+'">'+
       '<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;height:28px;white-space:nowrap">'+
         '<input class="vd-act" type="checkbox"'+(v.active!==false?' checked':'')+'>啟用</label>'+
+      '<button class="btn sm btn-ghost" onclick="generateVendorLink(\''+escH(v.id)+'\')" title="產生／重發廠商工作連結（免登入，廠商用手機開啟即可回報進度）">🔗 連結</button>'+
       '<button class="btn sm btn-ghost" onclick="removeVendorRow('+i+')" title="移除">✕</button>'+
       vendorPerfLine(perf[v.id])+
     '</div>').join('')+
@@ -1790,6 +1792,14 @@ function collectVendors(){
     note:box.querySelectorAll('.vd-note')[i].value.trim(),
     active:box.querySelectorAll('.vd-act')[i].checked,
   })).filter(v=>v.name);
+}
+// 產生（或重發，會使舊連結失效）廠商免登入工作連結，開啟 vendor.html 讓廠商回報進度。
+// 廠商必須先存檔過（qj_vendors 內已有此 id）才找得到，否則提示先儲存。
+async function generateVendorLink(vendorId){
+  const token=await Cloud.generateVendorToken(vendorId);
+  if(!token)return;
+  const url=location.href.replace(/index\.html.*$/,'')+'vendor.html?t='+token;
+  prompt('廠商工作連結（重新產生會讓舊連結失效，請複製給廠商）：',url);
 }
 function saveVendorsUI(){
   const list=collectVendors();
@@ -5342,7 +5352,7 @@ function tkActions(t){
   return h+'<button class="btn btn-ghost sm" style="margin-left:4px;padding:3px 7px" '+
     'title="編輯明細（金額・廠商・日期・備註）" onclick="editMaintTask('+jsArg(t.id)+')">✏️</button>';
 }
-const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未請款',color:'#e67700'},billed:{label:'已請款',color:'#2f9e44'}};
+const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未請款',color:'#e67700'},billed:{label:'已請款',color:'#2f9e44'},tenant:{label:'房客自行負擔',color:'#7048e8'}};
 function money(n){return '$'+Math.round(n||0).toLocaleString();}
 // 維修金額只對維修單有意義，清潔單一律視為 0
 function tkCost(t){return t.type==='repair'?(Number(t.cost)||0):0;}

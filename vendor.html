@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>廠商工作入口 — 全居短租</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/cloud-config.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a3a6b;--accent:#2563eb;--success:#16a34a;
+  --bg:#f8fafd;--card:#fff;--border:#e2e8f0;
+  --text:#1e293b;--muted:#64748b;--light:#f1f5f9;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+  --radius:12px;--radius-sm:8px;--radius-pill:999px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;font-size:15px;min-height:100vh}
+header{background:var(--primary);color:#fff;padding:16px 20px}
+.hd-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.hd-logo{width:36px;height:36px;background:var(--accent);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.hd-title{font-size:16px;font-weight:700}
+.hd-sub{font-size:12px;opacity:.75}
+
+main{max-width:640px;margin:0 auto;padding:16px}
+
+.fatal{padding:80px 20px;text-align:center;color:var(--muted);font-size:15px}
+
+.stats{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:20px}
+.stats .vname{font-size:17px;font-weight:700;color:var(--primary)}
+.stats .srow{display:flex;gap:20px;margin-left:auto}
+.stats .sitem{text-align:center}
+.stats .snum{font-size:20px;font-weight:700;color:var(--accent)}
+.stats .slabel{font-size:11px;color:var(--muted)}
+
+.list-title{font-size:13px;color:var(--muted);font-weight:700;margin:6px 0 10px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:14px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px}
+.card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;
+  border-radius:var(--radius-pill);font-size:11px;font-weight:600}
+.addr{font-size:15px;font-weight:700;margin-bottom:4px}
+.meta{font-size:12.5px;color:var(--muted);margin-bottom:2px}
+.meta b{color:var(--text)}
+.due{font-size:12.5px;margin-top:6px}
+.due.overdue{color:#c92a2a;font-weight:700}
+.note-box{margin-top:8px;padding:8px 10px;background:var(--light);border-radius:8px;font-size:13px;white-space:pre-wrap}
+.actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-warn{background:#d6336c;color:#fff}
+.btn-ghost{background:var(--light);color:var(--muted)}
+.amt-form{margin-top:10px;display:none;gap:8px;align-items:center;flex-wrap:wrap}
+.amt-form.show{display:flex}
+.amt-form input{border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+  font-size:13px;font-family:inherit;width:130px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  background:#1e293b;color:#fff;padding:10px 18px;border-radius:var(--radius-pill);
+  font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:999}
+.toast.show{opacity:1}
+.refresh-row{text-align:right;margin-bottom:10px}
+.refresh-row button{border:1px solid var(--border);background:#fff;color:var(--muted);
+  border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd-inner">
+    <div class="hd-logo">全</div>
+    <div>
+      <div class="hd-title">全居短租 · 廠商工作入口</div>
+      <div class="hd-sub">您所配合的修繕案件</div>
+    </div>
+  </div>
+</header>
+<main id="app"><div class="fatal">載入中…</div></main>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const TASK_STATUS={
+  todo:{label:'待處理',color:'#e67700',bg:'#fff3bf'},
+  doing:{label:'處理中',color:'#1971c2',bg:'#e7f5ff'},
+};
+let sb=null, TOKEN=null, DATA=null;
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+function fatal(msg){
+  document.getElementById('app').innerHTML='<div class="fatal">'+msg+'</div>';
+}
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadData(){
+  try{
+    const res=await sb.rpc('vendor_get_portal_data',{p_token:TOKEN});
+    if(res.error||!res.data){ fatal('連結已失效或不存在，請向公司索取新的工作連結。'); return; }
+    DATA=res.data;
+    render();
+  }catch(e){
+    fatal('資料載入失敗，請稍後重新整理。');
+  }
+}
+
+function render(){
+  const tod=new Date().toISOString().slice(0,10);
+  const tasks=DATA.tasks||[];
+  let html='';
+  html+='<div class="stats">'
+    +'<div class="vname">'+esc(DATA.vendor&&DATA.vendor.name||'廠商')+'</div>'
+    +'<div class="srow">'
+      +'<div class="sitem"><div class="snum">'+(DATA.stats&&DATA.stats.n||0)+'</div><div class="slabel">已配合次數</div></div>'
+      +'<div class="sitem"><div class="snum">'+(DATA.stats&&DATA.stats.avgDays!=null?DATA.stats.avgDays:'—')+'</div><div class="slabel">平均處理天數</div></div>'
+    +'</div>'
+  +'</div>';
+  html+='<div class="refresh-row"><button onclick="loadData()">🔄 重新整理</button></div>';
+  html+='<div class="list-title">待處理案件（'+tasks.length+'）</div>';
+  if(!tasks.length){
+    html+='<div class="empty">目前沒有待處理的案件</div>';
+  }else{
+    tasks.forEach(t=>{
+      const st=TASK_STATUS[t.status]||{label:t.status,color:'#495057',bg:'#f1f3f5'};
+      const overdue=t.dueDate&&t.dueDate<tod;
+      const contact=t.contact||{};
+      const contactLine=contact.source==='tenant'
+        ? '房客：'+esc(contact.name||'')+'　電話：'+esc(contact.phone||'')
+        : '房內目前無人，請洽公司電話：'+esc(contact.phone||'（未設定）');
+      html+='<div class="card" data-id="'+esc(t.id)+'">'
+        +'<div class="card-top">'
+          +'<span class="badge" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>'
+          +'<span class="badge" style="background:#eef1f5;color:#64748b">'+esc(t.cat||'其他')+'</span>'
+        +'</div>'
+        +'<div class="addr">'+esc(t.address||'（地址未設定）')+'　'+esc(t.room||'')+'</div>'
+        +'<div class="meta">'+contactLine+'</div>'
+        +(t.dueDate?'<div class="due'+(overdue?' overdue':'')+'">到期日：'+esc(t.dueDate)+(overdue?'（已逾期）':'')+'</div>':'')
+        +(t.note?'<div class="note-box">'+esc(t.note)+'</div>':'')
+        +renderActions(t)
+      +'</div>';
+    });
+  }
+  document.getElementById('app').innerHTML=html;
+}
+
+function renderActions(t){
+  const id=esc(t.id);
+  if(t.status==='todo'){
+    return '<div class="actions"><button class="btn btn-primary" onclick="startTask(\''+id+'\')">開始處理</button></div>';
+  }
+  if(t.status==='doing'){
+    return '<div class="actions">'
+      +'<button class="btn btn-success" onclick="toggleForm(\''+id+'\',\'done\')">✅ 完成</button>'
+      +'<button class="btn btn-warn" onclick="toggleForm(\''+id+'\',\'suggest_replace\')">🔁 建議汰換</button>'
+    +'</div>'
+    +'<div class="amt-form" id="form-done-'+id+'">'
+      +'<input type="number" min="0" step="1" placeholder="實際維修金額" id="amt-done-'+id+'">'
+      +'<button class="btn btn-success" onclick="submitAmount(\''+id+'\',\'done\')">送出</button>'
+      +'<button class="btn btn-ghost" onclick="toggleForm(\''+id+'\',\'done\')">取消</button>'
+    +'</div>'
+    +'<div class="amt-form" id="form-suggest_replace-'+id+'">'
+      +'<input type="number" min="0" step="1" placeholder="預估汰換金額" id="amt-suggest_replace-'+id+'">'
+      +'<button class="btn btn-warn" onclick="submitAmount(\''+id+'\',\'suggest_replace\')">送出</button>'
+      +'<button class="btn btn-ghost" onclick="toggleForm(\''+id+'\',\'suggest_replace\')">取消</button>'
+    +'</div>';
+  }
+  return '';
+}
+
+function toggleForm(id,kind){
+  ['done','suggest_replace'].forEach(k=>{
+    const el=document.getElementById('form-'+k+'-'+id);
+    if(!el)return;
+    if(k===kind) el.classList.toggle('show');
+    else el.classList.remove('show');
+  });
+}
+
+async function startTask(id){
+  try{
+    const res=await sb.rpc('vendor_update_task_status',{p_token:TOKEN,p_task_id:id,p_status:'doing',p_amount:null});
+    if(res.error){ toast('操作失敗：'+(res.error.message||'請稍後再試')); return; }
+    toast('已開始處理');
+    loadData();
+  }catch(e){ toast('操作失敗，請稍後再試'); }
+}
+
+async function submitAmount(id,status){
+  const input=document.getElementById('amt-'+status+'-'+id);
+  const amount=parseFloat(input&&input.value);
+  if(!amount||amount<=0){ toast('請輸入金額'); return; }
+  try{
+    const res=await sb.rpc('vendor_update_task_status',{p_token:TOKEN,p_task_id:id,p_status:status,p_amount:amount});
+    if(res.error){ toast('操作失敗：'+(res.error.message||'請稍後再試')); return; }
+    toast(status==='done'?'已回報完成':'已回報建議汰換');
+    loadData();
+  }catch(e){ toast('操作失敗，請稍後再試'); }
+}
+
+(function init(){
+  const params=new URLSearchParams(location.search);
+  TOKEN=params.get('t');
+  if(!TOKEN){ fatal('此連結缺少工作識別碼，請向公司索取正確的廠商連結。'); return; }
+  sb=window.supabase.createClient(window.CLOUD_URL, window.CLOUD_KEY);
+  loadData();
+})();
+</script>
+</body>
+</html>

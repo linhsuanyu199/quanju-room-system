@@ -354,6 +354,13 @@ const Cloud = {
     this.inviteCode = data || '';
     return this.inviteCode;
   },
+
+  // ── 廠商工作連結（vendor.html 免登入入口，token 存於 vendor_portal_tokens）──
+  async generateVendorToken(vendorId) {
+    const { data, error } = await _sb.rpc('admin_generate_vendor_token', { p_vendor_id: vendorId });
+    if (error) { alert('❌ 產生連結失敗：' + (error.message || '請稍後再試')); return null; }
+    return data;
+  },
   _translateMemberError(msg) {
     const m = String(msg || '');
     if (/PLAN_LIMIT_MEMBERS/.test(m))
