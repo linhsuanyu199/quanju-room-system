@@ -99,14 +99,17 @@ create trigger contracts_no_edit before update on public.contracts
   for each row execute function public.contracts_immutable();
 
 -- 已簽署的契約依規定要保存五年，刪除一律擋掉。
+-- 這裡看的是 signed_at 而不是 status：作廢後 status 會變成 'void'，
+-- 若只看 status，任何人都能用「先作廢、再刪除」兩步繞過保存義務。
+-- signed_at 一旦寫入就被上面的 trigger 鎖死，拿它當判斷才擋得住。
 create or replace function public.contracts_no_delete()
 returns trigger
 language plpgsql
 set search_path = public
 as $fn$
 begin
-  if old.status = 'signed' then
-    raise exception '已簽署的契約不得刪除（應保存五年），請改用作廢';
+  if old.signed_at is not null then
+    raise exception '曾經簽署的契約不得刪除（應保存五年），請改用作廢';
   end if;
   return old;
 end;

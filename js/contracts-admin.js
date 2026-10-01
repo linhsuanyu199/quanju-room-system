@@ -65,6 +65,21 @@ function ctProp(id) {
   return loadCPs().find(function (p) { return ctSameId(p.id, id); }) || null;
 }
 
+/* 契約表的時間欄位是 timestamptz，PostgREST 回傳的是 UTC。直接切 ISO 字串
+   會把台灣時間凌晨簽的約顯示成前一天，而契約正文裡的簽署時間是資料庫用
+   Asia/Taipei 算的——兩邊對不起來，稽核時就會變成爭議。一律換算後再顯示。 */
+function ctTW(ts, withTime) {
+  if (!ts) return '';
+  var dt = new Date(ts);
+  if (isNaN(dt.getTime())) return '';
+  var p = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  }).formatToParts(dt).reduce(function (o, x) { o[x.type] = x.value; return o; }, {});
+  return p.year + '-' + p.month + '-' + p.day +
+         (withTime ? ' ' + p.hour + ':' + p.minute + ':' + p.second : '');
+}
+
 /* ── 欄位定義 → 表單 ─────────────────────────────────────────────
    [路徑, 標籤, 型別, 其他]
    型別：text num money date chk sel ta equip csv h(小標題) */
@@ -561,9 +576,6 @@ function ctBuild(kind, propId, bookingId, overrides) {
   if (!d.prop.city) d.prop.city = cp.city || '';
   if (!d.prop.dist) d.prop.dist = cp.district || '';
   if (!d.prop.road) d.prop.road = ctAddrRest(cp);
-  /* 附件一的主建物面積表只有一列，直接用「樓層＋主建物面積」組出來 */
-  if (d.prop.mainTotal && (!d.prop.mainFloors || !d.prop.mainFloors.length))
-    d.prop.mainFloors = [{ f: d.prop.floor || '', a: d.prop.mainTotal }];
   if (!d.a1.date) d.a1.date = todayStr();
 
   if (kind === 'sub') {
@@ -592,6 +604,11 @@ function ctBuild(kind, propId, bookingId, overrides) {
     if (kind === 'wg') { d.wg.signDate = todayStr(); d.wg.review.handedAt = todayStr(); }
   }
   if (overrides) ctMerge(d, overrides);
+  /* 附件一的主建物面積表只有一列，直接用「樓層＋主建物面積」組出來。
+     一定要放在所有 merge 之後：面積是從館別契約設定（或 overrides）來的，
+     放在前面時面積還沒填進來，這一列就會是空的，印出來變成「主建物面積：，共計…」。 */
+  if (d.prop.mainTotal && (!d.prop.mainFloors || !d.prop.mainFloors.length))
+    d.prop.mainFloors = [{ f: d.prop.floor || '', a: d.prop.mainTotal }];
   d.kind = kind;
   return d;
 }
@@ -915,8 +932,8 @@ async function ctRenderList() {
         '<td style="padding:6px 7px;white-space:nowrap"><span style="display:inline-block;' +
           'padding:2px 8px;border-radius:999px;background:' + st.bg + ';color:' + st.color +
           ';font-weight:700">' + st.label + '</span></td>' +
-        '<td style="padding:6px 7px;white-space:nowrap">' + ctEsc((c.created_at || '').slice(0, 10)) + '</td>' +
-        '<td style="padding:6px 7px;white-space:nowrap">' + ctEsc((c.signed_at || '').slice(0, 10) || '—') + '</td>' +
+        '<td style="padding:6px 7px;white-space:nowrap">' + ctEsc(ctTW(c.created_at)) + '</td>' +
+        '<td style="padding:6px 7px;white-space:nowrap">' + ctEsc(ctTW(c.signed_at) || '—') + '</td>' +
         '<td style="padding:6px 7px;white-space:nowrap">' + ctRowActions(c) + '</td>' +
         '</tr>';
     });
@@ -957,8 +974,7 @@ function ctTodoBlock(list, nameOf, today) {
     if (c.status !== 'signed') return;
     /* 包租業簽訂轉租契約後三十日內，應以書面將轉租範圍與次承租人資料告知出租人 */
     if (c.kind === 'sub' && !c.notified_at) {
-      var due = new Date(new Date(c.signed_at).getTime() + 30 * 86400000)
-                .toISOString().slice(0, 10);
+      var due = ctTW(new Date(c.signed_at).getTime() + 30 * 86400000);
       items.push([due < today ? '#c92a2a' : '#e67700',
         (due < today ? '【已逾期】' : '') + '轉租契約 ' + c.no + '（' +
         (nameOf[c.prop_id] || '') + (c.room ? ' · ' + c.room : '') +
@@ -996,7 +1012,7 @@ async function ctView(id) {
   if (c.sig_img) snap.sign.sigImg = c.sig_img;
   var head = '';
   if (c.status === 'signed') {
-    head = '已於 <b>' + ctEsc((c.signed_at || '').replace('T', ' ').slice(0, 19)) +
+    head = '已於 <b>' + ctEsc(ctTW(c.signed_at, true)) +
       '</b> 完成簽署。身分證統一編號：' +
       ctEsc(c.signer_id_no ? window.ContractRender.maskId(c.signer_id_no) : '—') +
       '　IP：' + ctEsc(c.signer_ip || '—') +
@@ -1006,7 +1022,7 @@ async function ctView(id) {
     head = '此契約<b>已作廢</b>。' + (c.void_reason ? '原因：' + ctEsc(c.void_reason) : '');
   } else {
     head = '此契約<b>尚未簽署</b>（首次開啟時間：' +
-      ctEsc(c.opened_at ? c.opened_at.replace('T', ' ').slice(0, 19) : '尚未開啟') + '）。';
+      ctEsc(c.opened_at ? ctTW(c.opened_at, true) : '尚未開啟') + '）。';
   }
   var w = window.open('', '_blank');
   if (!w) { alert('瀏覽器阻擋了新視窗，請允許彈出視窗後再試'); return; }
