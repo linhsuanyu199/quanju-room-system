@@ -557,6 +557,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
         <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
         <div class="more-sep"></div>
+        <button class="more-item" onclick="pickMore(ctOpenList)">📄 契約管理</button>
+        <button class="more-item" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
+        <div class="more-sep"></div>
         <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
         <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
         <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
@@ -781,6 +784,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="form-actions">
     <button class="btn btn-ghost" onclick="closeBk()">取消</button>
     <button class="btn btn-danger" id="btn-del" style="display:none" onclick="deleteBk()">🗑 取消整筆訂單</button>
+    <!-- 只在編輯既有訂單時出現。契約讀的是「已存檔」的訂單資料，
+         新建訂單還沒有 id、也還沒存檔，沒有東西可以帶進契約。 -->
+    <button class="btn btn-ghost" id="btn-ct-sub" style="display:none"
+      onclick="ctGenTenant(editingBkId)"
+      title="產生要給房客線上簽署的住宅轉租契約連結（讀取已存檔的訂單資料，請先儲存預定）">📄 產生轉租契約</button>
     <button class="btn btn-primary" onclick="saveBk()">儲存預定</button>
   </div>
 </div>
@@ -3603,6 +3611,7 @@ function openNewBk(propId,roomNo,dateS){
   editingBkId=null;editingBkBaseUpdatedAt=null;
   document.getElementById('bk-title').textContent='新增預定';
   document.getElementById('btn-del').style.display='none';
+  document.getElementById('btn-ct-sub').style.display='none';
   document.getElementById('qa-bar').style.display='none';
   document.getElementById('conflict-warn').style.display='none';
   ['g-name','g-phone','g-email','g-note','g-taxid','g-birthday'].forEach(id=>document.getElementById(id).value='');
@@ -3640,6 +3649,7 @@ function openEditBk(bk){
   editingBkId=bk.id;editingBkBaseUpdatedAt=bk.updatedAt||null;
   document.getElementById('bk-title').textContent='編輯預定 · '+bk.id;
   document.getElementById('btn-del').style.display='';
+  document.getElementById('btn-ct-sub').style.display='';
   document.getElementById('conflict-warn').style.display='none';
   document.getElementById('g-name').value=bk.guest||'';
   document.getElementById('g-phone').value=bk.phone||'';
@@ -7301,6 +7311,16 @@ function renderPM(){
               'style="background:'+(has?'#e7f5ff;color:#1971c2':'#fff4e6;color:#e8590c')+'">'+
               (has?'📍 已定位':'📍 未定位')+'</button>';
           })()+
+          // 契約入口只在「服務類型」選好之後才出現：包租要簽包租契約、
+          // 代租代管要簽委託管理契約，沒選就無從判斷該給房東哪一份。
+          (prop.serviceType
+            ? '<button class="pm-icon-btn" onclick="ctOpenData(\''+pid+'\')" '+
+                'title="填寫這個館別的房東資料、建物登記資料與契約條件" '+
+                'style="background:#f3f0ff;color:#7048e8">📋 契約設定</button>'+
+              '<button class="pm-icon-btn" onclick="ctGenOwner(\''+pid+'\')" '+
+                'title="產生要給房東線上簽署的'+(prop.serviceType==='包租'?'住宅包租契約':'租賃住宅委託管理契約')+'連結" '+
+                'style="background:#e7f5ff;color:#1971c2">🏠 房東契約</button>'
+            : '')+
           '<button class="pm-icon-btn" onclick="togglePropEdit(\''+pid+'\')">✏️ 編輯</button>'+
           (isCustom?'<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')+
         '</div>'+
@@ -7872,6 +7892,15 @@ document.addEventListener('keydown',e=>{
 init();
 
 </script>
+
+<!-- 契約模組。條文渲染器與後台操作各自獨立成檔：條文是法規明文、
+     改動極少且必須與簽署頁（contract.html）共用同一份，分開才能保證
+     兩邊永遠一致。載在主 script 之後，因為它會用到 loadCPs/loadBks。
+     刻意不在這裡 link css/contract.css：那份樣式會改掉 body 的字型、
+     底色與 @page，會把整個排房系統的畫面和列印版面一起弄壞。契約預覽
+     是開新視窗、由新視窗自己載入該樣式。 -->
+<script src="js/contract-render.js"></script>
+<script src="js/contracts-admin.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">

@@ -235,6 +235,81 @@ const Cloud = {
     return true;
   },
 
+  // ── 線上簽約（contracts 資料表）──────────────────────────
+  // 契約不放 company_kv：kv 的每一列對登入成員都可寫，契約被改掉就沒有證據力。
+  // contracts 表上有 trigger，簽署後除了「整份作廢」以外一律擋下 UPDATE 與 DELETE，
+  // 所以這裡的方法故意沒有「編輯契約」這個動作，只有建立、作廢、重新建立。
+  CONTRACT_PAGE: 'contract.html',
+
+  _newToken() {
+    const a = new Uint8Array(16);
+    crypto.getRandomValues(a);
+    return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+  },
+  contractUrl(token) {
+    return location.origin + location.pathname.replace(/[^/]*$/, '') +
+           this.CONTRACT_PAGE + '?t=' + token;
+  },
+
+  async createContract(c) {
+    const token = this._newToken();
+    const { data, error } = await _sb.from('contracts').insert({
+      company_id: this.companyId,
+      kind: c.kind, token, no: c.no,
+      prop_id: c.propId || null, room: c.room || null,
+      booking_id: c.bookingId || null,
+      signer_name: c.signerName || null,
+      snapshot: c.snapshot
+    }).select('id, token').single();
+    if (error) { alert('建立契約失敗：' + error.message); return null; }
+    return { id: data.id, token: data.token, url: this.contractUrl(data.token) };
+  },
+
+  async listContracts() {
+    // 刻意不撈 snapshot 與 sig_img：列表只需要摘要，整包契約內容加上簽名圖
+    // 動輒數十 KB，幾十份就會讓契約管理頁開得很慢。要看內容時再單筆取。
+    const { data, error } = await _sb.from('contracts')
+      .select('id, kind, token, no, prop_id, room, booking_id, signer_name, status,' +
+              ' opened_at, signed_at, notified_at, void_reason, created_at')
+      .eq('company_id', this.companyId)
+      .order('created_at', { ascending: false });
+    if (error) { alert('讀取契約失敗：' + error.message); return []; }
+    return data || [];
+  },
+
+  async getContract(id) {
+    const { data, error } = await _sb.from('contracts').select('*')
+      .eq('id', id).eq('company_id', this.companyId).maybeSingle();
+    if (error) { alert('讀取契約失敗：' + error.message); return null; }
+    return data;
+  },
+
+  async voidContract(id, reason) {
+    const { error } = await _sb.from('contracts')
+      .update({ status: 'void', void_reason: reason || '' })
+      .eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('作廢失敗：' + error.message); return false; }
+    return true;
+  },
+
+  // 還沒簽的契約可以直接刪掉（等同撤回連結）；簽過的由資料庫擋下，改走作廢。
+  async deleteContract(id) {
+    const { error } = await _sb.from('contracts')
+      .delete().eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('刪除失敗：' + error.message); return false; }
+    return true;
+  },
+
+  // 包租業簽訂轉租契約後三十日內應以書面告知出租人轉租情形，
+  // 這裡只記錄「已告知」的時間，讓系統能把逾期未告知的案件標出來。
+  async markContractNotified(id) {
+    const { error } = await _sb.from('contracts')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('標記失敗：' + error.message); return false; }
+    return true;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({

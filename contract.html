@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>線上簽約 — 全居短租</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/cloud-config.js"></script>
+<link rel="stylesheet" href="css/contract.css">
+<style>
+/* 簽署頁自己的介面樣式。契約本體的排版一律吃 css/contract.css，
+   所以後台預覽、這裡、列印出來的 PDF 外觀完全一致。 */
+.hd,.notice,.done,.panel,.docsel,.btns,.fatal,.err,.pad-hint{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Helvetica Neue",Arial,sans-serif}
+.hd{background:#1a3a6b;color:#fff;padding:14px 20px;position:sticky;top:0;z-index:50}
+.hd-in{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.hd-logo{width:34px;height:34px;background:#2563eb;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.hd-t{font-size:15px;font-weight:700}
+.hd-s{font-size:12px;opacity:.78}
+.wrap{max-width:880px;margin:0 auto;padding:16px}
+.fatal{padding:80px 20px;text-align:center;color:#64748b}
+.notice{background:#fff8e1;border:1px solid #f0d58c;border-radius:10px;
+  padding:12px 14px;font-size:13px;line-height:1.8;margin-bottom:14px}
+.notice b{color:#8a6d00}
+.done{background:#e8f8ef;border:1px solid #9ad6b4;border-radius:10px;
+  padding:12px 14px;font-size:13.5px;line-height:1.8;margin-bottom:14px}
+.panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px;margin-bottom:16px}
+.panel h3{font-size:15px;margin:0 0 10px;color:#1a3a6b}
+.f-row{margin-bottom:12px}
+.f-row label{display:block;font-size:12.5px;color:#64748b;margin-bottom:4px;font-weight:600}
+.f-row input[type=text]{width:100%;max-width:300px;border:1px solid #cbd5e1;border-radius:8px;
+  padding:10px 12px;font-size:15px;font-family:inherit;letter-spacing:1px}
+.agree{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.75;
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px}
+.agree input{margin-top:4px;width:17px;height:17px;flex-shrink:0}
+#pad{border:1.5px dashed #94a3b8;border-radius:8px;background:#fff;
+  width:100%;max-width:520px;height:170px;touch-action:none;display:block}
+.pad-hint{font-size:12px;color:#94a3b8;margin-top:4px}
+.btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:none;border-radius:9px;padding:12px 22px;font-size:14.5px;font-weight:700;
+  cursor:pointer;font-family:inherit}
+.btn-main{background:#16a34a;color:#fff}
+.btn-main:disabled{background:#cbd5e1;cursor:not-allowed}
+.btn-ghost{background:#f1f5f9;color:#475569;font-weight:600;font-size:13px;padding:10px 16px}
+.err{color:#c92a2a;font-size:13px;margin-top:10px;white-space:pre-wrap;line-height:1.7}
+.docsel{margin-bottom:12px;font-size:13px;color:#475569}
+.docsel select{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;
+  font-size:13px;font-family:inherit;margin-left:6px}
+@media print{
+  .hd,.notice,.done,.panel,.docsel,.btns{display:none!important}
+  .wrap{max-width:none;padding:0;margin:0}
+}
+@media(max-width:600px){
+  .paper{padding:16mm 10mm;width:auto}
+  .wrap{padding:10px}
+}
+</style>
+</head>
+<body>
+<div class="hd"><div class="hd-in">
+  <div class="hd-logo">全</div>
+  <div><div class="hd-t">線上簽約</div><div class="hd-s" id="hd-s">載入中…</div></div>
+</div></div>
+<div class="wrap" id="app"><div class="fatal">載入中…</div></div>
+
+<script src="js/contract-render.js"></script>
+<script>
+'use strict';
+var sb=null, TOKEN=null, D=null, SNAP=null, PAD=null, DIRTY=false;
+
+function esc(s){return String(s==null?'':s)
+  .replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function fatal(m){document.getElementById('app').innerHTML='<div class="fatal">'+m+'</div>';
+  document.getElementById('hd-s').textContent='';}
+
+(function init(){
+  TOKEN=new URLSearchParams(location.search).get('t');
+  if(!TOKEN){fatal('此連結缺少契約識別碼，請向公司索取正確的簽署連結。');return;}
+  /* 這是正式契約而不是模板審閱檔，變數不加黃底，列印出來就是乾淨的文件 */
+  document.body.classList.add('plain');
+  sb=window.supabase.createClient(window.CLOUD_URL,window.CLOUD_KEY);
+  load();
+})();
+
+async function load(){
+  try{
+    var res=await sb.rpc('contract_get',{p_token:TOKEN});
+    if(res.error||!res.data){fatal('連結已失效或不存在，請向公司索取新的簽署連結。');return;}
+    D=res.data;
+    SNAP=D.snapshot||window.ContractRender.blankData(D.kind);
+    if(!SNAP.sign)SNAP.sign={};
+    /* 簽名圖存在獨立欄位（不進雜湊計算），渲染前補回去 */
+    if(D.sigImg)SNAP.sign.sigImg=D.sigImg;
+    if(D.openedAt&&!SNAP.sign.openedAt)SNAP.sign.openedAt=D.openedAt;
+    render();
+  }catch(e){fatal('資料載入失敗，請檢查網路後重新整理。');}
+}
+
+function render(){
+  var CR=window.ContractRender;
+  var label=CR.KIND_LABEL[D.kind]||'契約';
+  document.getElementById('hd-s').textContent=label+'　'+(D.no||'');
+
+  var h='';
+  if(D.status==='void'){
+    h+='<div class="notice"><b>本契約已作廢。</b>'+
+       (D.voidReason?'<br>作廢原因：'+esc(D.voidReason):'')+
+       '<br>如需重新簽署，請向公司索取新的簽署連結。</div>';
+  }else if(D.status==='signed'){
+    h+='<div class="done"><b>✅ 已完成簽署。</b>'+
+       '<br>簽署時間：'+esc(D.signedAt||'')+
+       '<br>簽署人身分證統一編號：'+esc(D.idNoMasked||'')+
+       '<br>契約內容指紋：'+esc(D.hash||'')+
+       '<br>本頁即為正式契約，請點下方「列印／儲存 PDF」自行留存一份。'+
+       '<div class="btns"><button class="btn btn-ghost" onclick="window.print()">🖨 列印／儲存 PDF</button></div>'+
+       '</div>';
+  }else{
+    h+=reviewNotice();
+  }
+
+  h+='<div class="docsel">顯示範圍'+
+     '<select id="sel-doc" onchange="paint()">'+
+     CR.DOCS[D.kind].map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+
+     '</select>　（以下為契約正文，條文依內政部規定不可修改）</div>'+
+     '<div id="out"></div>';
+
+  if(D.status==='pending')h+=signPanel();
+  document.getElementById('app').innerHTML=h;
+  paint();
+  if(D.status==='pending')initPad();
+}
+
+/* 審閱期：設計上連結一開就能簽，但首次開啟時間由資料庫寫死一次，
+   契約本文也會印出這個時間。真正的保護在於「有沒有給足審閱期」
+   這件事留下了不可事後偽造的紀錄。 */
+function reviewNotice(){
+  var CR=window.ContractRender;
+  var need=CR.REVIEW_DAYS[D.kind]||0;
+  var s='<div class="notice"><b>簽署前請先閱讀全文。</b>'+
+        '<br>本契約採用內政部公告之定型化契約應記載事項，條文固定不可修改。'+
+        '<br>系統紀錄之首次開啟時間：<b>'+esc(D.openedAt||'（本次）')+'</b>（此時間作為審閱期起算憑據，不可事後更改）';
+  if(need>0){
+    s+='<br>依規定本契約之審閱期間不得少於 <b>'+need+' 日</b>。'+
+       '您可以現在簽署，也可以把這個連結留著、看完再回來簽。';
+  }else{
+    s+='<br>本契約相對人為出租人（非消費者），法令未設審閱期間規定，'+
+       '但仍建議您詳閱全文後再簽署。';
+  }
+  s+='</div>';
+  return s;
+}
+
+function signPanel(){
+  var who=window.ContractRender.KIND_SIGNER[D.kind]||'簽署人';
+  return '<div class="panel"><h3>✍️ 線上簽署（簽署人：'+esc(who)+
+    (D.signerName?'　'+esc(D.signerName):'')+'）</h3>'+
+
+    '<div class="f-row"><label>國民身分證統一編號（用於核對簽署人身分，契約上只會顯示前兩碼與後四碼）</label>'+
+    '<input type="text" id="idno" maxlength="12" placeholder="A123456789" autocomplete="off"></div>'+
+
+    '<div class="f-row"><label>親筆簽名（請用手指或滑鼠在框內簽名）</label>'+
+    '<canvas id="pad"></canvas>'+
+    '<div class="pad-hint">簽得不滿意可以按「清除重簽」。'+
+    '<button class="btn btn-ghost" style="padding:4px 10px;margin-left:6px" onclick="clearPad()">清除重簽</button></div></div>'+
+
+    '<div class="agree"><input type="checkbox" id="agree">'+
+    '<label for="agree" style="margin:0;color:#334155;font-weight:400">'+
+    '本人確認已收到本契約及其全部附件並完成審閱，同意以電子文件及電子簽章方式訂立本契約，'+
+    '並瞭解依電子簽章法規定其效力與親筆簽名相同。</label></div>'+
+
+    '<div class="btns">'+
+    '<button class="btn btn-main" id="btn-sign" onclick="doSign()">確認簽署</button>'+
+    '<button class="btn btn-ghost" onclick="window.print()">🖨 先列印一份看看</button>'+
+    '</div><div class="err" id="err"></div></div>';
+}
+
+function paint(){
+  var sel=document.getElementById('sel-doc');
+  var which=sel?sel.value:'all';
+  document.getElementById('out').innerHTML=
+    window.ContractRender.render(D.kind,which,SNAP);
+}
+
+/* ── 簽名板 ─────────────────────────────────────────── */
+function initPad(){
+  var c=document.getElementById('pad');
+  if(!c)return;
+  var r=c.getBoundingClientRect();
+  var dpr=window.devicePixelRatio||1;
+  c.width=Math.round(r.width*dpr);
+  c.height=Math.round(r.height*dpr);
+  var g=c.getContext('2d');
+  g.scale(dpr,dpr);
+  g.lineWidth=2.4;g.lineCap='round';g.lineJoin='round';g.strokeStyle='#111';
+  PAD={c:c,g:g,down:false};
+  DIRTY=false;
+
+  function pt(e){
+    var b=c.getBoundingClientRect();
+    var t=e.touches&&e.touches[0]?e.touches[0]:e;
+    return {x:t.clientX-b.left,y:t.clientY-b.top};
+  }
+  function start(e){e.preventDefault();PAD.down=true;var p=pt(e);g.beginPath();g.moveTo(p.x,p.y);}
+  function move(e){if(!PAD.down)return;e.preventDefault();var p=pt(e);g.lineTo(p.x,p.y);g.stroke();DIRTY=true;}
+  function end(){PAD.down=false;}
+
+  c.addEventListener('mousedown',start);
+  c.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false});
+  c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('touchend',end);
+}
+function clearPad(){
+  if(!PAD)return;
+  var dpr=window.devicePixelRatio||1;
+  PAD.g.clearRect(0,0,PAD.c.width/dpr,PAD.c.height/dpr);
+  DIRTY=false;
+}
+
+async function doSign(){
+  var err=document.getElementById('err');
+  var btn=document.getElementById('btn-sign');
+  err.textContent='';
+  var idno=document.getElementById('idno').value.replace(/[^0-9A-Za-z]/g,'').toUpperCase();
+  if(!/^[A-Z][12][0-9]{8}$/.test(idno)){err.textContent='身分證統一編號格式不正確，請重新確認。';return;}
+  if(!DIRTY){err.textContent='請先在簽名框內親筆簽名。';return;}
+  if(!document.getElementById('agree').checked){err.textContent='請勾選確認已完成契約審閱。';return;}
+
+  btn.disabled=true;btn.textContent='簽署中…';
+  try{
+    var res=await sb.rpc('contract_sign',{
+      p_token:TOKEN,p_id_no:idno,
+      p_sig_img:PAD.c.toDataURL('image/png'),
+      p_agree:true,p_ua:navigator.userAgent});
+    if(res.error){throw new Error(res.error.message||'簽署失敗');}
+    if(!res.data||res.data.ok!==true){
+      err.textContent=(res.data&&res.data.msg)||'簽署失敗，請稍後再試。';
+      btn.disabled=false;btn.textContent='確認簽署';return;
+    }
+    await load();
+    window.scrollTo(0,0);
+  }catch(e){
+    err.textContent='簽署失敗：'+(e.message||'請檢查網路後再試一次。');
+    btn.disabled=false;btn.textContent='確認簽署';
+  }
+}
+</script>
+</body>
+</html>

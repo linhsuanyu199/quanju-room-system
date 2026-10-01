@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>契約空白模板 — 全居短租</title>
+<link rel="stylesheet" href="css/contract.css">
+</head>
+<body>
+<!-- ════════════════════════════════════════════════════════════════
+     契約空白模板預覽。
+     這裡刻意不帶任何範例資料：簽約主體（公司名稱、登記證字號、
+     管理人員證書字號）每家業者都不一樣，模板本身填了反而會被誤用。
+     要看帶資料的樣子請到後台「契約管理 → 預覽」，那邊吃的是真實
+     的館別、房東與訂單資料。
+     ════════════════════════════════════════════════════════════════ -->
+<div class="toolbar">
+  <b>契約空白模板</b>
+  <select id="sel-kind" onchange="onKind()">
+    <option value="sub">住宅轉租契約（業者 ↔ 房客）</option>
+    <option value="bz">住宅包租契約（房東 ↔ 包租業）</option>
+    <option value="wg">租賃住宅委託管理契約（房東 ↔ 代管業）</option>
+  </select>
+  <select id="sel-doc" onchange="paint()"></select>
+  <span class="sp"></span>
+  <button class="ghost" id="btn-hl" onclick="toggleHL()">關閉變數標示</button>
+  <button onclick="window.print()">🖨 列印／儲存 PDF</button>
+</div>
+<div class="warnbar" id="warn"></div>
+<div id="out"></div>
+
+<script src="js/contract-render.js"></script>
+<script>
+'use strict';
+var WARN={
+  sub:'黃底處＝簽約時由系統自動帶入的欄位；無黃底處＝內政部「住宅轉租定型化契約'+
+      '應記載及不得記載事項」（113/11/21 修正）規定的固定條文，業者與房客都不可編輯。'+
+      '由<b>房客（次承租人）</b>線上簽署。<b>審閱期至少三日。</b>',
+  bz :'黃底處＝簽約時由系統自動帶入的欄位；無黃底處＝內政部「住宅包租契約'+
+      '應約定及不得約定事項」（108/2/23 訂定、108/6/1 生效）規定的固定條文。'+
+      '由<b>房東（出租人）</b>線上簽署，館別服務類型設為「包租」時使用。'+
+      '相對人非消費者，法令未設審閱期間。',
+  wg :'黃底處＝簽約時由系統自動帶入的欄位；無黃底處＝內政部「租賃住宅委託管理'+
+      '定型化契約應記載及不得記載事項」（108/9/5 公告、108/12/1 生效）規定的固定條文。'+
+      '由<b>房東（委託人）</b>線上簽署，館別服務類型設為「代租代管」時使用。'+
+      '<b>審閱期至少三日。</b>'
+};
+function onKind(){
+  var k=document.getElementById('sel-kind').value;
+  document.getElementById('sel-doc').innerHTML=
+    window.ContractRender.DOCS[k].map(function(o){
+      return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('');
+  document.getElementById('warn').innerHTML=WARN[k];
+  paint();
+}
+function paint(){
+  var k=document.getElementById('sel-kind').value;
+  var w=document.getElementById('sel-doc').value;
+  document.getElementById('out').innerHTML=
+    window.ContractRender.render(k,w,window.ContractRender.blankData(k));
+}
+function toggleHL(){
+  var on=!document.body.classList.contains('plain');
+  document.body.classList.toggle('plain',on);
+  document.getElementById('btn-hl').textContent=on?'開啟變數標示':'關閉變數標示';
+}
+onKind();
+</script>
+</body>
+</html>
