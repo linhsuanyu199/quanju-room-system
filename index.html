@@ -550,7 +550,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <button class="btn-top btn-mgt-top" id="btn-more" onclick="toggleMoreMenu(event)" title="其他功能" style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span id="more-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
       <div class="more-panel" id="more-panel">
         <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
-        <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表</button>
+        <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
+        <button class="more-item" onclick="pickMore(openLandlords)">🏠 房東建檔</button>
+        <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表（房客）</button>
         <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
         <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
@@ -1552,14 +1554,23 @@ function todoAlerts(){
   // 租金逾期來自 js/rent-ledger.js，那支檔案載在主 script 之後，
   // init() 第一次刷新紅點時還不存在，所以要先確認函式已就緒。
   const rent=typeof rlOverdue==='function'?rlOverdue():[];
+  // 同理，撥款單與房東契約到期來自 js/payout.js、js/landlords.js
+  const payout=typeof poUnpaid==='function'?poUnpaid():[];
+  // 房東契約到期：剩 30 天內或已過期。已過期還在收租等於無契約在管，
+  // 不只是服務中斷，連租賃住宅條例要求的委託關係都斷了。
+  // 用 ldVisible() 不是 ldIndex()：待辦列會帶出房東姓名，權限要跟房東建檔一致
+  const lordTerm=typeof ldVisible==='function'
+    ?ldVisible().filter(r=>r.termEnd&&r.termDays!==null&&r.termDays<=30)
+      .sort((a,b)=>a.termDays-b.termDays):[];
   unpaid.sort((a,b)=>b.days-a.days);
   noShow.sort((a,b)=>b.days-a.days);
   lateOut.sort((a,b)=>b.days-a.days);
   upcoming.sort((a,b)=>a.days-b.days);
   precheck.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
-  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,lead,
-    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+rent.length,tod};
+  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,lead,
+    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+
+      rent.length+payout.length+lordTerm.length,tod};
 }
 function refreshTodoBadge(){
   const el=document.getElementById('todo-badge');
@@ -1591,7 +1602,7 @@ function openTodo(){
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有上月撥款單尚未撥款、房東契約即將到期。</div>';
   }else{
     h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
       '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
@@ -1601,6 +1612,24 @@ function openTodo(){
         '<td style="padding:5px 6px;white-space:nowrap">第 '+x.no+' 期 · '+escH(x.from)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
           '尚差 '+money(x.due-x.amt)+(x.over>0?'　逾 '+x.over+' 天':'')+'</td>'+
+      '</tr>').join(''));
+    h+=sec('📄 上月撥款單尚未撥款','#7048e8',a.payout.length,
+      '上個月已經結算完成、但還沒標記撥款的房東對帳單。包租是本公司該付房東的保證租金，代管是代收租金扣掉報酬後該撥回房東的餘額（金額為負數時表示房東應付本公司）。點房東姓名可開啟撥款單。',
+      a.payout.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenPayout('+jsArg(x.lordKey)+')" style="color:#1a56a0">'+escH(x.lordName)+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(x.propName)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">'+escH(x.ym)+' · '+escH(x.serviceType)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#7048e8;font-weight:700">'+
+          (x.net<0?'房東應付 ':'應撥付 ')+money(Math.abs(x.net))+'</td>'+
+      '</tr>').join(''));
+    h+=sec('📝 房東契約即將到期／已過期','#e67700',a.lordTerm.length,
+      '房東契約（包租或委託管理）剩 30 天以內到期。已過期卻還在管理與收租，等於沒有契約依據，房東隨時可以要求停止並拒付報酬。請提前談續約並重新簽署。',
+      a.lordTerm.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenLord('+jsArg(x.key)+')" style="color:#1a56a0">'+escH(x.name)+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(x.props.map(b=>b.name).join('、'))+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">'+escH(x.termEnd)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:'+(x.termExpired?'#c92a2a':'#e67700')+'">'+
+          (x.termExpired?'已過期 '+Math.abs(x.termDays)+' 天':x.termDays+' 天後到期')+'</td>'+
       '</tr>').join(''));
     h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
       '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
@@ -1638,6 +1667,9 @@ function todoOpenBk(id){
   openEditBk(bk);
 }
 function todoOpenRent(id){closeTodo();openRent(id);}
+// 待辦列的是上個月的撥款單，所以月份要一併帶過去，否則開起來是空的本月
+function todoOpenPayout(key){closeTodo();openPayout(key,poPrevMonth(poThisMonth()));}
+function todoOpenLord(key){closeTodo();openLandlords();ldDetail(key);}
 
 // ── 清潔排程設定 ────────────────────────────────
 let ccRows=[];
@@ -4499,7 +4531,7 @@ function festBody(c,f){
 // key 帶年份，所以明年同一個節日會重新視為未寄。
 function greetKey(c,kind,fkey){
   const y=String(new Date().getFullYear());
-  return (c.phone||'')+'|'+(kind==='bday'?'bday':'fest:'+(fkey||''))+'|'+y;
+  return (c.gid||c.phone||'')+'|'+(kind==='bday'?'bday':'fest:'+(fkey||''))+'|'+y;
 }
 function loadGreetLog(){return Cloud.get('qj_greetlog',{});}
 function markGreetSent(c,kind,fkey){
@@ -4508,16 +4540,12 @@ function markGreetSent(c,kind,fkey){
   Cloud.set('qj_greetlog',log);
 }
 function greetSentInfo(c,kind,fkey){return loadGreetLog()[greetKey(c,kind,fkey)]||null;}
-function copyGreetText(kind,phone,fkey){
-  const c=buildCustomerIndex().find(x=>x.phone===phone);
+function copyGreetText(kind,gid,fkey){
+  const c=greetCust(gid);
   if(!c)return;
-  let txt;
-  if(kind==='bday')txt=bdaySubject(c)+'\n\n'+bdayBody(c);
-  else{
-    const f=FESTIVALS.find(x=>x.key===fkey)||FESTIVALS[0];
-    txt=festSubject(c,f)+'\n\n'+festBody(c,f);
-  }
-  navigator.clipboard.writeText(txt).then(()=>alert('✅ 祝福文案已複製，可貼到 LINE 或簡訊發送'));
+  const{subject,body}=greetContent(c,kind,fkey);
+  navigator.clipboard.writeText(subject+'\n\n'+body)
+    .then(()=>alert('✅ 祝福文案已複製，可貼到 LINE 或簡訊發送'));
 }
 function openGreet(){renderGreet();document.getElementById('gr-ov').classList.add('open');}
 function closeGreet(){document.getElementById('gr-ov').classList.remove('open');}
@@ -4525,8 +4553,12 @@ function renderGreet(){
   const box=document.getElementById('gr-content');
   const now=new Date(),y=now.getFullYear(),m=now.getMonth()+1;
   const tod=todayStr();
-  const list=visibleCustomers();
-  const scope=isAdmin()?'企業全部客戶':'歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶';
+  // 房客與房東併成同一份名單：對業者而言「這個月該祝福誰」是一個問題，
+  // 不是兩個。兩邊的 gid 不會撞號，列上也有「房東」標籤區分。
+  const lords=typeof ldGreetList==='function'?ldGreetList():[];
+  const list=visibleCustomers().concat(lords);
+  const scope=(isAdmin()?'企業全部客戶':'歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶')+
+    '（房客 '+(list.length-lords.length)+' 位・房東 '+lords.length+' 位）';
   document.getElementById('gr-title').textContent='🎉 祝福提醒 — '+scope;
 
   // 本月壽星
@@ -4540,13 +4572,16 @@ function renderGreet(){
     const sent=greetSentInfo(c,kind,f?f.key:'');
     const why=!c.optIn?'未勾選同意接收，不建議主動發送'
       :(!c.email?'已同意但沒有 Email，可改用電話或 LINE 聯繫':'');
-    const ph=escH(c.phone).replace(/'/g,"\\'");
+    const gid=c.gid||c.phone;
     const fk=f?f.key:'';
     return '<tr style="border-bottom:1px solid var(--border)'+(canMail?'':';opacity:.62')+'">'+
       '<td style="padding:7px 4px 7px 9px;width:26px">'+
-        (canMail?'<input type="checkbox" class="gr-ck" data-phone="'+escH(c.phone)+'" data-kind="'+kind+'" data-fkey="'+escH(fk)+'"'+
+        (canMail?'<input type="checkbox" class="gr-ck" data-gid="'+escH(gid)+'" data-kind="'+kind+'" data-fkey="'+escH(fk)+'"'+
           (sent?'':' checked')+' onchange="updGreetSel()">':'')+'</td>'+
-      '<td style="padding:7px 9px">'+(prefix||'')+'<strong>'+escH(c.name)+'</strong>'+
+      '<td style="padding:7px 9px">'+(prefix||'')+
+        (c.isLord?'<span style="display:inline-block;background:#e7f5ff;color:#1971c2;border-radius:4px;'+
+          'padding:0 5px;font-size:9.5px;font-weight:700;margin-right:4px">房東</span>':'')+
+        '<strong>'+escH(c.name)+'</strong>'+
         '<div style="font-size:10px;color:var(--muted)">'+escH(c.phone)+'</div></td>'+
       '<td style="padding:7px 9px;font-size:11px">'+escH(c.owner||'—')+'</td>'+
       '<td style="padding:7px 9px;font-size:11px">'+(c.email?escH(c.email):'<span style="color:var(--muted)">未填</span>')+'</td>'+
@@ -4559,9 +4594,9 @@ function renderGreet(){
         :'<span style="color:var(--muted)">尚未寄送</span>')+'</td>'+
       '<td style="padding:7px 9px;text-align:right;white-space:nowrap">'+
         (canMail
-          ?'<button class="btn btn-primary sm" onclick="sendOneGreet(\''+ph+'\',\''+kind+'\',\''+escH(fk)+'\')">✉️ 寄祝福</button> '
+          ?'<button class="btn btn-primary sm" onclick="sendOneGreet('+jsArg(gid)+',\''+kind+'\',\''+escH(fk)+'\')">✉️ 寄祝福</button> '
           :'')+
-        '<button class="btn btn-ghost sm" onclick="copyGreetText(\''+kind+'\',\''+ph+'\',\''+fk+'\')">複製文案</button>'+
+        '<button class="btn btn-ghost sm" onclick="copyGreetText(\''+kind+'\','+jsArg(gid)+',\''+fk+'\')">複製文案</button>'+
       '</td>'+
     '</tr>';
   }
@@ -4590,7 +4625,7 @@ function renderGreet(){
   html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin-bottom:7px">🎂 '+m+' 月壽星（'+stars.length+' 位）</div>';
   if(stars.length===0){
     html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted);margin-bottom:16px">'+
-      '本月沒有壽星。若客戶尚未填生日，可到「客戶列表」點該客戶後補填。</div>';
+      '本月沒有壽星。生日不是必填欄位，房客可到「👥 客戶列表」、房東可到「🏠 房東建檔」點進去補填。</div>';
   }else{
     html+=tableWrap(stars.map(x=>{
       const dayTag=x.d===tod?'<span style="color:#c92a2a;font-weight:700">今天</span>'
@@ -4631,8 +4666,18 @@ function renderGreet(){
 }
 
 // ── 祝福寄送（單封 / 批次佇列）──────────────────
-function greetCust(phone){return buildCustomerIndex().find(x=>x.phone===phone)||null;}
+// gid 以 L| 開頭＝房東（來自 js/landlords.js），否則就是房客的電話。
+function greetCust(gid){
+  const g=String(gid||'');
+  if(g.indexOf('L|')===0){
+    if(typeof ldGreetList!=='function')return null;
+    return ldGreetList().find(x=>x.gid===g)||null;
+  }
+  return buildCustomerIndex().find(x=>x.gid===g)||null;
+}
 function greetContent(c,kind,fkey){
+  // 房東的信不能用房客那套文案（「若有任何住宿需求」對房東是答非所問）
+  if(c.isLord&&typeof lordGreetContent==='function')return lordGreetContent(c,kind,fkey);
   if(kind==='bday')return{subject:bdaySubject(c),body:bdayBody(c)};
   const f=FESTIVALS.find(x=>x.key===fkey)||FESTIVALS[0];
   return{subject:festSubject(c,f),body:festBody(c,f)};
@@ -4643,8 +4688,8 @@ function openMailUrl(url){
   if(url.indexOf('mailto:')===0)window.location.href=url;
   else window.open(url,'_blank','noopener');
 }
-function sendOneGreet(phone,kind,fkey){
-  const c=greetCust(phone);
+function sendOneGreet(gid,kind,fkey){
+  const c=greetCust(gid);
   if(!c)return;
   const{subject,body}=greetContent(c,kind,fkey);
   openMailUrl(greetMailUrl(c,subject,body));
@@ -4657,7 +4702,7 @@ function toggleGreetAll(on){
 }
 function greetSelected(){
   return [...document.querySelectorAll('#gr-content .gr-ck')].filter(el=>el.checked)
-    .map(el=>({phone:el.dataset.phone,kind:el.dataset.kind,fkey:el.dataset.fkey}));
+    .map(el=>({gid:el.dataset.gid,kind:el.dataset.kind,fkey:el.dataset.fkey}));
 }
 function updGreetSel(){
   const el=document.getElementById('gr-selcount');
@@ -4673,8 +4718,8 @@ function startGreetQueue(){
   const sel=greetSelected();
   if(sel.length===0){alert('請先勾選要寄送的客戶。');return;}
   gqList=sel.map(s=>{
-    const c=greetCust(s.phone);
-    return{...s,name:c?c.name:s.phone,email:c?c.email:'',done:false,skipped:false};
+    const c=greetCust(s.gid);
+    return{...s,name:c?c.name:s.gid,email:c?c.email:'',done:false,skipped:false};
   }).filter(x=>x.email);
   if(gqList.length===0){alert('勾選的客戶都沒有 Email，無法寄送。');return;}
   gqIdx=0;
@@ -4688,7 +4733,7 @@ function closeGreetQueue(){
 function gqOpenCurrent(){
   const it=gqList[gqIdx];
   if(!it)return;
-  const c=greetCust(it.phone);
+  const c=greetCust(it.gid);
   if(c){
     const{subject,body}=greetContent(c,it.kind,it.fkey);
     openMailUrl(greetMailUrl(c,subject,body));
@@ -5746,6 +5791,10 @@ function buildCustomerIndex(){
     c.optIn=rec.optIn===true;
     c.crmNote=rec.note||'';
     if(rec.email)c.email=rec.email;
+    // 祝福提醒同時處理房客與房東，兩者的歸戶鍵都是電話而且可能撞號，
+    // 所以寄送紀錄改用 gid。房客的 gid 就等於電話，既有的 qj_greetlog
+    // 不會因此失效（房東那邊才加 L| 前綴）。
+    c.gid=c.phone;
   });
   return Object.values(map).sort((a,b)=>(b.lastCheckin||'').localeCompare(a.lastCheckin||''));
 }
@@ -6191,7 +6240,9 @@ function renderCustomers(){
     .filter(c=>!lampF||guestLamp(c.phone,risk0[c.phone])===lampF);
   const tbody=document.getElementById('cust-tbody');
   const scope=isAdmin()?'（企業管理者：可看全部客戶）':'（僅顯示歸屬於「'+(Cloud.myDisplayName||'')+'」的客戶）';
-  document.getElementById('cust-title').textContent='客戶列表 — 共 '+list.length+' 位'+scope;
+  // 標題明寫「房客」：這張表是從訂單推導的，房東永遠不會出現在這裡，
+  // 不講清楚的話業者會以為房東資料不見了。房東在「🏠 房東建檔」。
+  document.getElementById('cust-title').textContent='客戶列表（房客）— 共 '+list.length+' 位'+scope;
   if(list.length===0){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">'+
       (isAdmin()?'尚無符合的客戶資料':'目前沒有歸屬於您的客戶。若確認有客戶應由您負責，請聯繫企業管理者調整歸屬。')+'</td></tr>';
@@ -7861,12 +7912,17 @@ function exportCompanyData(){
   }));
   // 租金收款台帳（期數由租期推導，連同已登錄的收款紀錄一起匯出）
   const rentRows=typeof rlExportRows==='function'?rlExportRows():[];
+  // 房東名冊由館別契約設定推導；撥款單只匯出本月與上月（往前無上限會讓檔案無意義地變大）
+  const lordRows=typeof ldExportRows==='function'?ldExportRows():[];
+  const payRows=typeof poExportRows==='function'?poExportRows():[];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(custRows),'客戶');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(taskRows),'維修清潔');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rentRows),'租金收款');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lordRows),'房東名冊');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(payRows),'房東撥款單');
   const stamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,(Cloud.companyName||'企業')+'_資料匯出_'+stamp+'.xlsx');
 }
@@ -7927,6 +7983,12 @@ init();
 <!-- 租金收款台帳。同樣載在主 script 之後，它會用到 loadBks/getAllProps/
      diffDays/money/escH/jsArg 這些主檔的工具函式。 -->
 <script src="js/rent-ledger.js"></script>
+
+<!-- 房東建檔與月結撥款單。順序有意義：payout.js 會用到 landlords.js 的
+     ldIndex/ldVisible，而 landlords.js 的祝福文案會用到主 script 的
+     GREET_OPTOUT 與 FESTIVALS。 -->
+<script src="js/landlords.js"></script>
+<script src="js/payout.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">
