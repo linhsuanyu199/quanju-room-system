@@ -549,6 +549,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="more-menu">
       <button class="btn-top btn-mgt-top" id="btn-more" onclick="toggleMoreMenu(event)" title="其他功能" style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span id="more-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
       <div class="more-panel" id="more-panel">
+        <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
         <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表</button>
         <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
         <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
@@ -786,6 +787,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn btn-danger" id="btn-del" style="display:none" onclick="deleteBk()">🗑 取消整筆訂單</button>
     <!-- 只在編輯既有訂單時出現。契約讀的是「已存檔」的訂單資料，
          新建訂單還沒有 id、也還沒存檔，沒有東西可以帶進契約。 -->
+    <button class="btn btn-ghost" id="btn-rent" style="display:none"
+      onclick="openRent(editingBkId)"
+      title="查看這筆訂單的各期繳租情形（期數依租期自動展開）">💰 繳租紀錄</button>
     <button class="btn btn-ghost" id="btn-ct-sub" style="display:none"
       onclick="ctGenTenant(editingBkId)"
       title="產生要給房客線上簽署的住宅轉租契約連結（讀取已存檔的訂單資料，請先儲存預定）">📄 產生轉租契約</button>
@@ -1545,14 +1549,17 @@ function todoAlerts(){
     });
   });
   const tasks=loadTasks().filter(t=>OPEN_STATUS_KEYS.includes(t.status)&&t.dueDate&&t.dueDate<tod);
+  // 租金逾期來自 js/rent-ledger.js，那支檔案載在主 script 之後，
+  // init() 第一次刷新紅點時還不存在，所以要先確認函式已就緒。
+  const rent=typeof rlOverdue==='function'?rlOverdue():[];
   unpaid.sort((a,b)=>b.days-a.days);
   noShow.sort((a,b)=>b.days-a.days);
   lateOut.sort((a,b)=>b.days-a.days);
   upcoming.sort((a,b)=>a.days-b.days);
   precheck.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
-  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,lead,
-    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length,tod};
+  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,lead,
+    total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+rent.length,tod};
 }
 function refreshTodoBadge(){
   const el=document.getElementById('todo-badge');
@@ -1584,8 +1591,17 @@ function openTodo(){
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、或複查清單尚未完成的訂單。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單。</div>';
   }else{
+    h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
+      '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
+      a.rent.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenRent(\''+escH(x.bkId)+'\')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(x.propName)+' '+escH(x.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">第 '+x.no+' 期 · '+escH(x.from)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
+          '尚差 '+money(x.due-x.amt)+(x.over>0?'　逾 '+x.over+' 天':'')+'</td>'+
+      '</tr>').join(''));
     h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
       '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
       a.unpaid.map(x=>bkRow(x,'#c92a2a','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
@@ -1621,6 +1637,7 @@ function todoOpenBk(id){
   if(!bk){alert('這筆訂單已不存在，可能已被其他成員刪除。');return;}
   openEditBk(bk);
 }
+function todoOpenRent(id){closeTodo();openRent(id);}
 
 // ── 清潔排程設定 ────────────────────────────────
 let ccRows=[];
@@ -3612,6 +3629,7 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('bk-title').textContent='新增預定';
   document.getElementById('btn-del').style.display='none';
   document.getElementById('btn-ct-sub').style.display='none';
+  document.getElementById('btn-rent').style.display='none';
   document.getElementById('qa-bar').style.display='none';
   document.getElementById('conflict-warn').style.display='none';
   ['g-name','g-phone','g-email','g-note','g-taxid','g-birthday'].forEach(id=>document.getElementById(id).value='');
@@ -3650,6 +3668,7 @@ function openEditBk(bk){
   document.getElementById('bk-title').textContent='編輯預定 · '+bk.id;
   document.getElementById('btn-del').style.display='';
   document.getElementById('btn-ct-sub').style.display='';
+  document.getElementById('btn-rent').style.display='';
   document.getElementById('conflict-warn').style.display='none';
   document.getElementById('g-name').value=bk.guest||'';
   document.getElementById('g-phone').value=bk.phone||'';
@@ -7840,11 +7859,14 @@ function exportCompanyData(){
     入住次數:c.totalStays,累計消費:c.totalRevenue,
     最早入住日:c.firstCheckin||'',最近入住日:c.lastCheckin||'',客戶備註:c.crmNote||''
   }));
+  // 租金收款台帳（期數由租期推導，連同已登錄的收款紀錄一起匯出）
+  const rentRows=typeof rlExportRows==='function'?rlExportRows():[];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(custRows),'客戶');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(taskRows),'維修清潔');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rentRows),'租金收款');
   const stamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,(Cloud.companyName||'企業')+'_資料匯出_'+stamp+'.xlsx');
 }
@@ -7901,6 +7923,10 @@ init();
      是開新視窗、由新視窗自己載入該樣式。 -->
 <script src="js/contract-render.js"></script>
 <script src="js/contracts-admin.js"></script>
+
+<!-- 租金收款台帳。同樣載在主 script 之後，它會用到 loadBks/getAllProps/
+     diffDays/money/escH/jsArg 這些主檔的工具函式。 -->
+<script src="js/rent-ledger.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">
