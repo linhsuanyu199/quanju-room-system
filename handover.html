@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>線上簽約 — 短期租賃管理營運系統</title>
+<title>點交確認單簽收 — 短期租賃管理營運系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/cloud-config.js"></script>
 <link rel="stylesheet" href="css/contract.css">
 <style>
-/* 簽署頁自己的介面樣式。契約本體的排版一律吃 css/contract.css，
+/* 簽收頁自己的介面樣式。點交單本體的排版一律吃 css/contract.css，
    所以後台預覽、這裡、列印出來的 PDF 外觀完全一致。 */
-.hd,.notice,.done,.panel,.docsel,.btns,.fatal,.err,.pad-hint{
+.hd,.notice,.done,.panel,.btns,.fatal,.err,.pad-hint{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Helvetica Neue",Arial,sans-serif}
 .hd{background:#1a3a6b;color:#fff;padding:14px 20px;position:sticky;top:0;z-index:50}
 .hd-in{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:10px}
 .hd-logo{width:34px;height:34px;background:#2563eb;border-radius:8px;display:flex;
-  align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+  align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
 .hd-t{font-size:15px;font-weight:700}
 .hd-s{font-size:12px;opacity:.78}
 .wrap{max-width:880px;margin:0 auto;padding:16px}
@@ -30,8 +30,8 @@
 .panel h3{font-size:15px;margin:0 0 10px;color:#1a3a6b}
 .f-row{margin-bottom:12px}
 .f-row label{display:block;font-size:12.5px;color:#64748b;margin-bottom:4px;font-weight:600}
-.f-row input[type=text]{width:100%;max-width:300px;border:1px solid #cbd5e1;border-radius:8px;
-  padding:10px 12px;font-size:15px;font-family:inherit;letter-spacing:1px}
+.f-row input[type=tel]{width:100%;max-width:300px;border:1px solid #cbd5e1;border-radius:8px;
+  padding:10px 12px;font-size:16px;font-family:inherit;letter-spacing:2px}
 .agree{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.75;
   background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px}
 .agree input{margin-top:4px;width:17px;height:17px;flex-shrink:0}
@@ -45,27 +45,28 @@
 .btn-main:disabled{background:#cbd5e1;cursor:not-allowed}
 .btn-ghost{background:#f1f5f9;color:#475569;font-weight:600;font-size:13px;padding:10px 16px}
 .err{color:#c92a2a;font-size:13px;margin-top:10px;white-space:pre-wrap;line-height:1.7}
-.docsel{margin-bottom:12px;font-size:13px;color:#475569}
-.docsel select{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;
-  font-size:13px;font-family:inherit;margin-left:6px}
+.sumbar{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;
+  font-size:13.5px;line-height:1.9;margin-bottom:14px;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif}
+.sumbar .big{font-size:20px;font-weight:800;color:#c92a2a}
 @media print{
-  .hd,.notice,.done,.panel,.docsel,.btns{display:none!important}
+  .hd,.notice,.done,.panel,.btns,.sumbar{display:none!important}
   .wrap{max-width:none;padding:0;margin:0}
 }
 @media(max-width:600px){
-  .paper{padding:16mm 10mm;width:auto}
+  .paper{padding:16mm 8mm;width:auto}
   .wrap{padding:10px}
 }
 </style>
 </head>
 <body>
 <div class="hd"><div class="hd-in">
-  <div class="hd-logo">✍️</div>
-  <div><div class="hd-t">線上簽約</div><div class="hd-s" id="hd-s">載入中…</div></div>
+  <div class="hd-logo">📋</div>
+  <div><div class="hd-t">點交確認單簽收</div><div class="hd-s" id="hd-s">載入中…</div></div>
 </div></div>
 <div class="wrap" id="app"><div class="fatal">載入中…</div></div>
 
-<script src="js/contract-render.js"></script>
+<script src="js/handover-render.js"></script>
 <script>
 'use strict';
 var sb=null, TOKEN=null, D=null, SNAP=null, PAD=null, DIRTY=false;
@@ -74,11 +75,12 @@ function esc(s){return String(s==null?'':s)
   .replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fatal(m){document.getElementById('app').innerHTML='<div class="fatal">'+m+'</div>';
   document.getElementById('hd-s').textContent='';}
+function money(n){return Number(n||0).toLocaleString('en-US');}
 
 (function init(){
   TOKEN=new URLSearchParams(location.search).get('t');
-  if(!TOKEN){fatal('此連結缺少契約識別碼，請向公司索取正確的簽署連結。');return;}
-  /* 這是正式契約而不是模板審閱檔，變數不加黃底，列印出來就是乾淨的文件 */
+  if(!TOKEN){fatal('此連結缺少點交單識別碼，請向承辦人索取正確的簽收連結。');return;}
+  /* 這是正式單據而不是模板審閱檔，變數不加黃底，列印出來就是乾淨的文件 */
   document.body.classList.add('plain');
   sb=window.supabase.createClient(window.CLOUD_URL,window.CLOUD_KEY);
   load();
@@ -86,10 +88,10 @@ function fatal(m){document.getElementById('app').innerHTML='<div class="fatal">'
 
 async function load(){
   try{
-    var res=await sb.rpc('contract_get',{p_token:TOKEN});
-    if(res.error||!res.data){fatal('連結已失效或不存在，請向公司索取新的簽署連結。');return;}
+    var res=await sb.rpc('handover_get',{p_token:TOKEN});
+    if(res.error||!res.data){fatal('連結已失效或不存在，請向承辦人索取新的簽收連結。');return;}
     D=res.data;
-    SNAP=D.snapshot||window.ContractRender.blankData(D.kind);
+    SNAP=D.snapshot||window.HandoverRender.blank(D.kind);
     if(!SNAP.sign)SNAP.sign={};
     /* 簽名圖存在獨立欄位（不進雜湊計算），渲染前補回去 */
     if(D.sigImg)SNAP.sign.sigImg=D.sigImg;
@@ -99,66 +101,69 @@ async function load(){
 }
 
 function render(){
-  var CR=window.ContractRender;
-  var label=CR.KIND_LABEL[D.kind]||'契約';
+  var HR=window.HandoverRender;
+  var label=HR.KIND_LABEL[D.kind]||'點交確認單';
   document.getElementById('hd-s').textContent=label+'　'+(D.no||'');
 
   var h='';
   if(D.status==='void'){
-    h+='<div class="notice"><b>本契約已作廢。</b>'+
+    h+='<div class="notice"><b>本點交單已作廢。</b>'+
        (D.voidReason?'<br>作廢原因：'+esc(D.voidReason):'')+
-       '<br>如需重新簽署，請向公司索取新的簽署連結。</div>';
+       '<br>如需重新點交，請向承辦人索取新的簽收連結。</div>';
   }else if(D.status==='signed'){
-    h+='<div class="done"><b>✅ 已完成簽署。</b>'+
-       '<br>簽署時間：'+esc(D.signedAt||'')+
-       '<br>簽署人身分證統一編號：'+esc(D.idNoMasked||'')+
-       '<br>契約內容指紋：'+esc(D.hash||'')+
-       '<br>本頁即為正式契約，請點下方「列印／儲存 PDF」自行留存一份。'+
+    h+='<div class="done"><b>✅ 已完成簽收。</b>'+
+       '<br>簽收時間：'+esc(D.signedAt||'')+
+       '<br>內容指紋：'+esc(D.hash||'')+
+       '<br>本頁即為正式點交單，請點下方「列印／儲存 PDF」自行留存一份。'+
        '<div class="btns"><button class="btn btn-ghost" onclick="window.print()">🖨 列印／儲存 PDF</button></div>'+
        '</div>';
   }else{
-    h+=reviewNotice();
+    h+=openNotice();
   }
 
-  h+='<div class="docsel">顯示範圍'+
-     '<select id="sel-doc" onchange="paint()">'+
-     CR.DOCS[D.kind].map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+
-     '</select>　（以下為契約正文，條文依內政部規定不可修改）</div>'+
-     '<div id="out"></div>';
-
+  h+=sumBar();
+  h+='<div id="out"></div>';
   if(D.status==='pending')h+=signPanel();
   document.getElementById('app').innerHTML=h;
-  paint();
+  document.getElementById('out').innerHTML=HR.render(SNAP);
   if(D.status==='pending')initPad();
 }
 
-/* 審閱期：設計上連結一開就能簽，但首次開啟時間由資料庫寫死一次，
-   契約本文也會印出這個時間。真正的保護在於「有沒有給足審閱期」
-   這件事留下了不可事後偽造的紀錄。 */
-function reviewNotice(){
-  var CR=window.ContractRender;
-  var need=CR.REVIEW_DAYS[D.kind]||0;
-  var s='<div class="notice"><b>簽署前請先閱讀全文。</b>'+
-        '<br>本契約採用內政部公告之定型化契約應記載事項，條文固定不可修改。'+
-        '<br>系統紀錄之首次開啟時間：<b>'+esc(D.openedAt||'（本次）')+'</b>（此時間作為審閱期起算憑據，不可事後更改）';
-  if(need>0){
-    s+='<br>依規定本契約之審閱期間不得少於 <b>'+need+' 日</b>。'+
-       '您可以現在簽署，也可以把這個連結留著、看完再回來簽。';
-  }else{
-    s+='<br>本契約相對人為出租人（非消費者），法令未設審閱期間規定，'+
-       '但仍建議您詳閱全文後再簽署。';
+/* 把「簽了會被扣多少錢」放在單據前面。
+   房客在手機上看，明細表要往下滑很久才看到合計；真正該在簽名前看清楚的
+   就是這個數字，所以獨立拉到最上面，而不是只藏在表格最後一列。 */
+function sumBar(){
+  var HR=window.HandoverRender;
+  var s=HR.sumOf(SNAP.items);
+  if(D.kind!=='out'){
+    return '<div class="sumbar">本單為<b>入住點交</b>，記錄交屋當時的設備狀態，'+
+      '作為日後退房比對的基準，<b>不涉及任何費用</b>。'+
+      '<br>本次記錄：損壞 '+s.bad+' 項、缺少 '+s.missing+' 項（皆為入住前既有，退房時不會向您請求賠償）。</div>';
   }
-  s+='</div>';
-  return s;
+  return '<div class="sumbar">本單將自您的押金中扣抵的賠償金額合計：'+
+    '<span class="big">'+money(s.charge)+' 元</span>'+
+    '<br>（損壞 '+s.bad+' 項、缺少 '+s.missing+' 項；其中僅「可歸責於房客」之項目計入賠償）'+
+    '<br>完整的押金退還計算（含租金、水電費）將另以退房結算單提供。'+
+    '<br><b>請先核對下方明細，確認無誤後再簽收。</b>如有異議請先與承辦人協商，不要先簽。</div>';
+}
+
+/* 首次開啟時間由資料庫寫死一次，單上也會印出來。
+   真正的保護在於「有沒有給房客看過」這件事留下了不可事後偽造的紀錄。 */
+function openNotice(){
+  return '<div class="notice"><b>簽收前請逐項核對設備現況。</b>'+
+    '<br>系統紀錄之首次開啟時間：<b>'+esc(D.openedAt||'（本次）')+'</b>（不可事後更改）'+
+    '<br>簽收需輸入您在訂單上登記的手機號碼以核對身分，並請親筆簽名。'+
+    '<br><b>簽收後本單內容即不得修改</b>，承辦人也無法調整金額或歸責；'+
+    '需更正時只能整份作廢並重新點交。</div>';
 }
 
 function signPanel(){
-  var who=window.ContractRender.KIND_SIGNER[D.kind]||'簽署人';
-  return '<div class="panel"><h3>✍️ 線上簽署（簽署人：'+esc(who)+
-    (D.signerName?'　'+esc(D.signerName):'')+'）</h3>'+
+  var g=SNAP.guest||{};
+  return '<div class="panel"><h3>✍️ 線上簽收'+(g.name?'（簽收人：'+esc(g.name)+'）':'')+'</h3>'+
 
-    '<div class="f-row"><label>國民身分證統一編號（用於核對簽署人身分，契約上只會顯示前兩碼與後四碼）</label>'+
-    '<input type="text" id="idno" maxlength="12" placeholder="A123456789" autocomplete="off"></div>'+
+    '<div class="f-row"><label>您在訂單上登記的手機號碼（用於核對簽收人身分，單上只會顯示末四碼）</label>'+
+    '<input type="tel" id="phone" maxlength="20" inputmode="numeric" '+
+    'placeholder="09xxxxxxxx" autocomplete="off"></div>'+
 
     '<div class="f-row"><label>親筆簽名（請用手指或滑鼠在框內簽名）</label>'+
     '<canvas id="pad"></canvas>'+
@@ -167,20 +172,15 @@ function signPanel(){
 
     '<div class="agree"><input type="checkbox" id="agree">'+
     '<label for="agree" style="margin:0;color:#334155;font-weight:400">'+
-    '本人確認已收到本契約及其全部附件並完成審閱，同意以電子文件及電子簽章方式訂立本契約，'+
+    '本人已逐項核對本點交單所載設備現況'+
+    (D.kind==='out'?'、歸責認定與估定賠償金額，確認無誤並同意自押金中扣抵':'，確認無誤')+
+    '，同意以電子文件及電子簽章方式簽收本單，'+
     '並瞭解依電子簽章法規定其效力與親筆簽名相同。</label></div>'+
 
     '<div class="btns">'+
-    '<button class="btn btn-main" id="btn-sign" onclick="doSign()">確認簽署</button>'+
+    '<button class="btn btn-main" id="btn-sign" onclick="doSign()">確認簽收</button>'+
     '<button class="btn btn-ghost" onclick="window.print()">🖨 先列印一份看看</button>'+
     '</div><div class="err" id="err"></div></div>';
-}
-
-function paint(){
-  var sel=document.getElementById('sel-doc');
-  var which=sel?sel.value:'all';
-  document.getElementById('out').innerHTML=
-    window.ContractRender.render(D.kind,which,SNAP);
 }
 
 /* ── 簽名板 ─────────────────────────────────────────── */
@@ -224,27 +224,29 @@ async function doSign(){
   var err=document.getElementById('err');
   var btn=document.getElementById('btn-sign');
   err.textContent='';
-  var idno=document.getElementById('idno').value.replace(/[^0-9A-Za-z]/g,'').toUpperCase();
-  if(!/^[A-Z][12][0-9]{8}$/.test(idno)){err.textContent='身分證統一編號格式不正確，請重新確認。';return;}
+  /* 只洗掉非數字，不在前端比對正確與否——核對一律由資料庫做，
+     前端的檢查只是避免把明顯打錯的格式送出去。 */
+  var phone=document.getElementById('phone').value.replace(/[^0-9]/g,'');
+  if(phone.length<8){err.textContent='請輸入您在訂單上登記的完整手機號碼。';return;}
   if(!DIRTY){err.textContent='請先在簽名框內親筆簽名。';return;}
-  if(!document.getElementById('agree').checked){err.textContent='請勾選確認已完成契約審閱。';return;}
+  if(!document.getElementById('agree').checked){err.textContent='請勾選確認已核對點交內容。';return;}
 
-  btn.disabled=true;btn.textContent='簽署中…';
+  btn.disabled=true;btn.textContent='簽收中…';
   try{
-    var res=await sb.rpc('contract_sign',{
-      p_token:TOKEN,p_id_no:idno,
+    var res=await sb.rpc('handover_sign',{
+      p_token:TOKEN,p_phone:phone,
       p_sig_img:PAD.c.toDataURL('image/png'),
       p_agree:true,p_ua:navigator.userAgent});
-    if(res.error){throw new Error(res.error.message||'簽署失敗');}
+    if(res.error){throw new Error(res.error.message||'簽收失敗');}
     if(!res.data||res.data.ok!==true){
-      err.textContent=(res.data&&res.data.msg)||'簽署失敗，請稍後再試。';
-      btn.disabled=false;btn.textContent='確認簽署';return;
+      err.textContent=(res.data&&res.data.msg)||'簽收失敗，請稍後再試。';
+      btn.disabled=false;btn.textContent='確認簽收';return;
     }
     await load();
     window.scrollTo(0,0);
   }catch(e){
-    err.textContent='簽署失敗：'+(e.message||'請檢查網路後再試一次。');
-    btn.disabled=false;btn.textContent='確認簽署';
+    err.textContent='簽收失敗：'+(e.message||'請檢查網路後再試一次。');
+    btn.disabled=false;btn.textContent='確認簽收';
   }
 }
 </script>

@@ -310,6 +310,83 @@ const Cloud = {
     return true;
   },
 
+  // ── 入住／退房點交（handovers 資料表）──────────────────────
+  // 與契約同樣的理由：點交單是押金扣抵的唯一依據，房客簽完之後不能再被改金額
+  // 或改歸責，所以不放 company_kv，而是獨立一張有 trigger 的表。
+  // 這裡同樣沒有「編輯已簽點交單」的方法，只有建立、作廢、重新點交。
+  HANDOVER_PAGE: 'handover.html',
+
+  handoverUrl(token) {
+    return location.origin + location.pathname.replace(/[^/]*$/, '') +
+           this.HANDOVER_PAGE + '?t=' + token;
+  },
+
+  // signerPhone 只送數字進去：資料庫端核對時也會把兩邊都正規化，
+  // 但來源就先洗乾淨，避免同一支號碼因為有沒有加 03- 而存成兩種樣子。
+  async createHandover(h) {
+    const token = this._newToken();
+    const { data, error } = await _sb.from('handovers').insert({
+      company_id: this.companyId,
+      kind: h.kind, token, no: h.no,
+      booking_id: h.bookingId,
+      prop_id: h.propId || null, room: h.room || null,
+      signer_name: h.signerName || null,
+      signer_phone: String(h.signerPhone || '').replace(/[^0-9]/g, '') || null,
+      snapshot: h.snapshot
+    }).select('id, token').single();
+    if (error) { alert('建立點交單失敗：' + error.message); return null; }
+    return { id: data.id, token: data.token, url: this.handoverUrl(data.token) };
+  },
+
+  async listHandovers() {
+    // 同 listContracts：不撈 snapshot／sig_img，列表只要摘要。
+    // signer_phone 也不撈——後台要核對手機時看訂單本身就有，沒必要多抄一份出來。
+    const { data, error } = await _sb.from('handovers')
+      .select('id, kind, token, no, prop_id, room, booking_id, signer_name, status,' +
+              ' opened_at, signed_at, void_reason, created_at')
+      .eq('company_id', this.companyId)
+      .order('created_at', { ascending: false });
+    if (error) { alert('讀取點交單失敗：' + error.message); return []; }
+    return data || [];
+  },
+
+  // 匯出用：一次把 snapshot 一起撈回來。清單刻意不撈 snapshot（每張單含
+  // 二十多個項目，幾十張一次載會很重），但匯出要的就是明細，逐張呼叫
+  // getHandover() 會變成幾十次往返。sig_img 依然不撈——簽名圖放不進
+  // Excel，撈回來只是白佔頻寬。
+  async exportHandovers() {
+    const { data, error } = await _sb.from('handovers')
+      .select('id, kind, no, prop_id, room, booking_id, signer_name, status,' +
+              ' opened_at, signed_at, void_reason, created_at, snapshot')
+      .eq('company_id', this.companyId)
+      .order('created_at', { ascending: false });
+    if (error) { alert('讀取點交單失敗：' + error.message); return []; }
+    return data || [];
+  },
+
+  async getHandover(id) {
+    const { data, error } = await _sb.from('handovers').select('*')
+      .eq('id', id).eq('company_id', this.companyId).maybeSingle();
+    if (error) { alert('讀取點交單失敗：' + error.message); return null; }
+    return data;
+  },
+
+  async voidHandover(id, reason) {
+    const { error } = await _sb.from('handovers')
+      .update({ status: 'void', void_reason: reason || '' })
+      .eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('作廢失敗：' + error.message); return false; }
+    return true;
+  },
+
+  // 還沒簽的點交單可以直接刪（等同撤回連結）；簽過的由資料庫擋下，改走作廢。
+  async deleteHandover(id) {
+    const { error } = await _sb.from('handovers')
+      .delete().eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('刪除失敗：' + error.message); return false; }
+    return true;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({

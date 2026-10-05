@@ -562,6 +562,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
         <div class="more-sep"></div>
         <button class="more-item" onclick="pickMore(ctOpenList)">📄 契約管理</button>
+        <button class="more-item" onclick="pickMore(hoOpenList)">📋 入住／退房點交<span class="more-badge-inline" id="ho-badge"></span></button>
         <button class="more-item" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
         <div class="more-sep"></div>
         <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
@@ -801,6 +802,14 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn btn-ghost" id="btn-ct-sub" style="display:none"
       onclick="ctGenTenant(editingBkId)"
       title="產生要給房客線上簽署的住宅轉租契約連結（讀取已存檔的訂單資料，請先儲存預定）">📄 產生轉租契約</button>
+    <!-- 入住點交在交屋當下就要做，它是日後退房比對的基準；退房點交只在
+         真的有房間退房之後才有意義，所以兩顆鈕的出現條件不同。 -->
+    <button class="btn btn-ghost" id="btn-ho-in" style="display:none"
+      onclick="hoStartFromBk('in',editingBkId)"
+      title="交屋時與房客共同確認設備狀態，建立退房比對的原狀基準">📋 入住點交</button>
+    <button class="btn btn-ghost" id="btn-ho-out" style="display:none"
+      onclick="hoStartFromBk('out',editingBkId)"
+      title="退房時逐項比對入住基準，認定損壞與歸責，金額自動帶進退房結算">📋 退房點交</button>
     <button class="btn btn-primary" onclick="saveBk()">儲存預定</button>
   </div>
 </div>
@@ -2899,6 +2908,7 @@ function init(){
   render();
   ca.scrollLeft=Math.max(0,(colF(ds(curY,curM,1))-1)*DW);
   refreshInqBadge();
+  refreshHoBadge();
 }
 // 已離開企業、但名字還留在訂單「負責業務」或客戶「歸屬業務」上的人。
 // 不把這些名字補回下拉選單的話，開啟他們的舊訂單時瀏覽器會因為找不到對應的
@@ -3692,6 +3702,8 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('btn-ct-sub').style.display='none';
   document.getElementById('btn-rent').style.display='none';
   document.getElementById('btn-settle').style.display='none';
+  document.getElementById('btn-ho-in').style.display='none';
+  document.getElementById('btn-ho-out').style.display='none';
   document.getElementById('qa-bar').style.display='none';
   document.getElementById('conflict-warn').style.display='none';
   ['g-name','g-phone','g-email','g-note','g-taxid','g-birthday'].forEach(id=>document.getElementById(id).value='');
@@ -3732,6 +3744,10 @@ function openEditBk(bk){
   document.getElementById('btn-ct-sub').style.display='';
   document.getElementById('btn-rent').style.display='';
   document.getElementById('btn-settle').style.display=
+    (bk.segments||[]).some(s=>s.status==='checkout')?'':'none';
+  document.getElementById('btn-ho-in').style.display=
+    (bk.segments||[]).some(s=>s.status!=='cancelled')?'':'none';
+  document.getElementById('btn-ho-out').style.display=
     (bk.segments||[]).some(s=>s.status==='checkout')?'':'none';
   document.getElementById('conflict-warn').style.display='none';
   document.getElementById('g-name').value=bk.guest||'';
@@ -6176,15 +6192,36 @@ const INQ_STATUS={new:{label:'未處理',color:'#c92a2a'},contacted:{label:'已�
   converted:{label:'已成訂單',color:'#2f9e44'},closed:{label:'已結案',color:'#868e96'}};
 let inqList=[],inqTab='new';
 
+// 「⚙️ 更多」選單收合時看不到裡面的紅點，所以選單內每個來源的待辦數都要同步
+// 標到外層按鈕上。這裡刻意讓各來源各存一份、由同一個函數相加後才寫進 DOM：
+// 若兩個來源各自直接寫 #more-badge，後跑的那一個會把前一個蓋掉——詢問單 3 筆
+// 加點交 2 筆，按鈕上只會顯示其中一個數字，另一邊的待辦就這樣消失了。
+let MORE_COUNTS={inq:0,ho:0};
+function paintMoreBadge(){
+  const outer=document.getElementById('more-badge');
+  if(!outer)return;
+  const n=MORE_COUNTS.inq+MORE_COUNTS.ho;
+  outer.textContent=n>99?'99+':(n>0?n:'');
+  outer.style.display=n>0?'':'none';
+}
 async function refreshInqBadge(){
   const el=document.getElementById('inq-badge');
   if(!el||!Cloud.isLoggedIn())return;
   const n=await Cloud.countNewInquiries();
   el.textContent=n>0?n:'';
   el.style.display=n>0?'':'none';
-  // 詢問單已收進「⚙️ 更多」選單，選單收合時看不到紅點，所以同步標在按鈕上
-  const outer=document.getElementById('more-badge');
-  if(outer){outer.textContent=n>0?n:'';outer.style.display=n>0?'':'none';}
+  MORE_COUNTS.inq=n;paintMoreBadge();
+}
+// 點交待辦（該做還沒做的入住／退房點交）。數字來源是 hoTodoCount()，與
+// 點交管理面板上那張待辦清單走同一個函數，不另外算一遍。
+async function refreshHoBadge(){
+  const el=document.getElementById('ho-badge');
+  if(!el||!Cloud.isLoggedIn())return;
+  let n=0;
+  try{n=typeof hoTodoCount==='function'?await hoTodoCount():0;}catch(e){n=0;}
+  el.textContent=n>0?n:'';
+  el.style.display=n>0?'':'none';
+  MORE_COUNTS.ho=n;paintMoreBadge();
 }
 async function openInq(){
   document.getElementById('inq-ov').classList.add('open');
@@ -7381,6 +7418,19 @@ function renderPM(){
           (off?'⛔ 停售中':'✔ 銷售中')+'</button>'+
         '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\''+origRoom+'\')" '+
           'title="管理這間房在官網顯示的照片" style="background:#f3f0ff;color:#7048e8">📷 '+photoBadge(pid,origRoom)+'</button>'+
+        // 房間層級的設備清單是「覆寫」，沒設定就沿用館別預設，所以按鈕上
+        // 直接標出目前用的是哪一份——否則業者會以為這間房沒有設備清單。
+        (function(){
+          const eq=hoEquipFor(pid,origRoom);
+          const own=eq.src==='room';
+          return '<button class="pm-icon-btn" onclick="hoOpenEquip(\''+pid+'\',\''+origRoom+'\')" '+
+            'title="'+(own?'這間房有專屬設備清單（'+eq.items.length+' 項）':
+              eq.src==='default'?'目前沿用館別預設清單（'+eq.items.length+' 項），點擊可為這間房單獨設定':
+              '尚未建立設備清單，無法點交')+'" '+
+            'style="background:'+(eq.items.length?(own?'#e6fcf5;color:#087f5b':'#f1f3f5;color:#495057')
+              :'#fff4e6;color:#e8590c')+'">🧰 '+
+            (own?'設備 '+eq.items.length:eq.src==='default'?'沿用預設':'無設備')+'</button>';
+        })()+
         estBadgeHtml(pid,origRoom)+
         '<button class="pm-icon-btn" onclick="openEstimate(\''+pid+'\',\''+origRoom+'\')" '+
           'title="用估價模組試算這間房的建議租金" style="background:#e7f5ff;color:#1971c2">🧮 估價</button>'+
@@ -7406,6 +7456,17 @@ function renderPM(){
           })()+
           '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\'\')" '+
             'title="管理館別層級的照片（外觀、公設、周邊）">📷 館別照片 '+photoBadge(pid,'')+'</button>'+
+          // 設備主檔填一次，整棟樓的房間都能點交。一棟樓二十間房的配備幾乎
+          // 一樣，所以入口放在館別層級，單一房間不同再進那一列覆寫。
+          (function(){
+            const n=(hoEquipAll()[String(pid)]||{})._default;
+            const cnt=Array.isArray(n)?n.length:0;
+            return '<button class="pm-icon-btn" onclick="hoOpenEquip(\''+pid+'\',\'\')" '+
+              'title="'+(cnt?'本館別預設設備清單共 '+cnt+' 項，所有沒有專屬清單的房間都會用它'
+                :'尚未建立設備主檔，這個館別的房間目前無法做入住／退房點交')+'" '+
+              'style="background:'+(cnt?'#e6fcf5;color:#087f5b':'#fff4e6;color:#e8590c')+'">🧰 '+
+              (cnt?'設備主檔 '+cnt:'設備主檔 未建立')+'</button>';
+          })()+
           (function(){
             const has=!!propLatLng(pid);
             return '<button class="pm-icon-btn" onclick="openGeo(\''+pid+'\')" '+
@@ -7896,7 +7957,9 @@ function cancelImport(){
 // ════════════════════════════════════════════════
 // DATA EXPORT（匯出本企業房源＋訂單資料為 Excel）
 // ════════════════════════════════════════════════
-function exportCompanyData(){
+// 這個函數是 async 的，唯一原因是點交單存在資料庫（為了簽收後不可修改），
+// 不像其他資料都在 company_kv 裡可以同步讀。其餘工作表的組法完全沒變。
+async function exportCompanyData(){
   const props=loadCPs();
   const propRows=[];
   props.forEach(p=>{
@@ -7950,6 +8013,10 @@ function exportCompanyData(){
   // 退房結算：押金扣抵明細。只要有任一房間退房就會出現一列，連未結算的也匯出，
   // 因為「還沒退押金的有哪些」本身就是會計要對的清單。
   const stRows=typeof stExportRows==='function'?stExportRows():[];
+  // 點交單：唯一要連資料庫的一塊。失敗就讓兩張表空著出檔，不要整個匯出掛掉——
+  // 其他七張表都已經在手上了，為了一張表讓使用者什麼都拿不到並不划算。
+  let hoOut={sheet:[],items:[]};
+  try{if(typeof hoExportRows==='function')hoOut=await hoExportRows();}catch(e){}
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
@@ -7959,6 +8026,8 @@ function exportCompanyData(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(stRows),'退房結算');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lordRows),'房東名冊');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(payRows),'房東撥款單');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(hoOut.sheet),'點交單');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(hoOut.items),'點交異常明細');
   const stamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,(Cloud.companyName||'企業')+'_資料匯出_'+stamp+'.xlsx');
 }
@@ -8029,6 +8098,14 @@ init();
 <!-- 水電抄表與押金退還結算單。載在 rent-ledger.js 之後，因為欠租金額是直接
      取 rlBuild() 推導出來的期數，定額水費的月數也沿用 rlPeriods()。 -->
 <script src="js/settlement.js"></script>
+
+<!-- 入住／退房點交。載在最後是因為它同時用到前面三組：contracts-admin.js 的
+     ctEsc/ctTW/ctProp、settlement.js 的 stMeters/stMeterKey（點交單上的水電
+     度數與結算共用同一筆抄表資料），以及主 script 的 loadTasks/saveTasks
+     （簽收後自動開立「房客自行負擔」維修單，金額才會進得了結算的損壞扣抵）。
+     版面同樣與房客簽收頁（handover.html）共用 handover-render.js。 -->
+<script src="js/handover-render.js"></script>
+<script src="js/handover.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">

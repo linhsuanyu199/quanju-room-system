@@ -84,6 +84,11 @@ table.t th{background:#f0f2f5;font-weight:700;text-align:center}
 table.t td.c{text-align:center}
 table.t td.g{background:#f6f7f9;text-align:center;font-weight:700;writing-mode:vertical-rl;letter-spacing:2px}
 
+/* 點交單的現況照片縮圖。限高是為了列印：照片原尺寸會把一列撐到
+   半頁高，二十項設備就印成十幾張紙。要看細節時點開原圖。 */
+.ho-ph{margin-top:3px;display:flex;gap:4px;flex-wrap:wrap}
+.ho-ph img{height:46px;width:auto;border:1px solid #bbb;border-radius:2px;object-fit:cover}
+
 /* 簽署區 */
 .signblock{margin-top:22px;border-top:1.5px solid var(--line);padding-top:14px}
 .sigrow{display:flex;gap:18px;margin-bottom:12px}
