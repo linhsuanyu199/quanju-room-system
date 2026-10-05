@@ -550,6 +550,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <button class="btn-top btn-mgt-top" id="btn-more" onclick="toggleMoreMenu(event)" title="其他功能" style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span id="more-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;font-weight:700"></span></button>
       <div class="more-panel" id="more-panel">
         <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
+        <button class="more-item" onclick="pickMore(openSettle)">🧾 退房結算（押金／水電）</button>
         <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
         <button class="more-item" onclick="pickMore(openLandlords)">🏠 房東建檔</button>
         <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表（房客）</button>
@@ -792,6 +793,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="btn btn-ghost" id="btn-rent" style="display:none"
       onclick="openRent(editingBkId)"
       title="查看這筆訂單的各期繳租情形（期數依租期自動展開）">💰 繳租紀錄</button>
+    <!-- 只在這筆訂單已有房間退房時出現。還沒退房就沒有押金可以結算，
+         按鈕擺著只會讓人以為系統壞了。 -->
+    <button class="btn btn-ghost" id="btn-settle" style="display:none"
+      onclick="openSettle(editingBkId)"
+      title="計算押金應退金額（欠租、水電、損壞逐項扣抵）">🧾 退房結算</button>
     <button class="btn btn-ghost" id="btn-ct-sub" style="display:none"
       onclick="ctGenTenant(editingBkId)"
       title="產生要給房客線上簽署的住宅轉租契約連結（讀取已存檔的訂單資料，請先儲存預定）">📄 產生轉租契約</button>
@@ -1562,15 +1568,19 @@ function todoAlerts(){
   const lordTerm=typeof ldVisible==='function'
     ?ldVisible().filter(r=>r.termEnd&&r.termDays!==null&&r.termDays<=30)
       .sort((a,b)=>a.termDays-b.termDays):[];
+  // 押金與水電來自 js/settlement.js。抄表漏抄排在押金逾期前面：度數一旦人走了
+  // 就補不回來，而押金晚退還有機會補救。
+  const meter=typeof stMeterTodo==='function'?stMeterTodo():[];
+  const settle=typeof stPending==='function'?stPending():[];
   unpaid.sort((a,b)=>b.days-a.days);
   noShow.sort((a,b)=>b.days-a.days);
   lateOut.sort((a,b)=>b.days-a.days);
   upcoming.sort((a,b)=>a.days-b.days);
   precheck.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
-  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,lead,
+  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,meter,settle,lead,
     total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+
-      rent.length+payout.length+lordTerm.length,tod};
+      rent.length+payout.length+lordTerm.length+meter.length+settle.length,tod};
 }
 function refreshTodoBadge(){
   const el=document.getElementById('todo-badge');
@@ -1602,7 +1612,7 @@ function openTodo(){
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有上月撥款單尚未撥款、房東契約即將到期。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、房東契約即將到期。</div>';
   }else{
     h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
       '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
@@ -1612,6 +1622,24 @@ function openTodo(){
         '<td style="padding:5px 6px;white-space:nowrap">第 '+x.no+' 期 · '+escH(x.from)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
           '尚差 '+money(x.due-x.amt)+(x.over>0?'　逾 '+x.over+' 天':'')+'</td>'+
+      '</tr>').join(''));
+    h+=sec('🔌 水電表度數尚未登錄','#c92a2a',a.meter.length,
+      '兩種情形都會列在這裡：已入住卻還沒抄入住度數（沒有基準值，退租時無從計算用了多少），以及已退房卻還沒抄退租度數（人走了就再也抄不到）。兩種拖下去都只能自己吸收或跟房客爭執。點房客姓名可直接開啟「🔌 水電抄表」補登。',
+      a.meter.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+',\'meter\')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(x.propName)+' '+escH(x.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">'+
+          (x.status==='checkout'?'退房 '+escH(x.checkout):'入住 '+escH(x.checkin))+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+escH(x.why||'尚未抄表')+'</td>'+
+      '</tr>').join(''));
+    h+=sec('🧾 押金已逾約定退還期限','#c92a2a',a.settle.length,
+      '房間都已退房、也過了設定的退款作業天數，但押金結算單還沒確認。押金遲付是租賃糾紛與客訴的第一名，先把扣抵算出來給房客看，即使要扣也比沒下文好。點房客姓名開啟結算單。',
+      a.settle.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(x.segs.map(s=>s.propName+' '+s.room).join('、'))+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">應退期限 '+escH(x.dueBy)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
+          (x.refund<0?'房客應補付 '+money(-x.refund):'應退 '+money(x.refund))+'　逾 '+x.overdue+' 天</td>'+
       '</tr>').join(''));
     h+=sec('📄 上月撥款單尚未撥款','#7048e8',a.payout.length,
       '上個月已經結算完成、但還沒標記撥款的房東對帳單。包租是本公司該付房東的保證租金，代管是代收租金扣掉報酬後該撥回房東的餘額（金額為負數時表示房東應付本公司）。點房東姓名可開啟撥款單。',
@@ -1670,6 +1698,7 @@ function todoOpenRent(id){closeTodo();openRent(id);}
 // 待辦列的是上個月的撥款單，所以月份要一併帶過去，否則開起來是空的本月
 function todoOpenPayout(key){closeTodo();openPayout(key,poPrevMonth(poThisMonth()));}
 function todoOpenLord(key){closeTodo();openLandlords();ldDetail(key);}
+function todoOpenSettle(bkId,tab){closeTodo();openSettle(bkId,tab);}
 
 // ── 清潔排程設定 ────────────────────────────────
 let ccRows=[];
@@ -3662,6 +3691,7 @@ function openNewBk(propId,roomNo,dateS){
   document.getElementById('btn-del').style.display='none';
   document.getElementById('btn-ct-sub').style.display='none';
   document.getElementById('btn-rent').style.display='none';
+  document.getElementById('btn-settle').style.display='none';
   document.getElementById('qa-bar').style.display='none';
   document.getElementById('conflict-warn').style.display='none';
   ['g-name','g-phone','g-email','g-note','g-taxid','g-birthday'].forEach(id=>document.getElementById(id).value='');
@@ -3701,6 +3731,8 @@ function openEditBk(bk){
   document.getElementById('btn-del').style.display='';
   document.getElementById('btn-ct-sub').style.display='';
   document.getElementById('btn-rent').style.display='';
+  document.getElementById('btn-settle').style.display=
+    (bk.segments||[]).some(s=>s.status==='checkout')?'':'none';
   document.getElementById('conflict-warn').style.display='none';
   document.getElementById('g-name').value=bk.guest||'';
   document.getElementById('g-phone').value=bk.phone||'';
@@ -7915,12 +7947,16 @@ function exportCompanyData(){
   // 房東名冊由館別契約設定推導；撥款單只匯出本月與上月（往前無上限會讓檔案無意義地變大）
   const lordRows=typeof ldExportRows==='function'?ldExportRows():[];
   const payRows=typeof poExportRows==='function'?poExportRows():[];
+  // 退房結算：押金扣抵明細。只要有任一房間退房就會出現一列，連未結算的也匯出，
+  // 因為「還沒退押金的有哪些」本身就是會計要對的清單。
+  const stRows=typeof stExportRows==='function'?stExportRows():[];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(propRows),'房源');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bkRows),'訂單');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(custRows),'客戶');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(taskRows),'維修清潔');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rentRows),'租金收款');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(stRows),'退房結算');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lordRows),'房東名冊');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(payRows),'房東撥款單');
   const stamp=new Date().toISOString().slice(0,10);
@@ -7989,6 +8025,10 @@ init();
      GREET_OPTOUT 與 FESTIVALS。 -->
 <script src="js/landlords.js"></script>
 <script src="js/payout.js"></script>
+
+<!-- 水電抄表與押金退還結算單。載在 rent-ledger.js 之後，因為欠租金額是直接
+     取 rlBuild() 推導出來的期數，定額水費的月數也沿用 rlPeriods()。 -->
+<script src="js/settlement.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">
