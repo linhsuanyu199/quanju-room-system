@@ -462,6 +462,84 @@ const Cloud = {
     return true;
   },
 
+  // ── 完整備份（可還原）────────────────────────────
+  // 和 ⬇️ 匯出資料（Excel）是兩件不同的事，不要互相取代：
+  //   Excel 是「給人看的報表」——欄位改成中文、數字是推導後的結果、丟掉內部 ID。
+  //   它救不回系統，只能拿來對帳。
+  //   這裡是「給機器看的備份」——原封不動的 company_kv 鍵值與資料表列，
+  //   欄位名、型別、ID 全部保留，所以才還原得回去。
+  //
+  // 為什麼不用 scripts/backup.sh：那支需要 service_role 金鑰（可繞過所有 RLS、
+  // 讀寫全部租戶），必須人工從 Dashboard 複製、跑完關掉終端機。要人每週記得做
+  // 一件麻煩事，實際結果就是永遠不會做。這裡改用登入者自己的 session，
+  // 權限範圍就是 RLS 給他的那間公司，每個租戶都能自助備份，不必經過平台方。
+  //
+  // market_deals 刻意不備份：那是跨公司共用的行情池（本來就沒有 select policy），
+  // 不屬於單一公司的資料，備份它只會拿到 401。
+  BACKUP_TABLES: ['contracts', 'handovers', 'tenant_links', 'tenant_reports', 'inquiries'],
+  BACKUP_HIST_LIMIT: 5000,
+
+  // 一律重新向雲端撈，不讀 KV_CACHE：快取可能是幾小時前載入的，
+  // 同事在那之後改過的東西不會在裡面。備份到舊快照比沒備份更危險，
+  // 因為人會以為自己有備份。
+  async dumpAll() {
+    if (!this.companyId) throw new Error('尚未登入');
+    const out = {
+      meta: {
+        format: 'quanju-room-system-backup', ver: 1,
+        companyId: this.companyId, companyName: this.companyName,
+        exportedAt: new Date().toISOString(),
+        exportedBy: this.myDisplayName || this.myEmail || '',
+        warn: []
+      },
+      kv: {}, kvMeta: {}, db: {}
+    };
+    const kv = await _sb.from('company_kv').select('key, value, updated_at')
+      .eq('company_id', this.companyId);
+    if (kv.error) throw new Error('讀取主資料失敗：' + kv.error.message);
+    for (const row of kv.data) { out.kv[row.key] = row.value; out.kvMeta[row.key] = row.updated_at; }
+
+    // 單張表失敗不中斷：七成以上的價值在 company_kv，為了一張表讓使用者
+    // 什麼備份都拿不到並不划算。但一定要把失敗寫進 meta.warn 讓人看得見，
+    // 否則就變成「以為備份完整、其實缺一塊」——那比明擺著的失敗糟得多。
+    for (const t of this.BACKUP_TABLES) {
+      const r = await _sb.from(t).select('*').eq('company_id', this.companyId);
+      if (r.error) { out.meta.warn.push(t + '：' + r.error.message); out.db[t] = null; continue; }
+      out.db[t] = r.data || [];
+    }
+    // 刻意不加 order()：booking_history 的 DDL 不在本專案的 sql/ 內（當初直接在
+    // Dashboard 建的），時間欄位名稱無法從程式碼確認。排序欄位猜錯會讓 PostgREST
+    // 整個請求失敗，結果是每一份備份都默默少掉這張表——寧可不排序。
+    const bh = await _sb.from('booking_history').select('*')
+      .eq('company_id', this.companyId).limit(this.BACKUP_HIST_LIMIT);
+    if (bh.error) { out.meta.warn.push('booking_history：' + bh.error.message); out.db.booking_history = null; }
+    else {
+      out.db.booking_history = bh.data || [];
+      if (bh.data && bh.data.length >= this.BACKUP_HIST_LIMIT)
+        out.meta.warn.push('booking_history 筆數已達 ' + this.BACKUP_HIST_LIMIT
+          + ' 筆上限，較舊的訂單異動紀錄未納入這份備份');
+    }
+    return out;
+  },
+
+  // 還原只做 company_kv，而且只覆蓋備份檔裡有的 key。
+  // 不碰 contracts／handovers：那兩張表有「簽署後不可變」的 trigger，
+  // 本來就不該、也無法從前端覆寫，法定保存的文件要靠平台方以 SQL 處理。
+  // 不刪除備份檔裡沒有的 key：還原的情境通常是「某一塊資料被改壞了」，
+  // 連帶把備份之後新增的東西清掉，會把一次補救變成第二次災難。
+  async restoreKV(kvObj) {
+    if (!this.companyId) throw new Error('尚未登入');
+    const now = new Date().toISOString();
+    const rows = Object.keys(kvObj).map(k => ({
+      company_id: this.companyId, key: k, value: kvObj[k], updated_at: now
+    }));
+    if (!rows.length) return 0;
+    const { error } = await _sb.from('company_kv')
+      .upsert(rows, { onConflict: 'company_id,key' });
+    if (error) throw new Error(this._translateWriteError(error));
+    return rows.length;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({

@@ -626,6 +626,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" id="more-members" style="display:none" onclick="pickMore(openMembers)">👥 成員管理</button>
             <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
             <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
+            <button class="more-item" onclick="pickMore(bkOpen)">🛡️ 資料備份</button>
             <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
           </div>
         </div>
@@ -1592,11 +1593,16 @@ function loadTodoCfg(){
   // 租期長度門檻。本系統同時做日租與月租，短租客本來就住幾天就走、沒有續租決策可做；
   // 若不設門檻，每一筆短租從入住第一天就會卡在待辦裡，整張清單會被洗到沒人看。
   const m=parseInt(c.leaseMinStay,10);
+  // 備份提醒間隔。這條和其他待辦不同：其他的是「某一筆資料的狀態落後了」，
+  // 這條是「整個公司的資料只剩雲端一份」。14 天是折衷——太短會變成每週都在叫、
+  // 人學會忽略整張清單；太長則一次災難要吐掉兩個月的營運紀錄。
+  const bu=parseInt(c.backupDays,10);
   return{leadDays:(n>=0&&n<=30)?n:3,
     leaseDays:(l>=0&&l<=180)?l:30,
-    leaseMinStay:(m>=0&&m<=365)?m:60};
+    leaseMinStay:(m>=0&&m<=365)?m:60,
+    backupDays:(bu>=0&&bu<=365)?bu:14};
 }
-// 三個設定共用同一個 KV，所以一定要先讀回現值再覆寫，否則改其中一個會把另外兩個打回預設值
+// 這幾個設定共用同一個 KV，所以一定要先讀回現值再覆寫，否則改其中一個會把其他的打回預設值
 function setTodoCfg(patch){
   const c=loadTodoCfg();
   Cloud.set('qj_todo_cfg',Object.assign({},c,patch));
@@ -1611,6 +1617,7 @@ function clampInt(v,lo,hi){
 function setTodoLead(v){setTodoCfg({leadDays:clampInt(v,0,30)});}
 function setTodoLease(v){setTodoCfg({leaseDays:clampInt(v,0,180)});}
 function setTodoMinStay(v){setTodoCfg({leaseMinStay:clampInt(v,0,365)});}
+function setTodoBackup(v){setTodoCfg({backupDays:clampInt(v,0,365)});}
 
 // ── 租約到期的「已確認退租」標記 ──────────────────
 // 待辦清單最大的失敗模式是「有項目永遠消不掉」，人就學會整張不看。房客已經說要退租時
@@ -1707,11 +1714,19 @@ function todoAlerts(){
   leaseEnd.sort((a,b)=>a.days-b.days);
   leaseAcked.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
+  // 太久沒有站外備份。這條和其他待辦不同：不是某一筆資料落後，而是整間公司的
+  // 資料只剩雲端一份——免費方案沒有自動備份也沒有時間點還原，誤刪一張表就全沒了，
+  // 而契約與點交依租賃住宅條例要留五年。backupDays 設 0 ＝關閉這條提醒。
+  // 只算到「天」：備份不是當天幾點做的問題，精確到小時只會讓提醒忽隱忽現。
+  const bkDays=typeof bkDaysSince==='function'?bkDaysSince():null;
+  const backup=cfg.backupDays>0&&(bkDays===null||bkDays>=cfg.backupDays)
+    ?{days:bkDays,every:cfg.backupDays}:null;
   // leaseAcked 不計入 total：那些是已經有結論的，留著只是讓人查得到當初誰按的
   return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,meter,settle,
-    leaseEnd,leaseAcked,lead,leaseLead,minStay,
+    leaseEnd,leaseAcked,backup,lead,leaseLead,minStay,backupDays:cfg.backupDays,
     total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+
-      rent.length+payout.length+lordTerm.length+meter.length+settle.length+leaseEnd.length,tod};
+      rent.length+payout.length+lordTerm.length+meter.length+settle.length+leaseEnd.length+
+      (backup?1:0),tod};
 }
 // 所有紅點都走這裡。隱藏狀態寫在 CSS class（.nav-badge／.more-badge-inline）裡，
 // 所以要顯示時一定要給明確的 display 值：寫 el.style.display='' 只是清掉行內樣式，
@@ -1751,12 +1766,30 @@ function openTodo(){
     '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
     '<span>租約到期預告：提前</span>'+numIn(a.leaseLead,0,180,'setTodoLease')+
     '<span>天提醒，只提醒租期滿</span>'+numIn(a.minStay,0,365,'setTodoMinStay')+
-    '<span>天以上的訂單（設 0 天預告 ＝關閉）</span></div></div>';
+    '<span>天以上的訂單（設 0 天預告 ＝關閉）</span></div>'+
+    '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
+    '<span>資料備份：每</span>'+numIn(a.backupDays,0,365,'setTodoBackup')+
+    '<span>天提醒下載一次站外備份（設 0 ＝關閉）</span></div></div>';
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、<br>房東契約即將到期，以及房客租約即將到期（該談續租或開始招租了）。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、<br>房東契約即將到期，以及房客租約即將到期（該談續租或開始招租了）。<br>另外若太久沒有下載站外備份，也會在這裡提醒。</div>';
   }else{
+    // 備份排在所有待辦最前面：其他每一條都是「某一筆事情沒做」，漏掉就補；
+    // 這一條是「全部資料只剩雲端一份」，漏掉就沒有東西可以補。
+    if(a.backup)
+      h+='<div style="margin-top:14px;padding:11px 13px;border-radius:7px;'+
+        'border-left:4px solid #c92a2a;background:#fff5f5">'+
+        '<div style="font-weight:800;font-size:12.5px;color:#c92a2a">🛡️ 資料備份（1）</div>'+
+        '<div style="font-size:10.5px;color:var(--muted);margin:3px 0 7px;line-height:1.8">'+
+        (a.backup.days===null
+          ?'<strong>目前完全沒有站外備份。</strong>全公司的房源、訂單、客戶、租金與契約只存在雲端一份。'
+          :'<strong>已經 '+a.backup.days+' 天沒有下載備份</strong>（設定為每 '+a.backup.every+' 天提醒一次）。')+
+        '<br>免費方案沒有自動備份、也沒有時間點還原；誤刪一張表或帳號被盜，資料就回不來了，'+
+        '而契約與點交紀錄依租賃住宅條例要保存五年。<br>'+
+        '下載一次只要幾秒，檔案請存到加密磁碟或有密碼的雲端硬碟。</div>'+
+        '<button class="btn btn-primary sm" onclick="closeTodo();bkOpen()">🛡️ 立即備份</button>'+
+      '</div>';
     h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
       '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
       a.rent.map(x=>'<tr style="border-top:1px solid var(--border)">'+
@@ -8312,6 +8345,11 @@ init();
      也用到 loadBks/getAllProps/addDays/todayStr。房客實際看到的是獨立頁
      tenant.html，不需要登入。 -->
 <script src="js/tenant.js"></script>
+
+<!-- 資料備份與還原。載在最後：它要把「目前雲端有幾筆」和備份檔並排比對，
+     用的是主 script 的 Cloud.get/diffDays/todayStr/isAdmin。
+     和 ⬇️ 匯出資料（Excel）是兩件事——Excel 是給人看的報表，這裡是可還原的備份。 -->
+<script src="js/backup.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">
