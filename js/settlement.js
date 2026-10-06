@@ -887,7 +887,10 @@ function stDeleteSettle() {
 }
 
 /* ── 設定 ─────────────────────────────────────── */
+/* 同仁可以做退房結算，但不能改「算結算用的費率」——水電單價一改，
+   每一張還沒結的結算單金額都會跟著變。 */
 function stOpenCfg() {
+  if (typeof adminOnly === 'function' && !adminOnly('修改水電費率設定'))return;
   stEnsureUI();
   var c = stCfg();
   var inp = 'height:30px;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:0 8px;width:100%;background:#fff';

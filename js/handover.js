@@ -68,7 +68,10 @@ function hoEquipFor(propId, room) {
 
 var HO_EQ = null;   /* 編輯中的設備主檔 { propId, room, items } */
 
+/* 同仁可以點交，但不能改設備主檔——主檔就是點交時的對帳基準，
+   改了之後退房對不起來的東西會無聲消失，連帶不會開出維修單。 */
 function hoOpenEquip(propId, room) {
+  if (typeof adminOnly === 'function' && !adminOnly('維護房間設備主檔'))return;
   hoEnsureUI();
   var cur = hoEquipFor(propId, room || '');
   /* 編輯「房間覆寫」時，若目前是沿用館別預設，先把預設複製進來當起點，

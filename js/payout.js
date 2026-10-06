@@ -411,7 +411,10 @@ function poFind(key) {
 /* ── 標記撥款 ──────────────────────────────────── */
 var PO_EDIT_KEY = null;
 
+/* 「已撥款」是一筆錢真的匯出去的紀錄，不是作業勾選。同仁看得到撥款單
+   （只看自己負責的房東），但標記與刪除紀錄是管理者的事。 */
 function poEditOpen(key) {
+  if (typeof adminOnly === 'function' && !adminOnly('標記或修改房東撥款紀錄'))return;
   var s = poFind(key);
   if (!s) { alert('找不到這張撥款單，可能契約設定剛被其他成員改過，請重新開啟。'); return; }
   PO_EDIT_KEY = key;

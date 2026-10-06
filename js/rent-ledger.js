@@ -30,6 +30,13 @@ function rlCfg() {
   return { graceDays: (n >= 0 && n <= 30) ? n : 3 };
 }
 function rlSetGrace(v) {
+  /* 寬限天數決定「哪些期數算逾期」，整間公司共用一個值，所以是管理者的設定。
+     擋下來要順便 rlRender() 把輸入框重畫回原值，否則畫面上會留著改過的數字。
+     typeof 判斷是因為 tenant.html 也載這支檔案，那裡沒有 adminOnly。 */
+  if (typeof adminOnly === 'function' && !adminOnly('調整租金的寬限天數')) {
+    if (document.getElementById('rl-grace')) rlRender();   // 畫面還沒建起來時不要重畫
+    return;
+  }
   var n = parseInt(v, 10);
   if (!(n >= 0)) n = 0;
   if (n > 30) n = 30;

@@ -555,7 +555,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
     <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
-    <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
+    <button class="btn-top btn-mgt-top" id="top-propmgr" style="display:none" onclick="openPropMgr()">管理房源</button>
     <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
     <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
   </div>
@@ -577,11 +577,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <div class="more-group">
           <button class="more-item more-cat" onclick="toggleSub(event,this)">🏠 房源與房東<span class="more-arrow">▸</span></button>
           <div class="more-sub">
-            <button class="more-item" onclick="pickMore(openPropMgr)">🏢 管理房源</button>
+            <button class="more-item" id="more-propmgr" style="display:none" onclick="pickMore(openPropMgr)">🏢 管理房源</button>
             <button class="more-item" onclick="pickMore(openLandlords)">🏠 房東建檔</button>
             <div class="more-sep"></div>
             <button class="more-item" onclick="pickMore(openPublicSite)">🌐 開啟官網（新分頁）</button>
-            <button class="more-item" onclick="pickMore(openSiteInfo)">⚙️ 官網設定</button>
+            <button class="more-item" id="more-siteinfo" style="display:none" onclick="pickMore(openSiteInfo)">⚙️ 官網設定</button>
           </div>
         </div>
         <div class="more-group">
@@ -600,7 +600,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(ctOpenList)">📄 契約管理</button>
             <button class="more-item" onclick="pickMore(hoOpenList)">📋 入住／退房點交<span class="more-badge-inline" id="ho-badge"></span></button>
             <div class="more-sep"></div>
-            <button class="more-item" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
+            <button class="more-item" id="more-signer" style="display:none" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
           </div>
         </div>
         <div class="more-group">
@@ -1606,6 +1606,7 @@ function loadTodoCfg(){
 }
 // 這幾個設定共用同一個 KV，所以一定要先讀回現值再覆寫，否則改其中一個會把其他的打回預設值
 function setTodoCfg(patch){
+  if(!adminOnly('調整待辦提醒的天數設定'))return;
   const c=loadTodoCfg();
   Cloud.set('qj_todo_cfg',Object.assign({},c,patch));
   openTodo();refreshTodoBadge();
@@ -1910,6 +1911,7 @@ function todoOpenSettle(bkId,tab){closeTodo();openSettle(bkId,tab);}
 // ── 清潔排程設定 ────────────────────────────────
 let ccRows=[];
 function openCleanCfg(){
+  if(!adminOnly('修改清潔排程設定與清潔人員主檔'))return;
   const cfg=loadCleanCfg();
   document.getElementById('cc-out').value=cfg.checkoutTime;
   document.getElementById('cc-in').value=cfg.checkinTime;
@@ -2016,6 +2018,7 @@ function saveCleanCfgUI(){
 // ── 廠商管理 modal ────────────────────────────
 let vdRows=[];
 function openVendors(){
+  if(!adminOnly('維護維修廠商主檔'))return;
   vdRows=loadVendors();
   renderVendorRows();
   document.getElementById('vd-ov').classList.add('open');
@@ -6022,6 +6025,14 @@ function maintReportHtml(){
 // CUSTOMER LIST（CRM 輕量版：由既有訂單資料依電話號碼彙整，不新增資料表）
 // ════════════════════════════════════════════════
 function isAdmin(){return Cloud.myRole==='admin';}
+// 管理者專屬動作的前端守門。真正的攔阻在資料庫 trigger（sql/member_role.sql），
+// 擋不掉也不會寫進去；這裡只是讓同仁在「填完整張表單才被退回」之前就知道
+// 自己沒有權限。所以訊息要講「誰可以做」，不要只說「沒有權限」。
+function adminOnly(what){
+  if(isAdmin())return true;
+  alert('只有企業管理者可以'+what+'。\n\n如果這項工作應該由您負責，請聯繫企業管理者。');
+  return false;
+}
 // 訂單彙整 ＋ 獨立客戶記錄合併後的客戶檢視。
 // owner（歸屬業務）只存在客戶記錄裡；訂單上的 agent 是當下承辦的歷史紀錄，永遠不動。
 function buildCustomerIndex(){
@@ -7070,6 +7081,7 @@ function newPropFormHtml(e){
   '</div>';
 }
 function createPropFromEst(id){
+  if(!adminOnly('從估價建立新房源'))return;
   const all=loadEstimates();
   const e=all.find(x=>x.id===id);
   if(!e)return;
@@ -7101,6 +7113,7 @@ function createPropFromEst(id){
 }
 
 function applyEstPrice(id,season){
+  if(!adminOnly('把估價結果套用為房間月租金'))return;
   const all=loadEstimates();
   const e=all.find(x=>x.id===id);
   if(!e)return;
@@ -7151,7 +7164,13 @@ function openEstHistory(pid,room){
   document.getElementById('est-ov').classList.add('open');
 }
 
-function openPropMgr(){renderPM();document.getElementById('pm-ov').classList.add('open');}
+// 整個「管理房源」畫面都是主檔編輯：新增／刪除館別與房間、改租金、上下架、
+// 照片、座標、匯入 Excel。所以守門放在開啟入口，不是在裡面十幾個儲存函數各擋一次
+// ——漏掉一個就等於沒擋。同仁要查房型與租金，排房表與訂單表單上都看得到。
+function openPropMgr(){
+  if(!adminOnly('管理房源（新增／刪除館別與房間、調整租金、官網上下架）'))return;
+  renderPM();document.getElementById('pm-ov').classList.add('open');
+}
 function togglePubVis(pid){
   const vis=Cloud.get('qj_pub_vis',{});
   const cur=vis[pid]!==false;
@@ -7603,6 +7622,7 @@ function openPublicSite(){
   window.open(Cloud.getPublicUrl(),'_blank','noopener');
 }
 function openSiteInfo(){
+  if(!adminOnly('修改官網對外顯示的聯絡資訊'))return;
   const d=Cloud.get('qj_pub_info',{})||{};
   for(const k in SITE_FIELDS) document.getElementById(SITE_FIELDS[k]).value=d[k]||'';
   document.getElementById('si-url').value=Cloud.companyId?Cloud.getPublicUrl():'';

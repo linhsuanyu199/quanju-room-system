@@ -457,7 +457,9 @@ function ctEnsureUI() {
 /* ══════════════════════════════════════════════════════════════════
    1. 簽約主體設定
    ══════════════════════════════════════════════════════════════════ */
+/* 簽約主體一改，之後每一份契約上的公司名稱、統編、負責人都跟著改。 */
 function ctOpenSigner() {
+  if (typeof adminOnly === 'function' && !adminOnly('修改簽約主體設定'))return;
   ctEnsureUI();
   var d = Cloud.get(CT_KV_SIGNER, {}) || {};
   document.getElementById('ctsg-body').innerHTML =
@@ -485,7 +487,10 @@ function ctSaveSigner() {
    ══════════════════════════════════════════════════════════════════ */
 var CT_CUR_PROP = null, CT_CUR_TAB = 'owner', CT_CUR_DATA = null;
 
+/* 館別契約設定裡有房東的身分證字號、戶籍地址、撥款帳戶、保證租金金額，
+   以及損益表與撥款單都靠它算錢的契約起訖。整頁都是管理者的。 */
 function ctOpenData(propId, tab) {
+  if (typeof adminOnly === 'function' && !adminOnly('編輯房東契約資料'))return;
   ctEnsureUI();
   var cp = ctProp(propId);
   if (!cp) { alert('找不到這個館別'); return; }

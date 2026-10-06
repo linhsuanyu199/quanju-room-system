@@ -10,6 +10,23 @@ const NAME_CHANGE_LIMIT = 2; // 顯示名稱最多可修改次數
 // 平台管理者白名單（僅供企業管理後台存取判斷用，實際安全檢查同時在資料庫 RPC 內做一次）
 const PLATFORM_ADMIN_EMAILS = ['linhsuanyu199@gmail.com'];
 
+// 只有企業管理者才顯示的入口（元素 id）。新增管理者專屬功能時要同時做三件事：
+//   1. 在這裡加 id，讓一般成員看不到入口
+//   2. 在對應的 open*() 開頭呼叫 adminOnly()，讓從 DevTools 叫出來的人被擋住
+//   3. 在 sql/member_role.sql 確認那個 company_kv key 不在成員白名單裡 ← 這一層才是真的
+// 只做 1 等於沒做：所有業務資料都在同一張 company_kv，RLS 只分公司不分角色。
+const ADMIN_ONLY_UI = [
+  'top-propmgr',      // 上方「管理房源」按鈕
+  'more-propmgr',     // 🏢 管理房源（整頁都是館別與房間主檔）
+  'more-siteinfo',    // ⚙️ 官網設定（對外顯示的公司聯絡方式）
+  'more-signer',      // ✍️ 簽約主體設定（影響每一份電子契約）
+  'more-cleancfg',    // 🧹 清潔排程設定＋清潔人員主檔
+  'more-vendors',     // 🔧 廠商管理
+  'more-pnl',         // 📊 月損益總表（全公司營收與各館保證租金）
+  'more-members',     // 👥 成員管理
+  'pm-market-btn'     // 行情共享開關
+];
+
 const KV_CACHE = {};
 const Cloud = {
   ready: false,
@@ -71,6 +88,11 @@ const Cloud = {
       return (hint || '已達目前方案的使用上限。') + '\n\n剛才的變更沒有存上去。';
     if (/SUBSCRIPTION_INACTIVE/.test(msg))
       return (hint || '訂閱已到期，系統目前為唯讀模式。') + '\n\n剛才的變更沒有存上去。';
+    // 一般成員去改管理者專屬的主檔或設定（sql/member_role.sql）。
+    // hint 已經寫明是哪一項，這裡只補上「該找誰」——否則同仁只會重複按同一個按鈕。
+    if (/ROLE_ADMIN_ONLY/.test(msg))
+      return (hint || '只有企業管理者可以修改這項資料。剛才的變更沒有存上去。') +
+             '\n\n如果這項工作應該由您負責，請聯繫企業管理者。';
     return '雲端儲存失敗，剛才的變更沒有存上去：\n' + (msg || '未知錯誤') +
            '\n\n請確認網路後重新整理，再檢查資料是否正確。';
   },
@@ -595,18 +617,14 @@ const Cloud = {
     const boxText = this.companyName + ' · ' + (this.myDisplayName || '未顯示');
     box.textContent = boxText;
     box.title = boxText;
-    const membersBtn = document.getElementById('more-members');
-    if (membersBtn) membersBtn.style.display = this.myRole === 'admin' ? '' : 'none';
-    const marketBtn = document.getElementById('pm-market-btn');
-    if (marketBtn) marketBtn.style.display = this.myRole === 'admin' ? '' : 'none';
-    const cleanCfgBtn = document.getElementById('more-cleancfg');
-    if (cleanCfgBtn) cleanCfgBtn.style.display = this.myRole === 'admin' ? '' : 'none';
-    const vendorBtn = document.getElementById('more-vendors');
-    if (vendorBtn) vendorBtn.style.display = this.myRole === 'admin' ? '' : 'none';
-    // 損益總表含全公司營收與每個館別的保證租金，是最敏感的一張表。
-    // 這裡只是不顯示入口，真正的攔阻在 openPnl() 內（選單按鈕誰都叫得出來）。
-    const pnlBtn = document.getElementById('more-pnl');
-    if (pnlBtn) pnlBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    // 管理者專屬的入口。這裡只是「不顯示」，不是權限控制——選單按鈕誰都能在
+    // DevTools 裡叫出來。真正的攔阻有兩層：各個 open*() 函數開頭的 adminOnly()，
+    // 以及資料庫的 enforce_kv_role trigger（sql/member_role.sql），後者改不掉。
+    const admin = this.myRole === 'admin';
+    for (const id of ADMIN_ONLY_UI) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = admin ? '' : 'none';
+    }
     const adminBtn = document.getElementById('more-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     // 方案徽章／橫幅／額度顯示。放在最後是因為 applySubUI 會依方案再蓋掉
