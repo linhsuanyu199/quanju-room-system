@@ -1587,22 +1587,67 @@ function togglePwField(id,btn){
 function loadTodoCfg(){
   const c=Cloud.get('qj_todo_cfg',{})||{};
   const n=parseInt(c.leadDays,10);
-  return{leadDays:(n>=0&&n<=30)?n:3};
+  // 租約到期預告天數。談續約或重新招租都需要前置時間，30 天是實務上的下限。
+  const l=parseInt(c.leaseDays,10);
+  // 租期長度門檻。本系統同時做日租與月租，短租客本來就住幾天就走、沒有續租決策可做；
+  // 若不設門檻，每一筆短租從入住第一天就會卡在待辦裡，整張清單會被洗到沒人看。
+  const m=parseInt(c.leaseMinStay,10);
+  return{leadDays:(n>=0&&n<=30)?n:3,
+    leaseDays:(l>=0&&l<=180)?l:30,
+    leaseMinStay:(m>=0&&m<=365)?m:60};
 }
-function setTodoLead(v){
-  let n=parseInt(v,10);
-  if(!(n>=0))n=0;
-  if(n>30)n=30;
-  Cloud.set('qj_todo_cfg',{leadDays:n});
+// 三個設定共用同一個 KV，所以一定要先讀回現值再覆寫，否則改其中一個會把另外兩個打回預設值
+function setTodoCfg(patch){
+  const c=loadTodoCfg();
+  Cloud.set('qj_todo_cfg',Object.assign({},c,patch));
   openTodo();refreshTodoBadge();
+}
+function clampInt(v,lo,hi){
+  let n=parseInt(v,10);
+  if(!(n>=lo))n=lo;
+  if(n>hi)n=hi;
+  return n;
+}
+function setTodoLead(v){setTodoCfg({leadDays:clampInt(v,0,30)});}
+function setTodoLease(v){setTodoCfg({leaseDays:clampInt(v,0,180)});}
+function setTodoMinStay(v){setTodoCfg({leaseMinStay:clampInt(v,0,365)});}
+
+// ── 租約到期的「已確認退租」標記 ──────────────────
+// 待辦清單最大的失敗模式是「有項目永遠消不掉」，人就學會整張不看。房客已經說要退租時
+// 必須能把提醒收掉，但又不能真的刪掉紀錄，否則承辦人會不知道當初為什麼不見了。
+// key 刻意把退房日放進去：之後若真的續約、退房日被延長，key 就對不上，
+// 這個標記自動失效、提醒會重新長出來，不需要任何清理邏輯。
+function loadLeaseAck(){return Cloud.get('qj_lease_ack',{})||{};}
+function leaseAckKey(bkId,seg){return bkId+'|'+seg.prop_id+'|'+seg.room+'|'+seg.checkout;}
+function todoLeaseLeave(key){
+  if(!confirm('標記為「已確認退租」？\n\n這只是把提醒收起來，不會改動訂單或退房日。\n退房當天若還沒辦退房，仍然會出現在「退房日已過」的提醒裡。'))return;
+  const a=loadLeaseAck();
+  a[key]={d:'leave',by:Cloud.myDisplayName||Cloud.myEmail||'',at:todayStr()};
+  Cloud.set('qj_lease_ack',a);
+  openTodo();refreshTodoBadge();
+}
+function todoLeaseUndo(key){
+  const a=loadLeaseAck();
+  delete a[key];
+  Cloud.set('qj_lease_ack',a);
+  openTodo();refreshTodoBadge();
+}
+function todoLeaseRenew(id){
+  const bk=loadBks().find(b=>String(b.id)===String(id));
+  closeTodo();
+  if(!bk){alert('這筆訂單已不存在，可能已被其他成員刪除。');return;}
+  openEditBk(bk);
+  // 續約面板讀的是 openEditBk 填進去的 curSegs，順序顛倒會開出一張空面板
+  doRenewal();
 }
 function todoAlerts(){
   const tod=todayStr();
-  const lead=loadTodoCfg().leadDays;
+  const cfg=loadTodoCfg();
+  const lead=cfg.leadDays,leaseLead=cfg.leaseDays,minStay=cfg.leaseMinStay;
   const leadEnd=addDays(tod,lead);
-  const unpaid=[],lateOut=[],upcoming=[],noShow=[],precheck=[];
+  const unpaid=[],lateOut=[],upcoming=[],noShow=[],precheck=[],leaseEnd=[],leaseAcked=[];
   // 迴圈外先讀一次，避免每個段落都打一次 KV
-  const ckAll=loadChecklists(),ckTot=ckTotal();
+  const ckAll=loadChecklists(),ckTot=ckTotal(),acks=loadLeaseAck();
   loadBks().forEach(b=>{
     (b.segments||[]).forEach((s,i)=>{
       if(!s.checkin||!s.checkout)return;
@@ -1624,6 +1669,18 @@ function todoAlerts(){
       // 退房日已過卻仍掛「入住中」＝沒辦退房，房態與帳都不準
       if(st==='checkin'&&s.checkout<tod)
         lateOut.push({bk:b,seg:s,idx:i,days:diffDays(s.checkout,tod)});
+      // 租約即將到期＝續租或重新招租的決策點。原本只有「退房日已過」才會叫，
+      // 但那時房間已經空了，空一天就是少一天租金。
+      // 只看「入住中」：只有這個狀態能續約，而退房日已過的情況由上面那條處理，不重複報。
+      // 一定要過租期長度門檻，否則日租訂單會從入住第一天就永久佔住待辦清單。
+      if(st==='checkin'&&leaseLead>0&&s.checkout>=tod
+         &&diffDays(tod,s.checkout)<=leaseLead
+         &&diffDays(s.checkin,s.checkout)>=minStay){
+        const lk=leaseAckKey(b.id,s);
+        const row={bk:b,seg:s,idx:i,key:lk,days:diffDays(tod,s.checkout),
+          stay:diffDays(s.checkin,s.checkout),ack:acks[lk]||null};
+        (row.ack&&row.ack.d==='leave'?leaseAcked:leaseEnd).push(row);
+      }
     });
   });
   const tasks=loadTasks().filter(t=>OPEN_STATUS_KEYS.includes(t.status)&&t.dueDate&&t.dueDate<tod);
@@ -1647,10 +1704,14 @@ function todoAlerts(){
   lateOut.sort((a,b)=>b.days-a.days);
   upcoming.sort((a,b)=>a.days-b.days);
   precheck.sort((a,b)=>a.days-b.days);
+  leaseEnd.sort((a,b)=>a.days-b.days);
+  leaseAcked.sort((a,b)=>a.days-b.days);
   tasks.sort((a,b)=>a.dueDate<b.dueDate?-1:1);
-  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,meter,settle,lead,
+  // leaseAcked 不計入 total：那些是已經有結論的，留著只是讓人查得到當初誰按的
+  return{unpaid,noShow,lateOut,upcoming,precheck,tasks,rent,payout,lordTerm,meter,settle,
+    leaseEnd,leaseAcked,lead,leaseLead,minStay,
     total:unpaid.length+noShow.length+lateOut.length+upcoming.length+precheck.length+tasks.length+
-      rent.length+payout.length+lordTerm.length+meter.length+settle.length,tod};
+      rent.length+payout.length+lordTerm.length+meter.length+settle.length+leaseEnd.length,tod};
 }
 // 所有紅點都走這裡。隱藏狀態寫在 CSS class（.nav-badge／.more-badge-inline）裡，
 // 所以要顯示時一定要給明確的 display 值：寫 el.style.display='' 只是清掉行內樣式，
@@ -1679,16 +1740,22 @@ function openTodo(){
     '<td style="padding:5px 6px;white-space:nowrap">'+label+'</td>'+
     '<td style="padding:5px 6px;white-space:nowrap;color:'+color+';font-weight:700">'+dayTxt+'</td>'+
   '</tr>';
-  let h='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--muted);'+
-    'padding:8px 10px;background:var(--bg2,#f6f7f9);border-radius:6px">'+
-    '<span>入住前預告：提前</span>'+
-    '<input type="number" min="0" max="30" step="1" value="'+a.lead+'" onchange="setTodoLead(this.value)" '+
-      'style="width:56px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px">'+
-    '<span>天開始提醒尚未收款的訂單（設 0 ＝關閉預告）</span></div>';
+  const numIn=(val,min,max,fn)=>'<input type="number" min="'+min+'" max="'+max+'" step="1" value="'+val+'" '+
+    'onchange="'+fn+'(this.value)" style="width:56px;padding:3px 6px;border:1px solid var(--border);'+
+    'border-radius:4px;font-size:11px">';
+  let h='<div style="font-size:11px;color:var(--muted);padding:8px 10px;'+
+    'background:var(--bg2,#f6f7f9);border-radius:6px;line-height:2.1">'+
+    '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
+    '<span>入住前預告：提前</span>'+numIn(a.lead,0,30,'setTodoLead')+
+    '<span>天開始提醒尚未收款的訂單（設 0 ＝關閉預告）</span></div>'+
+    '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
+    '<span>租約到期預告：提前</span>'+numIn(a.leaseLead,0,180,'setTodoLease')+
+    '<span>天提醒，只提醒租期滿</span>'+numIn(a.minStay,0,365,'setTodoMinStay')+
+    '<span>天以上的訂單（設 0 天預告 ＝關閉）</span></div></div>';
   if(a.total===0){
     h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
-      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、房東契約即將到期。</div>';
+      '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、<br>房東契約即將到期，以及房客租約即將到期（該談續租或開始招租了）。</div>';
   }else{
     h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
       '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
@@ -1735,6 +1802,22 @@ function openTodo(){
         '<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:'+(x.termExpired?'#c92a2a':'#e67700')+'">'+
           (x.termExpired?'已過期 '+Math.abs(x.termDays)+' 天':x.termDays+' 天後到期')+'</td>'+
       '</tr>').join(''));
+    h+=sec('🔁 房客租約即將到期','#1098ad',a.leaseEnd.length,
+      '剩 '+a.leaseLead+' 天以內到期、且租期滿 '+a.minStay+' 天的在住訂單。續租或重新招租都需要前置時間，'+
+      '等到退房日才發現，房間就是實際空著在等人，空一天就是少一天租金。'+
+      '談成續租按「🔄 續約」直接延長退房日；房客確定要走就按「✅ 已確認退租」把提醒收起來，'+
+      '訂單與退房日都不會被改動。',
+      a.leaseEnd.map(x=>'<tr style="border-top:1px solid var(--border)">'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk('+jsArg(x.bk.id)+')" style="color:#1a56a0">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
+        '<td style="padding:5px 6px">'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap">退房 '+escH(x.seg.checkout)+
+          '<div style="color:var(--muted);font-size:10px">租期 '+x.stay+' 天</div></td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#1098ad;font-weight:700">'+
+          (x.days===0?'今天到期':'還有 '+x.days+' 天')+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;text-align:right">'+
+          '<button class="btn btn-ghost sm" onclick="todoLeaseRenew('+jsArg(x.bk.id)+')">🔄 續約</button> '+
+          '<button class="btn btn-ghost sm" onclick="todoLeaseLeave('+jsArg(x.key)+')">✅ 已確認退租</button></td>'+
+      '</tr>').join(''));
     h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
       '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
       a.unpaid.map(x=>bkRow(x,'#c92a2a','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
@@ -1760,6 +1843,19 @@ function openTodo(){
         '<td style="padding:5px 6px;white-space:nowrap;color:#7048e8;font-weight:700">已逾 '+diffDays(t.dueDate,a.tod)+' 天</td>'+
       '</tr>').join(''));
   }
+  // 放在 if/else 之外：已確認退租的不計入待辦數，所以其他事情都做完時會走到
+  // 「沒有待辦」那一支，但這張名單還是得看得到——否則承辦人只會發現提醒不見了，
+  // 查不到是誰、什麼時候下的結論，也沒辦法反悔。
+  if(a.leaseAcked.length)
+    h+='<div style="margin-top:12px;padding:8px 10px;background:var(--bg2,#f6f7f9);border-radius:6px;'+
+      'font-size:10.5px;color:var(--muted);line-height:1.9;text-align:left">'+
+      '<strong>🔁 租約到期・已確認退租（'+a.leaseAcked.length+'）</strong>　不列入待辦數。'+
+      '若之後改成續約，延長退房日後提醒會自動恢復。<br>'+
+      a.leaseAcked.map(x=>'· '+escH(x.bk.guest||'(未命名)')+'　'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+
+        '　退房 '+escH(x.seg.checkout)+'（'+(x.days===0?'今天':'還有 '+x.days+' 天')+'）'+
+        '　<span style="color:#868e96">'+escH((x.ack&&x.ack.by)||'')+(x.ack&&x.ack.at?' '+escH(x.ack.at):'')+'</span>'+
+        ' <a href="javascript:void(0)" onclick="todoLeaseUndo('+jsArg(x.key)+')" style="color:#1a56a0">取消標記</a>').join('<br>')+
+      '</div>';
   document.getElementById('td-body').innerHTML=h;
   document.getElementById('td-ov').classList.add('open');
 }
