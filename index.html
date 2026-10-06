@@ -45,39 +45,41 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
   display:flex;align-items:center;gap:3px;transition:opacity .15s;flex-shrink:0}
 .btn-top:hover{opacity:.85}
+/* 三層選單：⚙️ 更多（頂列）→ 六個分類 → 分類底下的功能鍵。
+   .more-panel 掛 .right（right:0）貼著頂列右緣展開，不會超出視窗。 */
 .more-menu{position:relative}
-/* 面板預設往右展開（left:0）。最右邊的分類改掛 .right 往左展開，
-   否則面板會超出視窗右緣，使用者得橫向捲動才看得到選項。 */
 .more-panel{display:none;position:absolute;top:36px;left:0;min-width:186px;z-index:210;
   background:var(--white);border:1px solid var(--border);border-radius:9px;padding:5px;
   box-shadow:0 8px 24px rgba(0,0,0,.22)}
 .more-panel.right{left:auto;right:0}
 .more-menu.open .more-panel{display:block}
-/* 分類名稱印在面板頂端：頂列按鈕只放兩個字（版面有限），完整分類名在這裡交代，
-   使用者才知道自己現在站在哪一層。 */
-.more-head{padding:4px 9px 5px;font-size:10px;font-weight:800;letter-spacing:.6px;
-  color:var(--muted);border-bottom:1px solid var(--border);margin-bottom:4px}
 .more-item{display:flex;align-items:center;width:100%;gap:6px;height:32px;padding:0 9px;
   border:none;background:none;border-radius:6px;font-size:12px;color:var(--text);
   cursor:pointer;white-space:nowrap;text-align:left;text-decoration:none}
 .more-item:hover{background:var(--primary-light)}
 .more-sep{height:1px;background:var(--border);margin:4px 6px}
+/* 第二層（分類）→ 第三層（功能）的飛出式子選單。
+   往「左」飛（right:100%）而不是往右：更多面板本身已經貼在視窗右緣，
+   往右展開的子選單會整個掉到畫面外、完全點不到。 */
+.more-group{position:relative}
+.more-sub{display:none;position:absolute;top:-5px;right:100%;margin-right:5px;
+  min-width:196px;z-index:211;background:var(--white);border:1px solid var(--border);
+  border-radius:9px;padding:5px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.more-group.open>.more-sub{display:block}
+.more-cat{font-weight:700}
+.more-group.open>.more-cat{background:var(--primary-light)}
+.more-arrow{margin-left:auto;font-size:9px;color:var(--muted)}
+/* 有紅點時 .more-badge-inline 會先吃掉 margin-left:auto，箭頭要退回固定間距，
+   否則箭頭會黏在紅點左邊、看起來像是紅點的一部分。 */
+.more-badge-inline+.more-arrow{margin-left:6px}
 .more-badge-inline{display:none;margin-left:auto;min-width:16px;height:16px;padding:0 4px;
   border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;
   font-weight:700;text-align:center}
-/* 分類按鈕上的紅點。選單收合時看不到裡面的 .more-badge-inline，
-   所以該分類底下的待辦總數要浮到按鈕上。 */
+/* 頂列按鈕上的紅點。選單收合時看不到裡面的 .more-badge-inline，
+   所以底下所有待辦的總數要浮到「⚙️ 更多」這顆按鈕上。 */
 .nav-badge{display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;
   padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;
   line-height:16px;font-weight:700;text-align:center}
-/* 視窗變窄時優先犧牲「資訊」，不犧牲「功能鍵」。
-   企業名／使用者名只是提示，被截掉不影響操作；而頂列右側的功能鍵一旦被
-   擠出畫面就完全點不到（官網那兩顆就是這樣消失的）。 */
-@media (max-width:1150px){#cloud-user-box{display:none}}
-/* 再窄就連方案徽章也收起來（約 935px 以下功能鍵才真的會被擠出去）。
-   徽章只是捷徑，同一件事在「系統 ▾ → 方案與用量」裡還在；真正要行動的
-   到期／唯讀狀態另有 #sub-banner 橫幅，不靠這顆徽章提醒。 */
-@media (max-width:960px){#plan-badge{display:none !important}}
 .btn-add-top{background:#fff;color:var(--primary)}
 .btn-mgt-top{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
 .btn-task-top{background:#e67700;color:#fff}
@@ -553,80 +555,78 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
     <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
+    <button class="btn-top btn-mgt-top" onclick="openPropMgr()">管理房源</button>
+    <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
+    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
   </div>
-  <!-- 功能入口一律收在 .topbar-fixed（不會被橫向捲動截掉），只有統計數字放在
-       會捲動的 .topbar-scroll。原本「官網／官網設定」是放在捲動區的尾端，
-       視窗一窄就被推出畫面、點不到。
-       分類原則（MECE，每個功能只出現在一個分類）：
-       房源＝物件與房東、房客＝人、合約＝文件、財務＝錢、維運＝現場、系統＝設定。
-       分析與待辦跨所有分類，硬塞進任一桶都會破壞分類軸，所以維持獨立按鈕。 -->
   <div class="topbar-fixed">
-    <div class="more-menu" id="nav-prop">
-      <button class="btn-top btn-mgt-top" onclick="toggleMoreMenu(event,'nav-prop')"
-        title="房源與房東：管理房源、房東建檔、對外官網">🏠 房源 ▾</button>
-      <div class="more-panel">
-        <div class="more-head">房源與房東</div>
-        <button class="more-item" onclick="pickMore(openPropMgr)">🏢 管理房源</button>
-        <button class="more-item" onclick="pickMore(openLandlords)">🏠 房東建檔</button>
-        <div class="more-sep"></div>
-        <button class="more-item" onclick="pickMore(openPublicSite)">🌐 開啟官網（新分頁）</button>
-        <button class="more-item" onclick="pickMore(openSiteInfo)">⚙️ 官網設定</button>
-      </div>
-    </div>
-    <div class="more-menu" id="nav-guest">
-      <button class="btn-top btn-mgt-top" style="position:relative" onclick="toggleMoreMenu(event,'nav-guest')"
-        title="房客與招租：詢問單、客戶、祝福提醒、客訴">👥 房客 ▾<span class="nav-badge" id="nav-badge-guest"></span></button>
-      <div class="more-panel">
-        <div class="more-head">房客與招租</div>
-        <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
-        <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表（房客）</button>
-        <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
-        <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
-      </div>
-    </div>
-    <div class="more-menu" id="nav-doc">
-      <button class="btn-top btn-mgt-top" style="position:relative" onclick="toggleMoreMenu(event,'nav-doc')"
-        title="合約與點交：線上簽約、入住／退房點交、簽約主體">📄 合約 ▾<span class="nav-badge" id="nav-badge-doc"></span></button>
-      <div class="more-panel">
-        <div class="more-head">合約與點交</div>
-        <button class="more-item" onclick="pickMore(ctOpenList)">📄 契約管理</button>
-        <button class="more-item" onclick="pickMore(hoOpenList)">📋 入住／退房點交<span class="more-badge-inline" id="ho-badge"></span></button>
-        <div class="more-sep"></div>
-        <button class="more-item" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
-      </div>
-    </div>
-    <div class="more-menu" id="nav-money">
-      <button class="btn-top btn-mgt-top" onclick="toggleMoreMenu(event,'nav-money')"
-        title="財務：租金收款、退房結算、房東撥款">💰 財務 ▾</button>
-      <div class="more-panel">
-        <div class="more-head">財務</div>
-        <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
-        <button class="more-item" onclick="pickMore(openSettle)">🧾 退房結算（押金／水電）</button>
-        <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
-      </div>
-    </div>
-    <div class="more-menu" id="nav-ops">
-      <button class="btn-top btn-mgt-top" onclick="toggleMoreMenu(event,'nav-ops')"
-        title="維運：維修追蹤、清潔排程、廠商">🔧 維運 ▾</button>
-      <div class="more-panel">
-        <div class="more-head">維運</div>
-        <button class="more-item" onclick="pickMore(openMaint)">🔴 維修追蹤</button>
-        <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
-        <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
-      </div>
-    </div>
-    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()" title="營運分析報表">📊 分析</button>
     <button class="btn-top btn-mgt-top" id="btn-todo" onclick="openTodo()" title="今日待辦提醒"
       style="background:rgba(255,255,255,.1);position:relative">🔔<span id="todo-badge" class="nav-badge"></span></button>
-    <div class="more-menu" id="nav-sys">
-      <button class="btn-top btn-mgt-top" onclick="toggleMoreMenu(event,'nav-sys')"
-        title="系統：成員、方案、匯出" style="background:rgba(255,255,255,.1)">⚙️ 系統 ▾</button>
+    <!-- 三層選單：⚙️ 更多 → 六個分類 → 分類底下的功能。
+         分類原則（MECE，每個功能只歸一類）：
+         房源＝物件與房東、房客＝人、合約＝文件、財務＝錢、維運＝現場、系統＝設定。
+         「官網」原本在左邊會橫向捲動的 .topbar-scroll 尾端，視窗一窄就被推出畫面、
+         完全點不到（而且 🌐 官網 那顆還寫死 display:none 從沒顯示過），
+         所以收進「房源與房東」；這裡不會被捲動截掉。
+         管理房源／維修追蹤／分析 在頂列保留快捷鍵，分類裡也各有一份——
+         分類法仍然是 MECE（每個功能只屬於一類），重複的只是進入點。 -->
+    <div class="more-menu" id="nav-more">
+      <button class="btn-top btn-mgt-top" onclick="toggleMoreMenu(event,'nav-more')" title="其他功能"
+        style="background:rgba(255,255,255,.1);position:relative">⚙️ 更多 ▾<span class="nav-badge" id="more-badge"></span></button>
       <div class="more-panel right">
-        <div class="more-head">系統</div>
-        <button class="more-item" id="more-members" style="display:none" onclick="pickMore(openMembers)">👥 成員管理</button>
-        <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
-        <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
-        <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">🏠 房源與房東<span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" onclick="pickMore(openPropMgr)">🏢 管理房源</button>
+            <button class="more-item" onclick="pickMore(openLandlords)">🏠 房東建檔</button>
+            <div class="more-sep"></div>
+            <button class="more-item" onclick="pickMore(openPublicSite)">🌐 開啟官網（新分頁）</button>
+            <button class="more-item" onclick="pickMore(openSiteInfo)">⚙️ 官網設定</button>
+          </div>
+        </div>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">👥 房客與招租<span class="more-badge-inline" id="cat-badge-guest"></span><span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" onclick="pickMore(openInq)">📩 詢問單<span class="more-badge-inline" id="inq-badge"></span></button>
+            <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表（房客）</button>
+            <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
+            <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
+          </div>
+        </div>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">📄 合約與點交<span class="more-badge-inline" id="cat-badge-doc"></span><span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" onclick="pickMore(ctOpenList)">📄 契約管理</button>
+            <button class="more-item" onclick="pickMore(hoOpenList)">📋 入住／退房點交<span class="more-badge-inline" id="ho-badge"></span></button>
+            <div class="more-sep"></div>
+            <button class="more-item" onclick="pickMore(ctOpenSigner)">✍️ 簽約主體設定</button>
+          </div>
+        </div>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">💰 財務<span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
+            <button class="more-item" onclick="pickMore(openSettle)">🧾 退房結算（押金／水電）</button>
+            <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
+          </div>
+        </div>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">🔧 維運<span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" onclick="pickMore(openMaint)">🔴 維修追蹤</button>
+            <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
+            <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
+          </div>
+        </div>
+        <div class="more-group">
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">⚙️ 系統<span class="more-arrow">▸</span></button>
+          <div class="more-sub">
+            <button class="more-item" id="more-members" style="display:none" onclick="pickMore(openMembers)">👥 成員管理</button>
+            <button class="more-item" onclick="pickMore(openPlan)">💎 方案與用量</button>
+            <button class="more-item" onclick="pickMore(exportCompanyData)">⬇️ 匯出資料（Excel）</button>
+            <button class="more-item" id="more-platform-admin" style="display:none" onclick="pickMore(()=>Cloud.openPlatformAdmin())">🛠️ 平台後台</button>
+          </div>
+        </div>
       </div>
     </div>
     <button class="btn-top btn-mgt-top" onclick="Cloud.openCPW()" title="修改密碼" style="background:rgba(255,255,255,.1)">🔑</button>
@@ -1971,11 +1971,12 @@ function saveVendorsUI(){
   alert('廠商資料已儲存（共 '+list.length+' 家）');
 }
 
-// ── 頂列分類下拉選單（房源／房客／合約／財務／維運／系統）────────────────
-// 同一時間只開一個：面板都是 position:absolute，兩個同時開會直接疊在一起，
-// 上面那個的選項被下面那個蓋住、點不到。
+// ── 三層選單：⚙️ 更多 → 六個分類 → 分類底下的功能鍵 ────────────────
+// 收合時連第二層的 .more-group.open 一起清掉：留著的話下次打開「更多」，
+// 上次展開的那個分類會自己連著子選單一起冒出來，看起來像選單壞了。
 function closeMoreMenu(){
   document.querySelectorAll('.more-menu.open').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.more-group.open').forEach(g=>g.classList.remove('open'));
 }
 function toggleMoreMenu(ev,id){
   ev.stopPropagation();
@@ -1984,8 +1985,22 @@ function toggleMoreMenu(ev,id){
   closeMoreMenu();
   if(m&&!wasOpen)m.classList.add('open');
 }
+// 第二層分類。同一時間只展開一個子選單：子選單是 position:absolute 的飛出面板，
+// 兩個同時開會直接疊在一起，上面那個的選項被下面那個蓋住、點不到。
+function toggleSub(ev,btn){
+  ev.stopPropagation();
+  const g=btn.parentElement;
+  const was=g.classList.contains('open');
+  g.parentElement.querySelectorAll('.more-group.open').forEach(x=>x.classList.remove('open'));
+  if(!was)g.classList.add('open');
+}
 function pickMore(fn){closeMoreMenu();fn();}
-document.addEventListener('click',closeMoreMenu);
+// 點選單外面才收起來。面板內的空白處（分類之間的留白）不該關掉整個選單，
+// 不然使用者點歪一兩個 px 就要重新展開兩層。
+document.addEventListener('click',e=>{
+  if(e.target.closest&&e.target.closest('.more-menu'))return;
+  closeMoreMenu();
+});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMoreMenu();});
 
 // ════════════════════════════════════════════════
@@ -6260,13 +6275,18 @@ const INQ_STATUS={new:{label:'未處理',color:'#c92a2a'},contacted:{label:'已�
   converted:{label:'已成訂單',color:'#2f9e44'},closed:{label:'已結案',color:'#868e96'}};
 let inqList=[],inqTab='new';
 
-// 分類選單收合時看不到裡面的紅點，所以每個來源的待辦數都要同步標到所屬分類的
-// 按鈕上。這裡刻意讓各來源各存一份、由同一個函數相加後才寫進 DOM：
-// 若同一分類下的兩個來源各自直接寫按鈕上的紅點，後跑的那一個會把前一個蓋掉——
-// 詢問單 3 筆加另一個來源 2 筆，按鈕上只會顯示其中一個數字，另一邊就這樣消失了。
-// 日後新增待辦來源：在 MORE_COUNTS 加一個 key，再掛進下面對應分類的陣列即可。
+// 選單每收起一層，就看不到下一層的紅點，所以三層各要有自己的紅點：
+// 功能鍵上的實際筆數 → 分類按鈕上該分類的小計 → ⚙️ 更多 上的全部總計。
+// 這裡刻意讓各來源各存一份、由同一個函數相加後才寫進 DOM：
+// 若同一顆紅點有兩個來源各自直接寫 DOM，後跑的那一個會把前一個蓋掉——
+// 詢問單 3 筆加點交 2 筆，「更多」上只會顯示其中一個數字，另一邊就這樣消失了。
+// 日後新增待辦來源：在 MORE_COUNTS 加一個 key，再掛進下面對應層級的陣列即可。
 let MORE_COUNTS={inq:0,ho:0};
-const NAV_BADGE_SRC={'nav-badge-guest':['inq'],'nav-badge-doc':['ho']};
+const NAV_BADGE_SRC={
+  'more-badge':['inq','ho'],   // 第一層：⚙️ 更多
+  'cat-badge-guest':['inq'],   // 第二層：👥 房客與招租
+  'cat-badge-doc':['ho']       // 第二層：📄 合約與點交
+};
 function paintMoreBadge(){
   for(const id in NAV_BADGE_SRC)
     paintBadge(document.getElementById(id),
