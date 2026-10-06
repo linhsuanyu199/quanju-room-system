@@ -452,8 +452,6 @@ const Cloud = {
     if (vendorBtn) vendorBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const adminBtn = document.getElementById('more-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
-    const siteLink = document.getElementById('btn-public-site');
-    if (siteLink && this.companyId) siteLink.href = this.getPublicUrl();
     // 方案徽章／橫幅／額度顯示。放在最後是因為 applySubUI 會依方案再蓋掉
     // 行情共享按鈕的顯示狀態（上面只判斷了角色，還沒判斷方案有沒有這個功能）。
     if (typeof window.applySubUI === 'function') window.applySubUI();
