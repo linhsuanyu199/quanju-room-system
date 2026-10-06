@@ -591,6 +591,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(openCustomers)">👥 客戶列表（房客）</button>
             <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
             <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
+            <button class="more-item" onclick="pickMore(tnOpenLinks)">🔗 房客自助連結</button>
           </div>
         </div>
         <div class="more-group">
@@ -611,9 +612,10 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           </div>
         </div>
         <div class="more-group">
-          <button class="more-item more-cat" onclick="toggleSub(event,this)">🔧 維運<span class="more-arrow">▸</span></button>
+          <button class="more-item more-cat" onclick="toggleSub(event,this)">🔧 維運<span class="more-badge-inline" id="cat-badge-ops"></span><span class="more-arrow">▸</span></button>
           <div class="more-sub">
             <button class="more-item" onclick="pickMore(openMaint)">🔴 維修追蹤</button>
+            <button class="more-item" onclick="pickMore(tnOpenReports)">📥 房客報修（待確認）<span class="more-badge-inline" id="rep-badge"></span></button>
             <button class="more-item" id="more-cleancfg" style="display:none" onclick="pickMore(openCleanCfg)">🧹 清潔排程設定</button>
             <button class="more-item" id="more-vendors" style="display:none" onclick="pickMore(openVendors)">🔧 廠商管理</button>
           </div>
@@ -2992,6 +2994,7 @@ function init(){
   ca.scrollLeft=Math.max(0,(colF(ds(curY,curM,1))-1)*DW);
   refreshInqBadge();
   refreshHoBadge();
+  refreshRepBadge();
 }
 // 已離開企業、但名字還留在訂單「負責業務」或客戶「歸屬業務」上的人。
 // 不把這些名字補回下拉選單的話，開啟他們的舊訂單時瀏覽器會因為找不到對應的
@@ -6281,11 +6284,12 @@ let inqList=[],inqTab='new';
 // 若同一顆紅點有兩個來源各自直接寫 DOM，後跑的那一個會把前一個蓋掉——
 // 詢問單 3 筆加點交 2 筆，「更多」上只會顯示其中一個數字，另一邊就這樣消失了。
 // 日後新增待辦來源：在 MORE_COUNTS 加一個 key，再掛進下面對應層級的陣列即可。
-let MORE_COUNTS={inq:0,ho:0};
+let MORE_COUNTS={inq:0,ho:0,rep:0};
 const NAV_BADGE_SRC={
-  'more-badge':['inq','ho'],   // 第一層：⚙️ 更多
-  'cat-badge-guest':['inq'],   // 第二層：👥 房客與招租
-  'cat-badge-doc':['ho']       // 第二層：📄 合約與點交
+  'more-badge':['inq','ho','rep'], // 第一層：⚙️ 更多
+  'cat-badge-guest':['inq'],       // 第二層：👥 房客與招租
+  'cat-badge-doc':['ho'],          // 第二層：📄 合約與點交
+  'cat-badge-ops':['rep']          // 第二層：🔧 維運
 };
 function paintMoreBadge(){
   for(const id in NAV_BADGE_SRC)
@@ -6306,6 +6310,15 @@ async function refreshHoBadge(){
   try{n=typeof hoTodoCount==='function'?await hoTodoCount():0;}catch(e){n=0;}
   paintBadge(document.getElementById('ho-badge'),n);
   MORE_COUNTS.ho=n;paintMoreBadge();
+}
+// 房客自己送進來、還沒有人受理的報修。刻意不併進 🔔 待辦：待辦是「公司內部
+// 已經成立的事」，這裡是「外部人提出、還要人判斷要不要成立」的待確認件。
+async function refreshRepBadge(){
+  if(!Cloud.isLoggedIn())return;
+  let n=0;
+  try{n=typeof tnTodoCount==='function'?await tnTodoCount():0;}catch(e){n=0;}
+  paintBadge(document.getElementById('rep-badge'),n);
+  MORE_COUNTS.rep=n;paintMoreBadge();
 }
 async function openInq(){
   document.getElementById('inq-ov').classList.add('open');
@@ -8197,6 +8210,12 @@ init();
      版面同樣與房客簽收頁（handover.html）共用 handover-render.js。 -->
 <script src="js/handover-render.js"></script>
 <script src="js/handover.js"></script>
+
+<!-- 房客自助連結的後台（發連結 + 收房客報修）。載在 handover.js 之後：受理
+     報修時會用主 script 的 loadTasks/saveTasks/pushTkHist 開維修單，連結清單
+     也用到 loadBks/getAllProps/addDays/todayStr。房客實際看到的是獨立頁
+     tenant.html，不需要登入。 -->
+<script src="js/tenant.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">

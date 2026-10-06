@@ -387,6 +387,81 @@ const Cloud = {
     return true;
   },
 
+  // ── 房客自助入口（tenant_links / tenant_reports 資料表）────────
+  // 這裡和契約／點交最大的不同：**不存 snapshot**。連結只記「對應哪一筆訂單」，
+  // 房客每次開啟都由 tenant_get 從 company_kv 現撈現算。
+  // 繳費狀況、押金結算、報修進度都是會變的現況，存快照就等於讓房客
+  // 看到過期的數字，而房客看到的數字跟後台不一樣就是對帳爭議的開始。
+  TENANT_PAGE: 'tenant.html',
+
+  tenantUrl(token) {
+    return location.origin + location.pathname.replace(/[^/]*$/, '') +
+           this.TENANT_PAGE + '?t=' + token;
+  },
+
+  async listTenantLinks() {
+    const { data, error } = await _sb.from('tenant_links')
+      .select('id, token, booking_id, guest_name, status, opened_at, last_seen_at, open_count, created_at')
+      .eq('company_id', this.companyId)
+      .order('created_at', { ascending: false });
+    if (error) { alert('讀取房客連結失敗：' + error.message); return []; }
+    return data || [];
+  },
+
+  async createTenantLink(bookingId, guestName) {
+    const token = this._newToken();
+    const { data, error } = await _sb.from('tenant_links').insert({
+      company_id: this.companyId, token,
+      booking_id: String(bookingId), guest_name: guestName || null
+    }).select('id, token').single();
+    if (error) {
+      // tenant_links_one_live 擋下來的重複產生：一筆訂單同時只能有一條有效連結，
+      // 否則停用時業者不知道房客手上拿的是哪一條。
+      alert(/tenant_links_one_live|duplicate key/.test(error.message)
+        ? '這筆訂單已經有一條有效的房客連結了。\n要換一條新的請先停用舊的那條。'
+        : '建立房客連結失敗：' + error.message);
+      return null;
+    }
+    return { id: data.id, token: data.token, url: this.tenantUrl(data.token) };
+  },
+
+  // 停用而不是刪除：連結被誰在什麼時候開過是紀錄，刪掉就查不到了。
+  async revokeTenantLink(id) {
+    const { error } = await _sb.from('tenant_links')
+      .update({ status: 'revoked' }).eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('停用失敗：' + error.message); return false; }
+    return true;
+  },
+
+  async listTenantReports() {
+    const { data, error } = await _sb.from('tenant_reports')
+      .select('id, booking_id, prop_id, room, category, detail, contact, status,' +
+              ' reply, task_id, handled_at, handled_by, created_at')
+      .eq('company_id', this.companyId)
+      .order('created_at', { ascending: false });
+    if (error) { alert('讀取房客報修失敗：' + error.message); return []; }
+    return data || [];
+  },
+
+  async countNewTenantReports() {
+    const { count, error } = await _sb.from('tenant_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', this.companyId).eq('status', 'new');
+    if (error) return 0;
+    return count || 0;
+  },
+
+  async updateTenantReport(id, patch) {
+    const { error } = await _sb.from('tenant_reports')
+      .update(Object.assign({
+        handled_at: new Date().toISOString(),
+        handled_by: this.myDisplayName || this.myEmail || ''
+      }, patch))
+      .eq('id', id).eq('company_id', this.companyId);
+    if (error) { alert('更新失敗：' + error.message); return false; }
+    return true;
+  },
+
   // 記錄某筆訂單被覆蓋前的舊版內容，供之後查核
   async logBookingHistory(bookingId, oldValue) {
     const { error } = await _sb.from('booking_history').insert({

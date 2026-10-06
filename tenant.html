@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的租屋資訊 — 短期租賃管理營運系統</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/cloud-config.js"></script>
+<style>
+:root{--line:#e2e8f0;--muted:#64748b;--ink:#0f172a;--navy:#1a3a6b}
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Helvetica Neue",Arial,sans-serif}
+.hd{background:var(--navy);color:#fff;padding:14px 20px;position:sticky;top:0;z-index:50}
+.hd-in{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.hd-logo{width:34px;height:34px;background:#2563eb;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.hd-t{font-size:15px;font-weight:700}
+.hd-s{font-size:12px;opacity:.78}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+.fatal{padding:70px 20px;text-align:center;color:var(--muted);font-size:14px;line-height:1.9}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.07);padding:15px;margin-bottom:14px}
+.panel h3{font-size:14.5px;margin:0 0 11px;color:var(--navy);
+  display:flex;align-items:center;gap:6px}
+.kv{display:grid;grid-template-columns:86px 1fr;gap:5px 10px;font-size:13.5px;line-height:1.65}
+.kv dt{color:var(--muted);font-size:12.5px}
+.kv dd{margin:0;font-weight:600}
+.seg{border:1px solid var(--line);border-radius:9px;padding:11px 12px;margin-bottom:9px}
+.seg:last-child{margin-bottom:0}
+.seg-h{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:7px}
+.hero{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.hero-l{font-size:12px;color:#1e40af}
+.hero-v{font-size:25px;font-weight:800;color:#1e3a8a;line-height:1.25}
+.hero-s{font-size:12px;color:#1e40af;line-height:1.7}
+.hero.ok{background:#ecfdf5;border-color:#a7f3d0}
+.hero.ok .hero-l,.hero.ok .hero-s{color:#065f46}
+.hero.ok .hero-v{color:#047857}
+.hero.late{background:#fef2f2;border-color:#fecaca}
+.hero.late .hero-l,.hero.late .hero-s{color:#991b1b}
+.hero.late .hero-v{color:#b91c1c}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--muted);font-size:11px;font-weight:600;
+  padding:6px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px;border-bottom:1px solid var(--line);vertical-align:top}
+.num{text-align:right;white-space:nowrap}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.doc{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.doc:last-child{border-bottom:none}
+.doc-m{flex:1;min-width:0}
+.doc-t{font-size:13px;font-weight:700}
+.doc-s{font-size:11px;color:var(--muted)}
+a.go{background:#1a56a0;color:#fff;text-decoration:none;border-radius:7px;
+  padding:7px 13px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.note{font-size:11.5px;color:var(--muted);line-height:1.75;margin-top:9px}
+label{display:block;font-size:12.5px;color:var(--muted);font-weight:600;margin:10px 0 4px}
+select,textarea,input[type=text]{width:100%;border:1px solid #cbd5e1;border-radius:8px;
+  padding:9px 11px;font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:88px;resize:vertical;line-height:1.6}
+.btn{border:none;border-radius:9px;padding:11px 20px;font-size:14.5px;font-weight:700;
+  cursor:pointer;font-family:inherit;background:#16a34a;color:#fff;margin-top:12px}
+.btn:disabled{background:#cbd5e1;cursor:not-allowed}
+.msg{font-size:13px;margin-top:10px;line-height:1.7;white-space:pre-wrap}
+.msg.bad{color:#c92a2a}
+.msg.good{color:#15803d}
+.rep{border:1px solid var(--line);border-radius:9px;padding:10px 11px;margin-top:9px;font-size:12.5px;line-height:1.7}
+.foot{font-size:12px;color:var(--muted);line-height:1.9;text-align:center;padding:4px 0 26px}
+@media(max-width:600px){.wrap{padding:11px}.kv{grid-template-columns:74px 1fr}}
+</style>
+</head>
+<body>
+<div class="hd"><div class="hd-in">
+  <div class="hd-logo">🏠</div>
+  <div><div class="hd-t">我的租屋資訊</div><div class="hd-s" id="hd-s">載入中…</div></div>
+</div></div>
+<div class="wrap" id="app"><div class="fatal">載入中…</div></div>
+
+<!-- 繳租期數的推導（哪一期、應收多少、算不算逾期）直接沿用後台的 rent-ledger.js。
+     在這裡複製一份一模一樣的算法，遲早會和後台漂開——房客看到的金額
+     和催繳單上的金額不一樣，就是對帳爭議的開始。 -->
+<script src="js/rent-ledger.js"></script>
+<script>
+'use strict';
+var sb=null, TOKEN=null, D=null, KV={}, BUSY=false;
+
+function esc(s){return String(s==null?'':s)
+  .replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function fatal(m){document.getElementById('app').innerHTML='<div class="fatal">'+m+'</div>';
+  document.getElementById('hd-s').textContent='';}
+
+/* ── rent-ledger.js 需要的環境 ───────────────────────────────────────
+   後台那支模組讀的是 Cloud.get() 與 loadBks()/getAllProps()。這裡把同樣
+   的名字接到 tenant_get 回傳的切片上，模組本身一行都不用改，算出來的
+   期數與金額就保證和後台一致。 */
+var Cloud={get:function(k,d){return KV[k]!==undefined&&KV[k]!==null?KV[k]:d;},set:function(){}};
+function loadBks(){return D&&D.booking?[D.booking]:[];}
+function getAllProps(){
+  var o=(D&&D.props)||{};
+  return Object.keys(o).map(function(id){
+    return {id:id,name:o[id].name||'',address:o[id].address||'',rooms:[]};
+  });
+}
+function money(n){return Number(n||0).toLocaleString('en-US');}
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function diffDays(a,b){
+  return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+}
+
+/* 房號可能被後台改過顯示名稱（qj_propinfo.roomNames）。訂單裡存的是原始
+   房號，印在門上的是改過的那個，兩邊不一致房客會以為自己看錯單。 */
+function roomName(pid,room){
+  var p=(D.props||{})[pid]; if(!p)return room||'';
+  var rn=(p.roomNames||{})[room];
+  return rn||room||'';
+}
+function propName(pid){
+  var p=(D.props||{})[pid];
+  return p?(p.name||''):'（館別資料已異動）';
+}
+function propAddr(pid){
+  var p=(D.props||{})[pid]; if(!p)return '';
+  return ((p.city||'')+(p.district||'')+(p.address||'')).trim();
+}
+
+(function init(){
+  TOKEN=new URLSearchParams(location.search).get('t');
+  if(!TOKEN){fatal('此連結缺少識別碼，請向承辦人索取正確的網址。');return;}
+  sb=window.supabase.createClient(window.CLOUD_URL,window.CLOUD_KEY);
+  load();
+})();
+
+async function load(){
+  try{
+    var res=await sb.rpc('tenant_get',{p_token:TOKEN});
+    if(res.error||!res.data){
+      fatal('連結不存在或已失效，請向承辦人索取新的連結。');return;}
+    if(res.data.revoked){
+      fatal('這條連結已由管理方停用。<br>如仍在租期內，請聯繫承辦人索取新的連結。');return;}
+    if(res.data.gone){
+      fatal('查無對應的租約資料。<br>若您仍在租期內，請聯繫承辦人協助確認。');return;}
+    D=res.data;
+    KV={qj_rent:D.rent||{},qj_rent_cfg:D.rentCfg||{}};
+    render();
+  }catch(e){fatal('資料載入失敗，請檢查網路後重新整理。');}
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   畫面
+   ══════════════════════════════════════════════════════════════════ */
+function render(){
+  var bk=D.booking||{}, segs=bk.segments||[];
+  document.getElementById('hd-s').textContent=
+    (D.company||'')+(bk.guest?'　'+bk.guest+' 您好':'');
+
+  var h='';
+  h+=secLease(bk,segs);
+  h+=secRent();
+  h+=secDocs();
+  h+=secUtil(segs);
+  h+=secReport(segs);
+  h+=secContact();
+  document.getElementById('app').innerHTML=h;
+}
+
+/* ── 我的租約 ──────────────────────────────────────────────────── */
+function secLease(bk,segs){
+  var h='<div class="panel"><h3>📄 我的租約</h3>';
+  if(!segs.length){
+    h+='<div class="note">這筆租約目前沒有有效的租期段落，請聯繫承辦人確認。</div></div>';
+    return h;
+  }
+  segs.forEach(function(s){
+    var addr=propAddr(s.prop_id);
+    h+='<div class="seg"><div class="seg-h">'+esc(propName(s.prop_id))+
+       '　'+esc(roomName(s.prop_id,s.room))+'</div><dl class="kv">'+
+       (addr?'<dt>地址</dt><dd>'+esc(addr)+'</dd>':'')+
+       '<dt>租期</dt><dd>'+esc(s.checkin||'—')+' ～ '+esc(s.checkout||'—')+'</dd>'+
+       '<dt>月租金</dt><dd>$'+money(s.monthlyPrice)+'</dd>'+
+       '</dl></div>';
+  });
+  h+='<dl class="kv" style="margin-top:11px">'+
+     '<dt>押金</dt><dd>$'+money(bk.deposit)+'</dd>'+
+     (bk.payment?'<dt>付款方式</dt><dd>'+esc(bk.payment)+'</dd>':'')+
+     (bk.phone4?'<dt>聯絡電話</dt><dd>＊＊＊＊＊＊'+esc(bk.phone4)+'</dd>':'')+
+     '</dl>';
+  h+='<div class="note">以上為系統目前登載的內容。若與您手上的契約不符，'+
+     '請以雙方簽署的契約為準並聯繫承辦人更正。</div></div>';
+  return h;
+}
+
+/* ── 繳費 ──────────────────────────────────────────────────────── */
+function secRent(){
+  var rows;
+  try{rows=rlBuild();}catch(e){rows=[];}
+  var h='<div class="panel"><h3>💰 繳費明細</h3>';
+  if(!rows.length){
+    h+='<div class="note">這筆租約沒有可展開的繳租期數'+
+       '（需要有月租金與完整的起訖日）。實際應繳金額請以承辦人通知為準。</div></div>';
+    return h;
+  }
+
+  /* 最該被看見的是「下一筆要付的錢」。已逾期的優先，其次是已到期未收，
+     都沒有才顯示下一期尚未到期的金額。全部繳清時直接講繳清，
+     不要再丟一張要付錢的卡片讓人緊張。 */
+  var due=rows.filter(function(r){return r.status==='overdue'||r.status==='partial'||r.status==='unpaid';})
+              .sort(function(a,b){return a.from.localeCompare(b.from);});
+  var nxt=rows.filter(function(r){return r.status==='future';})
+              .sort(function(a,b){return a.from.localeCompare(b.from);})[0];
+  /* 期數是「每個房間各自從第 1 期算起」。一張訂單換過房（或同時租兩間）
+     時，表上會出現兩個「第 1 期」，房客只會以為系統重複計費。
+     多房間時一律把房號寫出來，期數才有辨識度。 */
+  var multi=rows.map(function(r){return r.propId+'|'+r.room;})
+                .filter(function(v,i,a){return a.indexOf(v)===i;}).length>1;
+  /* 同一個房號可能存在於不同館（示範資料就有兩間「A」），只寫房號還是分不出來。 */
+  var at=function(r){return propName(r.propId)+'　'+roomName(r.propId,r.room);};
+  var whose=function(r){return multi?at(r)+'　第 '+r.no+' 期':'第 '+r.no+' 期';};
+
+  if(due.length){
+    var t=due[0], left=t.due-t.amt;
+    var late=t.status==='overdue';
+    h+='<div class="hero'+(late?' late':'')+'">'+
+       '<div class="hero-l">'+(late?'逾期未繳':'待繳')+'　'+esc(whose(t))+'</div>'+
+       '<div class="hero-v">$'+money(left)+'</div>'+
+       '<div class="hero-s">計費期間 '+esc(t.from)+' ～ '+esc(t.to)+
+       (t.amt>0?'　（已繳 $'+money(t.amt)+'）':'')+
+       (late?'<br>已逾期 '+t.over+' 天，請儘速繳納或與承辦人聯繫。':'')+
+       (due.length>1?'<br>另有 '+(due.length-1)+' 期待繳，明細如下。':'')+
+       '</div></div>';
+  }else if(nxt){
+    h+='<div class="hero ok"><div class="hero-l">目前已全數繳清</div>'+
+       '<div class="hero-v">$'+money(nxt.due)+'</div>'+
+       '<div class="hero-s">下一期（'+esc(whose(nxt))+'）自 '+esc(nxt.from)+' 起算。</div></div>';
+  }else{
+    h+='<div class="hero ok"><div class="hero-l">繳費狀態</div>'+
+       '<div class="hero-v">已全數繳清</div>'+
+       '<div class="hero-s">本租約所有期數皆已收訖。</div></div>';
+  }
+
+  h+='<table><thead><tr><th>期</th><th>計費期間</th><th class="num">應繳</th>'+
+     '<th class="num">已繳</th><th>狀態</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var st=RL_ST[r.status]||{label:r.status,color:'#495057',bg:'#f1f3f5'};
+    h+='<tr><td style="white-space:nowrap;font-weight:700">'+r.no+
+       (multi?'<div style="color:#94a3b8;font-size:10.5px;font-weight:400;'+
+         'white-space:normal">'+esc(at(r))+'</div>':'')+'</td>'+
+       '<td style="font-size:11.5px;white-space:nowrap">'+esc(r.from)+'<br>～'+esc(r.to)+
+       '<div style="color:#94a3b8;font-size:10.5px">'+r.days+' 天'+(r.full?'':'（按日計）')+'</div></td>'+
+       '<td class="num" style="font-weight:700">'+money(r.due)+'</td>'+
+       '<td class="num">'+(r.amt>0?money(r.amt):'—')+
+       (r.rec&&r.rec.on?'<div style="color:#94a3b8;font-size:10.5px">'+esc(r.rec.on)+'</div>':'')+'</td>'+
+       '<td><span class="tag" style="background:'+st.bg+';color:'+st.color+'">'+st.label+'</span>'+
+       (r.status==='overdue'?'<div style="color:#c92a2a;font-size:10.5px;font-weight:700">逾 '+r.over+' 天</div>':'')+
+       '</td></tr>';
+  });
+  h+='</tbody></table>';
+  h+='<div class="note">期數依租期自動展開：以起租日為每月繳款日切期，滿一個月收足月租，'+
+     '最後不滿一個月按日計。逾期判定已含 '+(rlCfg().graceDays)+' 天寬限。'+
+     '已繳金額於承辦人完成入帳登錄後才會顯示，剛匯款可能尚未更新。</div></div>';
+  return h;
+}
+
+/* ── 文件 ──────────────────────────────────────────────────────── */
+var DOC_LBL={
+  'contract|sub':'住宅轉租契約','contract|bz':'住宅包租契約','contract|wg':'租賃住宅委託管理契約',
+  'handover|in':'入住點交確認單','handover|out':'退房點交確認單'};
+function secDocs(){
+  var docs=(D.docs||[]);
+  var h='<div class="panel"><h3>📑 我的文件</h3>';
+  if(!docs.length){
+    h+='<div class="note">目前沒有可供查閱的契約或點交單。</div></div>';
+    return h;
+  }
+  docs.forEach(function(d){
+    var lbl=DOC_LBL[d.type+'|'+d.kind]||(d.type==='contract'?'契約':'點交確認單');
+    var page=d.type==='contract'?'contract.html':'handover.html';
+    var signed=d.status==='signed';
+    h+='<div class="doc"><div class="doc-m"><div class="doc-t">'+esc(lbl)+'</div>'+
+       '<div class="doc-s">'+esc(d.no||'')+
+       (d.room?'　'+esc(roomName(d.propId,d.room)):'')+
+       (signed?'　已於 '+esc(d.signedAt||'')+' 完成簽署':'　尚未簽署')+
+       '</div></div>'+
+       '<a class="go" href="'+page+'?t='+encodeURIComponent(d.token)+'" target="_blank" rel="noopener">'+
+       (signed?'檢視':'前往簽署')+'</a></div>';
+  });
+  h+='<div class="note">文件內容以您簽署當下的版本為準，簽署後任何人都無法再修改。'+
+     '建議點進去後用「列印／儲存 PDF」自行留存一份。</div></div>';
+  return h;
+}
+
+/* ── 押金與水電 ────────────────────────────────────────────────── */
+function secUtil(segs){
+  var ms=D.meters||{}, keys=Object.keys(ms);
+  var st=D.settle;
+  if(!keys.length&&!st)return '';
+  var h='<div class="panel"><h3>⚡ 水電與押金結算</h3>';
+  keys.forEach(function(k){
+    var m=ms[k]||{}, p=k.split('|');
+    var has=[m.inE,m.outE,m.inW,m.outW].some(function(x){return x!==''&&x!=null;});
+    if(!has)return;
+    h+='<div class="seg"><div class="seg-h">'+esc(propName(p[1]))+'　'+esc(roomName(p[1],p[2]))+'</div>'+
+       '<table><thead><tr><th></th><th class="num">電（度）</th><th class="num">水（度）</th></tr></thead><tbody>'+
+       '<tr><td>入住抄表'+(m.inOn?'<div style="color:#94a3b8;font-size:10.5px">'+esc(m.inOn)+'</div>':'')+'</td>'+
+       '<td class="num">'+(m.inE!==''&&m.inE!=null?esc(m.inE):'—')+'</td>'+
+       '<td class="num">'+(m.inW!==''&&m.inW!=null?esc(m.inW):'—')+'</td></tr>'+
+       '<tr><td>退房抄表'+(m.outOn?'<div style="color:#94a3b8;font-size:10.5px">'+esc(m.outOn)+'</div>':'')+'</td>'+
+       '<td class="num">'+(m.outE!==''&&m.outE!=null?esc(m.outE):'—')+'</td>'+
+       '<td class="num">'+(m.outW!==''&&m.outW!=null?esc(m.outW):'—')+'</td></tr>'+
+       '</tbody></table></div>';
+  });
+
+  if(st){
+    /* 明細取 snap（結算當下的快照）而不是現況重算值：欠租之後被補繳、
+       維修單之後改成向房東請款，重算出來的扣抵就會和實際退的錢對不起來。
+       refund 才是真正退的金額，calc 只是當時系統算出來的建議值。 */
+    var c=st.snap||{};
+    var ref=Number(st.refund)||0;
+    h+='<div class="hero'+(ref>=0?' ok':' late')+'" style="margin-top:11px">'+
+       '<div class="hero-l">押金結算（'+esc(st.on||'')+'）</div>'+
+       '<div class="hero-v">$'+money(Math.abs(ref))+'</div>'+
+       '<div class="hero-s">'+(ref>=0?'應退還給您':'押金不足，尚須補繳')+'</div></div>';
+    var tb=row2('押金',c.deposit)+row2('未繳租金',-(Number(c.rent)||0))+
+           row2('水電費',-(Number(c.util)||0))+row2('損壞賠償',-(Number(c.dmg)||0));
+    (st.extra||[]).forEach(function(x){tb+=row2(x.label||'其他',x.amt);});
+    if(tb)h+='<table style="margin-top:9px"><tbody>'+tb+'</tbody></table>';
+    if(st.note)h+='<div class="note">備註：'+esc(st.note)+'</div>';
+    /* 建議值與實退金額不同時要講出來，不然房客自己加總對不上，
+       會以為被少退了錢。 */
+    if(st.calc!=null&&Math.round(Number(st.calc))!==Math.round(ref))
+      h+='<div class="note">系統試算為 $'+money(Math.abs(Number(st.calc)))+
+         '，實際結算金額經雙方確認後為上方數字。</div>';
+    h+='<div class="note">這是承辦人結算當下的金額。如有疑問請於收到退款前提出。</div>';
+  }else{
+    h+='<div class="note">押金結算會在退房、完成水電抄表與點交之後產生，屆時這裡會顯示應退金額。</div>';
+  }
+  h+='</div>';
+  return h;
+}
+function row2(lbl,v){
+  if(v==null||v===''||Number(v)===0)return '';
+  var n=Number(v);
+  return '<tr><td>'+esc(lbl)+'</td><td class="num" style="font-weight:700;color:'+
+    (n<0?'#c92a2a':'#0f172a')+'">'+(n<0?'-':'')+'$'+money(Math.abs(n))+'</td></tr>';
+}
+
+/* ── 線上報修 ──────────────────────────────────────────────────── */
+var REP_CATS=['漏水／滲水','電器故障（冷氣、冰箱、洗衣機等）','照明／插座','門鎖／鑰匙',
+  '衛浴／排水','網路／第四台','家具損壞','蟲害','其他'];
+var REP_ST={new:{label:'待確認',color:'#e67700',bg:'#fff3bf'},
+  accepted:{label:'已受理',color:'#2f9e44',bg:'#ebfbee'},
+  rejected:{label:'未受理',color:'#868e96',bg:'#f1f3f5'}};
+
+function secReport(segs){
+  var h='<div class="panel"><h3>🔧 線上報修</h3>';
+  var opts=segs.map(function(s){
+    return '<option value="'+esc(s.prop_id)+'|'+esc(s.room)+'">'+
+      esc(propName(s.prop_id))+'　'+esc(roomName(s.prop_id,s.room))+'</option>';
+  }).join('');
+  /* 電話號碼來自「官網設定」，業者沒填就是沒有。沒有號碼還硬寫「請直接
+     電話聯繫」，等於叫房客打一支不存在的電話，緊急時反而延誤。 */
+  var ph=(D.contact||{}).phone;
+  h+='<div class="note" style="margin:0 0 4px">'+
+     '緊急狀況（瓦斯外洩、大量漏水、停電、受困）請<strong>'+
+     (ph?'直接撥打 <a href="tel:'+esc(ph)+'">'+esc(ph)+'</a>':'直接電話聯繫您的承辦人')+
+     '</strong>，不要只送出表單——表單需要人工確認，不保證即時看到。</div>';
+  if(segs.length>1)h+='<label for="rp-seg">房間</label><select id="rp-seg">'+opts+'</select>';
+  else h+='<input type="hidden" id="rp-seg" value="'+(segs[0]?esc(segs[0].prop_id)+'|'+esc(segs[0].room):'')+'">';
+  h+='<label for="rp-cat">類別</label><select id="rp-cat">'+
+     REP_CATS.map(function(c){return '<option>'+esc(c)+'</option>';}).join('')+'</select>'+
+     '<label for="rp-detail">狀況描述</label>'+
+     '<textarea id="rp-detail" maxlength="1000" placeholder="例如：客廳冷氣開機後只吹風不冷，大約三天前開始。"></textarea>'+
+     '<label for="rp-contact">方便聯絡的時段（選填）</label>'+
+     '<input type="text" id="rp-contact" maxlength="200" placeholder="例如：平日晚上 7 點後，或假日全天">'+
+     '<button class="btn" id="rp-btn" onclick="submitReport()">送出報修</button>'+
+     '<div class="msg" id="rp-msg"></div>';
+  h+='<div class="note">送出後由管理方確認，確認後才會排進維修。'+
+     '處理進度會顯示在下方，每日最多 5 件。'+
+     '照片請於承辦人聯繫時提供，本表單不收附件。</div>';
+
+  var reps=D.reports||[];
+  if(reps.length){
+    h+='<div style="font-size:13px;font-weight:700;margin-top:15px;color:var(--navy)">我的報修紀錄</div>';
+    reps.forEach(function(r){
+      var s=REP_ST[r.status]||{label:r.status,color:'#495057',bg:'#f1f3f5'};
+      h+='<div class="rep"><span class="tag" style="background:'+s.bg+';color:'+s.color+'">'+
+         s.label+'</span>　<strong>'+esc(r.cat)+'</strong>'+
+         '<div style="color:#94a3b8;font-size:11px">'+esc(r.at)+'</div>'+
+         '<div style="margin-top:4px">'+esc(r.detail)+'</div>'+
+         (r.reply?'<div style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)">'+
+           '管理方回覆：'+esc(r.reply)+'</div>':'')+'</div>';
+    });
+  }
+  h+='</div>';
+  return h;
+}
+
+async function submitReport(){
+  if(BUSY)return;
+  var msg=document.getElementById('rp-msg');
+  var detail=(document.getElementById('rp-detail').value||'').trim();
+  if(detail.length<5){
+    msg.className='msg bad';
+    msg.textContent='請多描述一點狀況（至少 5 個字），只寫「壞了」承辦人無法判斷要派什麼廠商。';
+    return;
+  }
+  var pr=(document.getElementById('rp-seg').value||'').split('|');
+  BUSY=true;
+  var btn=document.getElementById('rp-btn');
+  btn.disabled=true;btn.textContent='送出中…';
+  msg.className='msg';msg.textContent='';
+  try{
+    var res=await sb.rpc('tenant_report',{
+      p_token:TOKEN,p_prop_id:pr[0]||'',p_room:pr[1]||'',
+      p_cat:document.getElementById('rp-cat').value,
+      p_detail:detail,
+      p_contact:(document.getElementById('rp-contact').value||'').trim()});
+    if(res.error){throw res.error;}
+    if(!res.data||!res.data.ok){
+      msg.className='msg bad';
+      msg.textContent=(res.data&&res.data.msg)||'送出失敗，請稍後再試。';
+      return;
+    }
+    /* 重新載入而不是把新紀錄塞進畫面：重載才能同時反映「這是第幾件、
+       還剩幾件額度」，也避免送出成功但列表沒長出來讓人重複送。
+       成功訊息要等 load() 重畫完才寫：寫在 load() 前面的話，整個 #app
+       會被重建、訊息連同剛清空的表單一起被蓋掉，送出去卻像沒反應。 */
+    await load();
+    var m2=document.getElementById('rp-msg');
+    if(m2){m2.className='msg good';m2.textContent='✅ 已送出，管理方確認後會與您聯繫。';
+      m2.scrollIntoView({block:'center'});}
+  }catch(e){
+    msg.className='msg bad';msg.textContent='送出失敗，請檢查網路後再試一次。';
+  }finally{
+    BUSY=false;
+    var b=document.getElementById('rp-btn');
+    if(b){b.disabled=false;b.textContent='送出報修';}
+  }
+}
+
+/* ── 聯絡方式 ──────────────────────────────────────────────────── */
+function secContact(){
+  var c=D.contact||{};
+  var bits=[];
+  if(c.phone)bits.push('電話 <a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>');
+  if(c.line)bits.push('LINE '+esc(c.line));
+  if(c.email)bits.push('Email <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>');
+  if(c.hours)bits.push('服務時間 '+esc(c.hours));
+  /* 一行聯絡方式都沒有，表示業者還沒填「官網設定」。這頁整頁都在請房客
+     「有問題聯繫承辦人」，卻連怎麼聯繫都查不到，等於把人丟在路上。 */
+  return '<div class="foot">'+
+    (bits.length ? bits.join('<br>')
+                 : '尚未設定聯絡方式，請使用您與承辦人原有的聯絡管道。')+'<br>'+
+    '本頁網址專屬於您的租約，請勿轉傳給他人。</div>';
+}
+</script>
+</body>
+</html>
