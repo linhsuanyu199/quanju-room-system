@@ -119,6 +119,44 @@ function poRepairByProp(ym) {
   return out;
 }
 
+/* 一個館別在某個月的錢流。抽成獨立函數是因為月損益總表也要用同一套算法——
+   兩張表各算一遍的話，只要差一塊錢，業者就不會再相信其中任何一張。
+   b 來自 ldBrief()；R 來自 poRentByProp()；repairSum ＝當月代墊維修合計
+   （損益表傳 0，因為代墊維修會向房東收回、不是公司的損益）。
+   只接受 kind 為 bz／wg 的館別；自有房源沒有房東契約，一律回 0。 */
+function poPropMoney(b, R, repairSum, rg) {
+  /* 契約期間與本月的重疊天數。契約的「至」是含當日，所以換成開區間要 +1 天。
+     契約起訖沒填時 ovDays 會等於整月天數（視為全月有效），這是刻意的：
+     不填就當沒有限制，否則保證租金會憑空變成 0、撥款單少付房東一個月。 */
+  var ovFrom = b.from && b.from > rg.from ? b.from : rg.from;
+  var ovToEx = b.to && poAddDay(b.to) < rg.toEx ? poAddDay(b.to) : rg.toEx;
+  var ovDays = diffDays(ovFrom, ovToEx);
+  if (ovDays < 0) ovDays = 0;
+  var partial = ovDays > 0 && ovDays < rg.days;
+
+  var rentDue = 0, fee = 0, feeBase = 0, baseLabel = '';
+  if (b.kind === 'bz') {
+    rentDue = ovDays <= 0 ? 0
+      : (partial ? Math.round(b.rent * ovDays / rg.days) : b.rent);
+  } else if (b.kind === 'wg') {
+    /* 有代收租金就以實收為報酬基準；沒代收的話業者手上沒有實收數字，
+       只能退而用當月應收，並在單上標明。 */
+    feeBase = b.collectRent ? R.collected : R.due;
+    baseLabel = b.collectRent ? '當月實收租金' : '當月應收租金（未約定代收）';
+    if (b.feeMode === 'fix') {
+      fee = ovDays <= 0 ? 0 : (partial ? Math.round(b.feeAmt * ovDays / rg.days) : b.feeAmt);
+    } else {
+      fee = ovDays <= 0 ? 0 : Math.round(feeBase * b.feePct / 100);
+    }
+  }
+  var handOver = b.kind === 'wg' && b.collectRent ? R.collected : 0;
+  var net = b.kind === 'bz' ? rentDue - repairSum
+    : b.kind === 'wg' ? handOver - fee - repairSum : 0;
+  return { ovDays: ovDays, partial: partial, rentDue: rentDue,
+           fee: fee, feeBase: feeBase, baseLabel: baseLabel,
+           handOver: handOver, net: net };
+}
+
 /* 一個月份的全部撥款單。一張單＝一個館別（契約是按館別簽的），再標上房東。 */
 function poBuild(ym) {
   var rg = poRange(ym);
@@ -132,33 +170,12 @@ function poBuild(ym) {
   var out = [];
   lords.forEach(function (L) {
     L.props.forEach(function (b) {
-      /* 契約期間與本月的重疊天數。契約的「至」是含當日，所以換成開區間要 +1 天 */
-      var ovFrom = b.from && b.from > rg.from ? b.from : rg.from;
-      var ovToEx = b.to && poAddDay(b.to) < rg.toEx ? poAddDay(b.to) : rg.toEx;
-      var ovDays = diffDays(ovFrom, ovToEx);
-      if (ovDays < 0) ovDays = 0;
-      var partial = ovDays > 0 && ovDays < rg.days;
-
       var R = rent[b.id] || { collected: 0, due: 0, rows: [] };
       var P = rep[b.id] || { sum: 0, list: [] };
-
-      var rentDue = 0, fee = 0, feeBase = 0, baseLabel = '';
-      if (b.kind === 'bz') {
-        rentDue = ovDays <= 0 ? 0
-          : (partial ? Math.round(b.rent * ovDays / rg.days) : b.rent);
-      } else {
-        /* 有代收租金就以實收為報酬基準；沒代收的話業者手上沒有實收數字，
-           只能退而用當月應收，並在單上標明。 */
-        feeBase = b.collectRent ? R.collected : R.due;
-        baseLabel = b.collectRent ? '當月實收租金' : '當月應收租金（未約定代收）';
-        if (b.feeMode === 'fix') {
-          fee = ovDays <= 0 ? 0 : (partial ? Math.round(b.feeAmt * ovDays / rg.days) : b.feeAmt);
-        } else {
-          fee = ovDays <= 0 ? 0 : Math.round(feeBase * b.feePct / 100);
-        }
-      }
-      var handOver = b.kind === 'wg' && b.collectRent ? R.collected : 0;
-      var net = b.kind === 'bz' ? rentDue - P.sum : handOver - fee - P.sum;
+      var M = poPropMoney(b, R, P.sum, rg);
+      var ovDays = M.ovDays, partial = M.partial, rentDue = M.rentDue;
+      var fee = M.fee, feeBase = M.feeBase, baseLabel = M.baseLabel;
+      var handOver = M.handOver, net = M.net;
 
       var key = poKey(b.id, ym);
       var rec = recs[key] || null;

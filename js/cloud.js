@@ -603,6 +603,10 @@ const Cloud = {
     if (cleanCfgBtn) cleanCfgBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const vendorBtn = document.getElementById('more-vendors');
     if (vendorBtn) vendorBtn.style.display = this.myRole === 'admin' ? '' : 'none';
+    // 損益總表含全公司營收與每個館別的保證租金，是最敏感的一張表。
+    // 這裡只是不顯示入口，真正的攔阻在 openPnl() 內（選單按鈕誰都叫得出來）。
+    const pnlBtn = document.getElementById('more-pnl');
+    if (pnlBtn) pnlBtn.style.display = this.myRole === 'admin' ? '' : 'none';
     const adminBtn = document.getElementById('more-platform-admin');
     if (adminBtn) adminBtn.style.display = PLATFORM_ADMIN_EMAILS.includes(this.myEmail) ? '' : 'none';
     // 方案徽章／橫幅／額度顯示。放在最後是因為 applySubUI 會依方案再蓋掉

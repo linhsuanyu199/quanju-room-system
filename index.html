@@ -609,6 +609,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(openRent)">💰 租金收款</button>
             <button class="more-item" onclick="pickMore(openSettle)">🧾 退房結算（押金／水電）</button>
             <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
+            <div class="more-sep"></div>
+            <button class="more-item" id="more-pnl" style="display:none" onclick="pickMore(openPnl)">📊 月損益總表</button>
           </div>
         </div>
         <div class="more-group">
@@ -8350,6 +8352,11 @@ init();
      用的是主 script 的 Cloud.get/diffDays/todayStr/isAdmin。
      和 ⬇️ 匯出資料（Excel）是兩件事——Excel 是給人看的報表，這裡是可還原的備份。 -->
 <script src="js/backup.js"></script>
+
+<!-- 月損益總表。必須載在 landlords.js / payout.js / rent-ledger.js 之後：
+     它不自己算錢，而是直接呼叫 ldBrief/poPropMoney/poRentByProp，
+     好讓損益表和房東撥款單永遠是同一組數字。差一塊錢業者就不會再相信任一張。 -->
+<script src="js/pnl.js"></script>
 
 <!-- ═══ Order Overview Modal ═══ -->
 <div class="overlay" id="oo-ov" onclick="if(event.target===this)closeOO()">
