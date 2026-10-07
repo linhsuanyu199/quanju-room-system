@@ -55,6 +55,14 @@ const Cloud = {
 
   isLoggedIn() { return this.ready; },
 
+  // 給 /api/* 後端端點用的存取權杖。每次都重新向 supabase-js 要，
+  // 不要快取——token 有效期只有一小時，快取下來會在使用者開著頁面
+  // 不動一陣子之後開始出現莫名的 401。
+  async token() {
+    const { data: { session } } = await _sb.auth.getSession();
+    return session ? session.access_token : null;
+  },
+
   // ── 資料存取（取代原本的 localStorage）──────────
   get(key, defVal) {
     return key in KV_CACHE ? KV_CACHE[key] : defVal;

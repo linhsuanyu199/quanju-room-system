@@ -8044,7 +8044,8 @@ async function openPlan(){
     ['房間數',p=>p.code==='free'?'10 間':(p.max_rooms===null?'100 間以上':p.max_rooms+' 間以下')],
     ['內含成員',p=>(p.max_members||1)+' 人'],
     ['加購席次',p=>p.price_extra_seat?('+'+fmtMoney(p.price_extra_seat)+' /人/月'):(p.contact_only?'洽談報價':'不開放')],
-    ['成交行情庫',p=>(p.features&&p.features.market)?'✅':'—']
+    ['成交行情庫',p=>(p.features&&p.features.market)?'✅':'—'],
+    ['線上付款',payCell]
   ];
   const cur_code=s?s.plan:null;
   box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">'+
@@ -8060,6 +8061,64 @@ async function openPlan(){
     '</tbody></table>';
 }
 function closePlan(){document.getElementById('plan-ov').classList.remove('open');}
+
+// 方案表最後一列：付款按鈕。
+// 這裡只負責「要不要顯示按鈕」，不做任何權限判斷——真正的檢查在
+// /api/pay/create 裡用使用者自己的 token 問資料庫。藏按鈕只是為了
+// 不讓人點了才被拒絕。
+function payCell(p){
+  if(p.contact_only)return '<span style="font-size:11px;color:var(--muted)">請與我們聯繫</span>';
+  if(!p.price_monthly&&!p.price_yearly)return '<span style="font-size:11px;color:var(--muted)">免費</span>';
+  if(Cloud.myRole!=='admin')return '<span style="font-size:11px;color:var(--muted)">請由管理者辦理</span>';
+  const b=(per,label)=>'<button onclick="payNow(\''+p.code+'\',\''+per+'\')" '+
+    'style="display:block;width:100%;margin:2px 0;padding:5px 6px;border:1px solid var(--primary,#1a56a0);'+
+    'background:#fff;color:var(--primary,#1a56a0);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">'+
+    label+'</button>';
+  return (p.price_monthly?b('monthly','月繳'):'')+
+         (p.price_yearly?b('yearly','年繳 省 '+
+           Math.round((1-p.price_yearly/(p.price_monthly*12))*100)+'%'):'');
+}
+
+// 付款。綠界要的是一個 POST 表單，不是一個網址，所以不能用 location.href，
+// 必須在前端動態組表單再 submit。參數（含簽章）全部由後端產生，
+// 前端只是把它原封不動送出去。
+let _paying=false;
+async function payNow(plan,period){
+  if(_paying)return; // 連點兩次會開出兩張單，舊的那張會被標成 expired，但使用者會困惑
+  _paying=true;
+  try{
+    const token=await Cloud.token();
+    if(!token){alert('登入狀態已失效，請重新登入。');return;}
+    const r=await fetch('/api/pay/create',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({plan:plan,period:period})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){alert('❌ '+(d.error||('無法建立付款單（HTTP '+r.status+'）')));return;}
+
+    if(d.mode==='mock'){
+      alert('✅ 測試金流已開通（交易編號 '+d.trade_no+'）');
+      location.href=d.redirect;
+      return;
+    }
+
+    const f=document.createElement('form');
+    f.method='POST';f.action=d.action;f.style.display='none';
+    Object.keys(d.params).forEach(k=>{
+      const i=document.createElement('input');
+      i.type='hidden';i.name=k;i.value=d.params[k];
+      f.appendChild(i);
+    });
+    document.body.appendChild(f);
+    f.submit();
+  }catch(e){
+    alert('❌ 連線失敗：'+e.message);
+  }finally{
+    // 導去金流商之後這行不會有機會跑到；留著是為了失敗時能再按。
+    _paying=false;
+  }
+}
 
 // ════════════════════════════════════════════════
 // BULK IMPORT（Excel / CSV 批次匯入房源）

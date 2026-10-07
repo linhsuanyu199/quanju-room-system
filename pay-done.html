@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>付款結果 · 全居短租系統</title>
+<!--
+  這一頁是「使用者按返回商店」之後看到的畫面，純顯示。
+  它不會、也不能把任何東西標記成已付款——狀態只讀自 payments 表，
+  而那張表唯一的寫入者是 /api/pay/callback（綠界的伺服器通知）。
+
+  所以「畫面說還在處理中」是正常的：使用者的瀏覽器常常比綠界的
+  伺服器通知先到。這頁會自己輪詢幾次，不要讓使用者自己猜。
+-->
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+       background:#f4f6fa;color:#1f2d3d;display:flex;align-items:center;
+       justify-content:center;min-height:100vh;padding:20px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(20,40,80,.1);
+        padding:34px 30px;max-width:460px;width:100%;text-align:center}
+  .ico{font-size:52px;line-height:1;margin-bottom:14px}
+  h1{font-size:19px;font-weight:800;margin-bottom:10px}
+  p{font-size:13px;color:#667;line-height:1.9}
+  dl{margin:20px 0 4px;font-size:12.5px;text-align:left;
+     background:#f7f9fc;border-radius:10px;padding:14px 16px}
+  dl div{display:flex;justify-content:space-between;padding:4px 0}
+  dt{color:#889}
+  dd{font-weight:700;font-feature-settings:"tnum"}
+  a.btn{display:inline-block;margin-top:22px;padding:11px 26px;border-radius:9px;
+        background:#1a56a0;color:#fff;text-decoration:none;font-size:13.5px;font-weight:700}
+  .note{margin-top:16px;font-size:11.5px;color:#99a}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="ico" id="ico">⏳</div>
+  <h1 id="title">正在確認付款結果…</h1>
+  <p id="msg">請稍候，我們正在向金流商確認這筆交易。</p>
+  <dl id="detail" style="display:none"></dl>
+  <a class="btn" href="/">回到系統</a>
+  <div class="note" id="note"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/cloud-config.js"></script>
+<script>
+const tradeNo=new URLSearchParams(location.search).get('no')||'';
+const $=id=>document.getElementById(id);
+
+function show(ico,title,msg,note){
+  $('ico').textContent=ico;$('title').textContent=title;
+  $('msg').textContent=msg;$('note').textContent=note||'';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+const STATUS={
+  paid:['✅','付款成功','方案已開通，回到系統就能使用新的額度。'],
+  pending:['⏳','尚未收到付款通知','如果你是用 ATM 或超商繳費，完成繳費後方案會自動開通，不需要再回到這一頁。'],
+  failed:['❌','付款未完成','這筆交易沒有成功，沒有任何款項被扣除。你可以回到方案頁重新付款。'],
+  expired:['🕒','這筆付款單已逾期','逾期的單不會再被扣款。請回到方案頁重新產生一筆。'],
+  // 金額對不上時後端刻意不開通訂閱，要人工看一眼。這裡必須說實話，
+  // 不能顯示成「成功」讓使用者以為買到了。
+  mismatch:['⚠️','付款金額與訂單不符','我們已收到通知但金額對不上，已暫停自動開通並轉由人工處理。請與我們聯繫，不要重複付款。']
+};
+
+const MONEY=n=>'$'+Number(n||0).toLocaleString();
+const PERIOD={monthly:'月繳',yearly:'年繳'};
+
+function renderDetail(row){
+  $('detail').style.display='';
+  $('detail').innerHTML=
+    '<div><dt>交易編號</dt><dd>'+esc(row.trade_no)+'</dd></div>'+
+    '<div><dt>方案</dt><dd>'+esc((row.plans&&row.plans.name)||row.plan)+
+      '（'+(PERIOD[row.period]||esc(row.period))+'）</dd></div>'+
+    '<div><dt>金額</dt><dd>'+MONEY(row.amount)+'</dd></div>'+
+    (row.paid_at?'<div><dt>付款時間</dt><dd>'+esc(String(row.paid_at).slice(0,16).replace('T',' '))+'</dd></div>':'');
+}
+
+(async function(){
+  if(!tradeNo){show('❓','找不到交易編號','這個網址缺少交易編號，請回到系統的方案頁查看。');return;}
+
+  const sb=supabase.createClient(window.CLOUD_URL,window.CLOUD_KEY);
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){
+    show('🔒','請先登入','付款結果要登入後才能查看。你的付款不受影響——即使沒看到這一頁，開通也會照常完成。');
+    return;
+  }
+
+  // 輪詢：綠界的伺服器通知可能比使用者的瀏覽器晚幾秒到。
+  // 查 5 次就停，不要無限轉圈——ATM 繳費可能是幾天後的事，
+  // 一直轉下去只會讓人以為系統壞了。
+  for(let i=0;i<5;i++){
+    const {data,error}=await sb.from('payments')
+      .select('trade_no,plan,period,amount,status,paid_at,plans(name)')
+      .eq('trade_no',tradeNo).maybeSingle();
+
+    if(error){
+      show('⚠️','讀不到這筆交易',error.message,'付款本身不受影響，請回到系統查看方案狀態。');
+      return;
+    }
+    if(!data){
+      show('❓','查不到這筆交易','這個交易編號不屬於你的公司，或已被清除。','');
+      return;
+    }
+
+    if(data.status!=='pending'||i===4){
+      const s=STATUS[data.status]||['❓','狀態：'+data.status,'請與我們聯繫。'];
+      show(s[0],s[1],s[2]);
+      renderDetail(data);
+      return;
+    }
+    await new Promise(r=>setTimeout(r,2000));
+  }
+})();
+</script>
+</body>
+</html>
