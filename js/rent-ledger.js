@@ -105,6 +105,13 @@ function rlBuild() {
   };
   var rows = [];
   loadBks().forEach(function (b) {
+    /* 匯入的歷史訂單（b.imported 記著來源，如 '2026月報'）不進台帳。
+       那些租金當年是在系統外收的，系統裡永遠不會有對應的收款紀錄，
+       留著只會讓每一期都算成逾期——匯入一年的歷史就是上千筆假逾期，
+       待辦被灌爆之後真正該催的那幾筆就被埋掉了，提醒等於失效。
+       它們仍然是真訂單：入住率、營業額、訂單數、行事曆、房況都照算，
+       只有「拿系統收款／結算」這件事對它們沒有意義。 */
+    if (b.imported) return;
     (b.segments || []).forEach(function (s) {
       rlPeriods(s).forEach(function (pd) {
         var key = rlKey(b.id, s.prop_id, s.room, pd.from);
@@ -300,6 +307,18 @@ function rlRender() {
     '這裡的合計與訂單的「總租金」可能差幾十元：訂單總額是用「月租 ÷ 30 × 天數」估的，' +
     '遇到 31 天的月份會多算一天；<strong>實際收款請以本表為準</strong>。' +
     '</div>';
+
+  /* 匯入的歷史訂單被 rlBuild() 擋在外面。這件事一定要講出來：
+     訂單清單有 800 多筆、台帳卻是空的，不解釋就是一個看起來壞掉的畫面。 */
+  var impN = loadBks().filter(function (b) { return !!b.imported; }).length;
+  if (impN > 0) {
+    h += '<div style="font-size:11px;color:var(--muted);line-height:1.7;background:#fff8e1;' +
+      'border:1px solid #ffe08a;border-radius:8px;padding:9px 12px;margin-bottom:11px">' +
+      '另有 <strong>' + impN + '</strong> 筆<strong>匯入的歷史訂單不列入台帳</strong>' +
+      '（它們的租金當年是在系統外收的，系統裡沒有收款紀錄，全列進來會變成上千筆假逾期）。' +
+      '這些訂單仍然照算入住率、營業額與訂單數。' +
+      '</div>';
+  }
 
   document.getElementById('rl-title').textContent = '💰 租金收款 — 符合條件 ' + list.length + ' 期';
 

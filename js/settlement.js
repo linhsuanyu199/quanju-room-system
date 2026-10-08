@@ -143,6 +143,9 @@ function stMeterRows() {
   };
   var out = [];
   loadBks().forEach(function (b) {
+    /* 匯入的歷史訂單沒有水電底度可抄——人早就搬走了，電表現在的數字
+       跟那張訂單無關。理由同 rlBuild()。 */
+    if (b.imported) return;
     (b.segments || []).forEach(function (s) {
       if (s.status === 'cancelled' || s.status === 'reserved' || s.status === 'pending') return;
       out.push({ bkId: String(b.id), guest: b.guest || '(未命名)', phone: b.phone || '',
@@ -178,6 +181,10 @@ function stBuild(ovrBkId, ovrExtra) {
 
   var out = [];
   loadBks().forEach(function (b) {
+    /* 匯入的歷史訂單不開結算單：押金當年是在系統外收退的，
+       系統沒有那筆押金，算出來的「應退金額」是憑空捏造的數字。
+       理由同 rlBuild()。 */
+    if (b.imported) return;
     var segs = (b.segments || []).filter(function (s) {
       return s.status !== 'cancelled';
     });

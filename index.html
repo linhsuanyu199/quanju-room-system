@@ -4643,8 +4643,10 @@ async function saveBk(){
     updatedAt:new Date().toISOString(),updatedBy:Cloud.myDisplayName||Cloud.myEmail};
   const result=await saveBkAtomic(fresh=>{
     const idx=fresh.findIndex(b=>b.id===bk.id);
-    // 編輯既有訂單時不再問黑名單，所以放行紀錄必須從舊資料保留下來
-    if(idx>=0){bk.createdAt=fresh[idx].createdAt;if(fresh[idx].blOverride)bk.blOverride=fresh[idx].blOverride;fresh[idx]=bk;}else fresh.push(bk);
+    // 編輯既有訂單時不再問黑名單，所以放行紀錄必須從舊資料保留下來。
+    // imported 同理：表單沒有這個欄位，不保留的話編一次（例如續約改退房日）
+    // 就會把歷史訂單變成系統管理的訂單，當場生出一整年的假逾期與假結算單。
+    if(idx>=0){bk.createdAt=fresh[idx].createdAt;if(fresh[idx].blOverride)bk.blOverride=fresh[idx].blOverride;if(fresh[idx].imported)bk.imported=fresh[idx].imported;fresh[idx]=bk;}else fresh.push(bk);
     return fresh;
   },{bookingId:editingBkId,checkConflict:!!editingBkId,baseUpdatedAt:editingBkBaseUpdatedAt});
   if(result===null)return; // 使用者取消覆蓋
