@@ -401,22 +401,22 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 #chloeWidgetBtn{
   position:fixed;right:20px;bottom:20px;z-index:9999;
   width:56px;height:56px;border-radius:50%;
-  background:linear-gradient(135deg,#58a6ff,#3fb950);
-  color:#0d1117;border:none;box-shadow:0 4px 16px rgba(0,0,0,.25);
+  background:linear-gradient(135deg,#5eead4,#38bdf8);
+  color:#0f172a;border:none;box-shadow:0 4px 16px rgba(15,23,42,.18);
   font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
 #chloeWidgetPanel{
   position:fixed;right:20px;bottom:88px;z-index:9999;
   width:380px;max-width:92vw;height:600px;max-height:75vh;
-  border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.35);
-  display:none;background:#0d1117;
+  border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(15,23,42,.2);
+  display:none;background:#ffffff;border:1px solid #e5e9ec;
 }
 #chloeWidgetPanel.open{display:block}
 #chloeWidgetFrame{border:none;width:100%;height:100%;display:block}
 #chloeWidgetClose{
   position:absolute;top:8px;right:8px;z-index:10000;
   width:28px;height:28px;border-radius:50%;border:none;
-  background:rgba(0,0,0,.45);color:#fff;font-size:14px;cursor:pointer;
+  background:rgba(15,23,42,.35);color:#fff;font-size:14px;cursor:pointer;
 }
 @media (max-width:480px){
   #chloeWidgetPanel{right:0;bottom:0;width:100vw;height:100vh;max-height:100vh;border-radius:0}
@@ -434,8 +434,12 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   var closeBtn=document.getElementById('chloeWidgetClose');
   var frame=document.getElementById('chloeWidgetFrame');
   var loaded=false;
+  var co=new URLSearchParams(location.search).get('co');
   function openPanel(){
-    if(!loaded){ frame.src='https://sales-agent-chloe.vercel.app/'; loaded=true; }
+    if(!loaded){
+      frame.src='https://sales-agent-chloe.vercel.app/'+(co?('?co='+encodeURIComponent(co)):'');
+      loaded=true;
+    }
     panel.classList.add('open');
     btn.style.display='none';
   }
