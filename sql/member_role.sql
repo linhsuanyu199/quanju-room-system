@@ -68,6 +68,8 @@
 --   qj_todo_cfg / qj_rent_cfg /
 --   qj_clean_cfg / qj_util_cfg               待辦門檻、租金寬限、清潔排程、水電費率
 --   qj_equip                                 房間設備主檔（點交的比對基準）
+--   qj_room_svc                              房間上線日／停賣日（住房率分母的依據，
+--                                            改這個等於改所有報表數字，必須鎖管理者）
 --   qj_cleaners / qj_vendors                 清潔人員、維修廠商主檔
 --   qj_backup_log                            備份紀錄
 --
@@ -106,6 +108,7 @@ language sql immutable set search_path = public as $$
     when 'qj_clean_cfg'  then '清潔排程設定'
     when 'qj_util_cfg'   then '水電費率設定'
     when 'qj_equip'      then '房間設備主檔'
+    when 'qj_room_svc'   then '房間上線日／停賣日'
     when 'qj_cleaners'   then '清潔人員主檔'
     when 'qj_vendors'    then '維修廠商主檔'
     when 'qj_backup_log' then '備份紀錄'

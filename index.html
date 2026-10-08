@@ -551,8 +551,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
-    <div class="stat-box" title="年度可銷售天數＝房間數×365，扣除打掃/維修日數"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
-    <div class="stat-box"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
+    <div class="stat-box" title="年度可銷售天數＝每間房「已上線且未停賣」的天數合計，再扣除打掃／維修占用的日數。還沒上線與已停賣的房間不列入。"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
+    <div class="stat-box" title="分母只算本月「已上線且未停賣」的房間天數，未上線／停賣的房間不會稀釋入住率"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
     <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" id="top-propmgr" style="display:none" onclick="openPropMgr()">管理房源</button>
@@ -2657,7 +2657,6 @@ function renderAna(tab){
   const allBks=loadBks();
   const allTasks=loadTasks();
   const allProps=getAllProps();
-  const totalRooms=allProps.reduce((s,p)=>s+p.rooms.length,0);
   const now=new Date();
   const curY=now.getFullYear();
   const curM=now.getMonth()+1;
@@ -2703,7 +2702,7 @@ function renderAna(tab){
 
   // Calculate stats per period
   const stats=periods.map(p=>{
-    let rev=0,occupiedDays=0,totalAvailDays=0,maintDays=0;
+    let rev=0,occupiedDays=0,totalAvailDays=0,maintDays=0,servedDays=0;
     // Revenue: sum checkin/checkout segments that overlap period
     const pStart=tab==='y'?p.y+'-01-01':tab==='q'?p.y+'-'+([(p.q-1)*3+1].map(x=>x<10?'0'+x:x)[0])+'-01':p.y+'-'+(p.m<10?'0'+p.m:p.m)+'-01';
     const pEndRaw=tab==='y'?new Date(p.y,11,31):tab==='q'?new Date(p.y,p.q*3,0):new Date(p.y,p.m,0);
@@ -2712,73 +2711,109 @@ function renderAna(tab){
     // 否則每期都會少算最後一天（月報約少 3%）。
     const pEndEx=addDays(pEnd,1);
     const pDays=diffDays(pStart,pEndEx);
+    // 分母＝每房「已上線且未停賣」的天數合計（不是房數×天數）。
+    // 還沒上線或已停賣的房間本來就不可能出租，列進分母只會壓低住房率。
+    const sp=svcSpan(allProps,pStart,pEndEx);
+    totalAvailDays=sp.days;
+    const occRanges={};   // 房間 → 已出租的日期區間（給含掃維修率去重用）
     allBks.forEach(bk=>{
       bk.segments.forEach(seg=>{
         if(seg.status!=='checkin'&&seg.status!=='checkout'&&seg.status!=='pending')return;
         const ci=seg.checkin,co=seg.checkout;
         if(!ci||!co)return;
-        const days=dayOverlap(ci,co,pStart,pEndEx);
+        const k=String(seg.prop_id)+'|'+seg.room;
+        const w=sp.win[k];
+        if(!w)return;   // 這間房這段期間不在營運，分子也不能算
+        const days=dayOverlap(ci,co,w[0],w[1]);
         if(days>0){
           const r=allProps.find(pr=>String(pr.id)===String(seg.prop_id));
           const rm=r?r.rooms.find(x=>x.room===seg.room):null;
           const mp=seg.monthlyPrice||(rm?rm.price:0)||0;
           rev+=days*(mp/30);
           occupiedDays+=days;
+          (occRanges[k]=occRanges[k]||[]).push([ci>w[0]?ci:w[0],co<w[1]?co:w[1]]);
         }
       });
     });
-    totalAvailDays=totalRooms*pDays;
     allTasks.forEach(t=>{
-      if(t.type!=='repair')return;
-      const r=tkRepairRange(t);
-      if(r)maintDays+=dayOverlap(r.start,r.end,pStart,pEndEx);
+      const k=String(t.prop_id)+'|'+t.room;
+      const w=sp.win[k];
+      if(!w)return;
+      if(t.type==='repair'){
+        const r=tkRepairRange(t);
+        if(r)maintDays+=dayOverlap(r.start,r.end,w[0],w[1]);
+      }
+      // 「含掃維修住房率」要把換房清潔與維修占掉的晚數從已賣晚數扣掉，
+      // 但只有「那天同時也被算成已出租」才需要扣，否則會重複扣兩次
+      // （清潔日通常落在退房後的空檔，本來就已經算在空房裡了）。
+      const r2=tkRepairRange(t);   // 提早完工就只算到完工日，清潔單同樣適用
+      if(!r2)return;
+      const a=r2.start>w[0]?r2.start:w[0], b=r2.end<w[1]?r2.end:w[1];
+      if(a>=b)return;
+      (occRanges[k]||[]).forEach(o=>{ servedDays+=dayOverlap(a,b,o[0],o[1]); });
     });
+    // 同一房同一天可能同時有清潔單與維修單，扣除量不得超過已賣晚數
+    servedDays=Math.min(servedDays,occupiedDays);
     const occRate=totalAvailDays>0?Math.round(occupiedDays/totalAvailDays*100):0;
     const maintRate=totalAvailDays>0?Math.round(maintDays/totalAvailDays*100):0;
+    // 含掃維修住房率＝(已賣晚數 − 打掃及保養) / 可賣晚數，對齊 2026 月報的算法。
+    // 比入住率更保守：把「有人住但那天在整理／維修」的晚數也視為沒賣掉。
+    const netOccRate=totalAvailDays>0?Math.round((occupiedDays-servedDays)/totalAvailDays*100):0;
     // 空房率＝收不到租金的天數占比＝沒人住的天數。不必再去分那天是在打掃、
     // 在做需淨空的大修還是純閒置，只要沒人住就是空房：
     //   當天退房當天入住 → 那天算住房，打掃不另計空房
     //   小維修房客照住   → 那天算住房，不算空房（但仍計入維修率）
     // 所以維修率是「疊加」指標，會與住房率重疊，不能拿來扣空房率。
     const vacRate=100-occRate;
-    return {label:p.label,rev:Math.round(rev),occRate,maintRate,vacRate,pDays,totalAvailDays,occupiedDays};
+    return {label:p.label,rev:Math.round(rev),occRate,netOccRate,maintRate,vacRate,pDays,totalAvailDays,occupiedDays};
   });
 
   // Property ranking (by occupancy this period / last 12 months)
   // 近 12 個月＝上月底往回推 12 個月。原本寫 curM-13 會涵蓋 13 個月，
   // 分母多一個月，各館入住率會被稀釋。
   const last12Start=dstr(new Date(curY,curM-12,1));
-  // 同樣用半開區間，並以實際天數當分母（避免閏年時 365 對不上）
+  // 同樣用半開區間（避免閏年時 365 對不上）
   const last12EndEx=addDays(dstr(new Date(curY,curM,0)),1);
-  const last12Days=diffDays(last12Start,last12EndEx);
   const propStats=allProps.map(prop=>{
     let odays=0,mdays=0;
+    // 分母同樣只算已上線且未停賣的天數，否則剛上線的館別會莫名出現在
+    //「入住率最低 TOP 5」，而那其實只是因為它整年大半時間還不存在。
+    const sp12=svcSpan([prop],last12Start,last12EndEx);
     allBks.forEach(bk=>{
       bk.segments.forEach(seg=>{
         if(String(seg.prop_id)!==String(prop.id))return;
         if(seg.status!=='checkin'&&seg.status!=='checkout'&&seg.status!=='pending')return;
         if(!seg.checkin||!seg.checkout)return;
-        odays+=dayOverlap(seg.checkin,seg.checkout,last12Start,last12EndEx);
+        const w=sp12.win[String(seg.prop_id)+'|'+seg.room];
+        if(!w)return;
+        odays+=dayOverlap(seg.checkin,seg.checkout,w[0],w[1]);
       });
     });
     allTasks.forEach(t=>{
       if(t.type!=='repair'||String(t.prop_id)!==String(prop.id))return;
       const r=tkRepairRange(t);
-      if(r)mdays+=dayOverlap(r.start,r.end,last12Start,last12EndEx);
+      if(!r)return;
+      const w=sp12.win[String(t.prop_id)+'|'+t.room];
+      if(!w)return;
+      mdays+=dayOverlap(r.start,r.end,w[0],w[1]);
     });
-    const avail=prop.rooms.length*last12Days;
+    const avail=sp12.days;
     return {name:prop.name+(prop.district?' ['+prop.district+']':''),rooms:prop.rooms.length,
       occRate:avail>0?Math.round(odays/avail*100):0,
       maintRate:avail>0?Math.round(mdays/avail*100):0,
+      avail,
       district:prop.district||'未設定'};
   });
-  const topOcc=[...propStats].sort((a,b)=>b.occRate-a.occRate).slice(0,5);
-  const lowOcc=[...propStats].sort((a,b)=>a.occRate-b.occRate).slice(0,5);
-  const highMaint=[...propStats].sort((a,b)=>b.maintRate-a.maintRate).slice(0,5);
+  // 近 12 個月完全沒上線（或整段都停賣）的館別分母是 0，入住率只能填 0，
+  // 若不排除會霸占「入住率最低 TOP 5」並拉低行政區平均，變成假訊號。
+  const rankable=propStats.filter(p=>p.avail>0);
+  const topOcc=[...rankable].sort((a,b)=>b.occRate-a.occRate).slice(0,5);
+  const lowOcc=[...rankable].sort((a,b)=>a.occRate-b.occRate).slice(0,5);
+  const highMaint=[...rankable].sort((a,b)=>b.maintRate-a.maintRate).slice(0,5);
 
   // District demand
   const distMap={};
-  propStats.forEach(p=>{
+  rankable.forEach(p=>{
     if(!distMap[p.district])distMap[p.district]={occTotal:0,cnt:0};
     distMap[p.district].occTotal+=p.occRate;
     distMap[p.district].cnt++;
@@ -2855,19 +2890,27 @@ function renderAna(tab){
           '<th style="padding:5px 7px;text-align:left">期間</th>'+
           '<th style="padding:5px 7px;text-align:right">營業額</th>'+
           '<th style="padding:5px 7px;text-align:right">入住率</th>'+
+          '<th style="padding:5px 7px;text-align:right" title="已賣晚數扣掉換房清潔與維修占用的晚數後的入住率，對齊月報「含掃維修」欄">含掃維修</th>'+
           '<th style="padding:5px 7px;text-align:right">空房率</th>'+
           '<th style="padding:5px 7px;text-align:right">維修率</th>'+
+          '<th style="padding:5px 7px;text-align:right" title="分母＝每房已上線且未停賣的天數合計，不含還沒上線與已停賣的房間">可賣晚數</th>'+
         '</tr></thead>'+
         '<tbody>'+
           stats.map((s,i)=>'<tr style="background:'+(i%2?'#fff':'#f8f9fa')+'">'+
             '<td style="padding:4px 7px">'+s.label+'</td>'+
             '<td style="padding:4px 7px;text-align:right;font-weight:700">$'+(s.rev>=1000?s.rev.toLocaleString():s.rev)+'</td>'+
             '<td style="padding:4px 7px;text-align:right;color:#2f9e44">'+s.occRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#1971c2">'+s.netOccRate+'%</td>'+
             '<td style="padding:4px 7px;text-align:right;color:#e67700">'+s.vacRate+'%</td>'+
             '<td style="padding:4px 7px;text-align:right;color:#c92a2a">'+s.maintRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:var(--muted)">'+s.totalAvailDays.toLocaleString()+'</td>'+
           '</tr>').join('')+
         '</tbody>'+
       '</table></div>'+
+      '<div style="font-size:9px;color:var(--muted);margin-top:5px;line-height:1.5">'+
+        '可賣晚數＝每間房「已上線且未停賣」的天數合計。入住率／空房率／維修率都以它當分母，'+
+        '所以還沒上線或已停賣的房間不會稀釋數字。'+
+      '</div>'+
     '</div>'+
     // Property ranking
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'+
@@ -3264,22 +3307,66 @@ function updateViewedMonth(){
 
 
 // ════════════════════════════════════════════════
+// 房間服務期間（上線日／停賣日）
+// ════════════════════════════════════════════════
+// qj_room_svc = { 館別id: { 房號: {from:'YYYY-MM-DD', until:'YYYY-MM-DD'} } }
+//   from  ＝這間房開始營運的日期（含）。之前的日子這間房還不存在，不該進分母。
+//   until ＝停止營運的日期（不含）。之後的日子這間房已經不出租。
+// 兩個都可省略，省略＝那一邊沒有界線（也就是整段期間都在營運）。
+//
+// 為什麼不能直接拿 offSale 當分母依據：offSale 是「現在停售」的布林值，沒有日期。
+// 一間 1~6 月有人住、7 月才停售的房間，若整年分母歸零，住房率會變成除以零或
+// 超過 100%。要扣分母就必須知道「從哪天開始不算」，所以停賣也得記日期。
+function loadRoomSvc(){ return Cloud.get('qj_room_svc',{})||{}; }
+function saveRoomSvc(o){ Cloud.set('qj_room_svc',o); }
+// 房間在半開區間 [s,e) 內「真的在營運」的那一段，完全不在營運就回 null
+function svcWin(svc,pid,room,s,e,offSale){
+  const w=((svc[String(pid)]||{})[room])||{};
+  let until=w.until;
+  // 舊資料：有勾停售但沒有停售日期 → 從今天起不再計入分母，
+  // 但今天之前的歷史照算，否則過去的住房率會被追溯歸零。
+  if(!until&&offSale)until=todayStr();
+  const a=(w.from&&w.from>s)?w.from:s;
+  const b=(until&&until<e)?until:e;
+  return a<b?[a,b]:null;
+}
+// 一批房間在 [s,e) 內的服務天數合計，同時回傳每房的視窗供分子裁切用。
+// 注意兩套房號：qj_room_svc／offSale 存的是原始房號（_origRoom），
+// 但訂單與任務存的是顯示房號（改名後的），所以 win 以顯示房號當 key。
+function svcSpan(props,s,e){
+  const svc=loadRoomSvc();
+  let days=0; const win={};
+  props.forEach(p=>{
+    p.rooms.forEach(r=>{
+      const w=svcWin(svc,p.id,r._origRoom||r.room,s,e,r.offSale);
+      if(!w)return;
+      win[String(p.id)+'|'+r.room]=w;
+      days+=diffDays(w[0],w[1]);
+    });
+  });
+  return {days,win};
+}
+
+// ════════════════════════════════════════════════
 // SELLABLE DAYS (年度可銷售天數)
 // ════════════════════════════════════════════════
-function calcSellableDays(totalRooms){
-  if(!totalRooms)return 0;
+// 分母只算「房間已上線且未停賣」的天數，再扣掉維修／打掃占用的天數。
+// 停賣房與還沒上線的房本來就不可能賣，列進分母會讓這個數字永遠達不到。
+function calcSellableDays(props){
   const yr=new Date().getFullYear();
   const yStart=yr+'-01-01';
-  const yEnd=yr+'-12-31';
-  const total=totalRooms*365;
-  // Subtract task (cleaning/repair) days within current year
+  const yEndEx=(yr+1)+'-01-01';
+  const sp=svcSpan(props||getAllProps(),yStart,yEndEx);
+  // 任務占用的天數只扣在該房「有在營運」的那一段，
+  // 否則停賣房的維修單會把分母扣到負的。
   let blocked=0;
   loadTasks().forEach(t=>{
-    const s=t.start>yStart?t.start:yStart;
-    const e=t.end<yEnd?t.end:yEnd;
-    if(s<e)blocked+=diffDays(s,e);
+    if(!t.start||!t.end)return;
+    const w=sp.win[String(t.prop_id)+'|'+t.room];
+    if(!w)return;
+    blocked+=dayOverlap(t.start,t.end,w[0],w[1]);
   });
-  return Math.max(0,total-blocked);
+  return Math.max(0,sp.days-blocked);
 }
 
 // ════════════════════════════════════════════════
@@ -3619,22 +3706,31 @@ function updateStats(){
   lbs.forEach(bk=>{if(bk.segments.some(s=>ov(s.checkin,s.checkout)))activeBkIds.add(bk.id);});
   const bkCnt=activeBkIds.size;
 
+  // 入住率分母只算「這個月該房真的在營運」的天數：還沒上線、已停賣的房間
+  // 不該稀釋入住率（與 2026 月報的可賣晚數算法一致）。
+  const svcAll=loadRoomSvc();
+  const vmeEx=addDays(vme,1);
   ap.forEach(prop=>{
     const pid=String(prop.id);
     prop.rooms.forEach(room=>{
-      tRooms++;tRDays+=td;
+      tRooms++;
       if(room.offSale)offRooms++;
+      const w=svcWin(svcAll,pid,room._origRoom||room.room,vms,vmeEx,room.offSale);
+      if(!w)return;   // 這個月整段都不在營運：分子分母都不計
+      tRDays+=diffDays(w[0],w[1]);
+      // 服務期間換算成當月日序（半開區間），分子一律夾在這之內
+      const wS=Math.max(1,domF(w[0],curY,curM)),wE=Math.min(td+1,domF(w[1],curY,curM));
       const k=pid+'|'+room.room;
       (BM[k]||[]).forEach(b=>{
-        const s=Math.max(1,domF(b.ci,curY,curM)),e=Math.min(td+1,domF(b.co,curY,curM));
+        const s=Math.max(wS,domF(b.ci,curY,curM)),e=Math.min(wE,domF(b.co,curY,curM));
         if(e>s)occD+=(e-s);
       });
       lbs.forEach(bk=>{
         bk.segments.forEach(seg=>{
           if(String(seg.prop_id)===pid&&seg.room===room.room&&
              (seg.status==='checkin'||seg.status==='checkout'||seg.status==='pending')&&ov(seg.checkin,seg.checkout)){
-            const sd=Math.max(1,domF(seg.checkin,curY,curM));
-            const ed=Math.min(td+1,domF(seg.checkout,curY,curM));
+            const sd=Math.max(wS,domF(seg.checkin,curY,curM));
+            const ed=Math.min(wE,domF(seg.checkout,curY,curM));
             if(ed>sd&&room.price>0)actualRev+=(ed-sd)*(room.price/30);
           }
         });
@@ -3648,8 +3744,8 @@ function updateStats(){
   document.getElementById('s-occ').textContent=occR+'%';
   document.getElementById('s-bk').textContent=bkCnt;
   document.getElementById('s-rev').textContent='$'+Math.round(actualRev).toLocaleString();
-  // 停售房間不算進可銷售天數
-  document.getElementById('s-sell').textContent=calcSellableDays(tRooms-offRooms).toLocaleString();
+  // 未上線／停售的天數不算進可銷售天數（calcSellableDays 自己讀服務期間）
+  document.getElementById('s-sell').textContent=calcSellableDays(ap).toLocaleString();
 }
 
 function toggleProp(pid){
@@ -7655,7 +7751,7 @@ function saveSiteInfo(){
 function renderPM(){
   applySubUI();
   syncRoomLog();
-  const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs();
+  const ap=getAllProps(),ovr=loadOvr(),cpsRaw=loadCPs(),pmSvc=loadRoomSvc();
   const content=document.getElementById('pm-content');
   content.innerHTML=ap.map(prop=>{
     const pid=String(prop.id);
@@ -7681,6 +7777,16 @@ function renderPM(){
           'title="'+(off?'目前停售中，點擊恢復銷售':'目前正常銷售，點擊設為停售（停售後無法新增訂單）')+'" '+
           'style="background:'+(off?'#fee2e2;color:#c92a2a':'#f1f3f5;color:#495057')+'">'+
           (off?'⛔ 停售中':'✔ 銷售中')+'</button>'+
+        // 上線日：這間房是哪天開始營運的。報表分母只算上線後的天數，
+        // 否則「3 月才上線的房間」整個 1~2 月都會被當成空房拉低住房率。
+        (function(){
+          const w=(pmSvc[pid]||{})[origRoom]||{};
+          const has=!!w.from;
+          return '<button class="pm-icon-btn" onclick="setRoomFrom(\''+pid+'\',\''+origRoom+'\')" '+
+            'title="'+(has?'上線日 '+w.from+'（之前的天數不列入住房率分母）':'設定上線日：未設定＝從一開始就在營運')+'" '+
+            'style="background:'+(has?'#e7f5ff;color:#1971c2':'#f1f3f5;color:#868e96')+'">🗓 '+
+            (has?w.from.slice(2):'上線日')+'</button>';
+        })()+
         '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\''+origRoom+'\')" '+
           'title="管理這間房在官網顯示的照片" style="background:#f3f0ff;color:#7048e8">📷 '+photoBadge(pid,origRoom)+'</button>'+
         // 房間層級的設備清單是「覆寫」，沒設定就沿用館別預設，所以按鈕上
@@ -7821,8 +7927,21 @@ function toggleOffSale(pid,rno){
   if(!pi[pid])pi[pid]={};
   if(!pi[pid].offSale)pi[pid].offSale={};
   const nowOff=pi[pid].offSale[rno]===true;
+  // offSale 只是「現在停售」的布林值，報表分母需要的是日期。
+  // 這裡順手把停售日記進 qj_room_svc，報表才知道要從哪天開始不算這間房；
+  // 恢復銷售就把它清掉，否則分母會永遠停在停售那天。
+  const svc=loadRoomSvc();
+  function svcSet(f){
+    if(!svc[pid])svc[pid]={};
+    if(!svc[pid][rno])svc[pid][rno]={};
+    f(svc[pid][rno]);
+    if(!svc[pid][rno].from&&!svc[pid][rno].until)delete svc[pid][rno];
+    if(svc[pid]&&!Object.keys(svc[pid]).length)delete svc[pid];
+    saveRoomSvc(svc);
+  }
   if(nowOff){
     delete pi[pid].offSale[rno];
+    svcSet(w=>{delete w.until;});
   }else{
     // 停售前先檢查是否還有未來的有效訂單，避免誤把有房客的房間停掉
     const future=loadBks().filter(b=>b.segments.some(s=>
@@ -7834,8 +7953,31 @@ function toggleOffSale(pid,rno){
         '\n\n設為停售不會影響這些既有訂單（仍可正常編輯），只會擋下之後的新訂單。確定要停售嗎？'))return;
     }
     pi[pid].offSale[rno]=true;
+    svcSet(w=>{w.until=todayStr();});
   }
   savePropInfo(pi);
+  renderPM();
+}
+// 設定／清除房間上線日。只影響報表分母，不影響既有訂單與官網顯示。
+function setRoomFrom(pid,rno){
+  const svc=loadRoomSvc();
+  const cur=((svc[pid]||{})[rno]||{}).from||'';
+  const ans=prompt('【'+rno+'】上線日（這間房哪一天開始營運）\n\n'+
+    '格式 YYYY-MM-DD。留空＝從一開始就在營運。\n'+
+    '上線日之前的天數不會列入住房率／空房率／維修率的分母。',cur);
+  if(ans===null)return;
+  const v=ans.trim();
+  if(v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)){alert('日期格式要是 YYYY-MM-DD，例如 2026-03-01');return;}
+  if(v&&isNaN(new Date(v).getTime())){alert('這不是有效的日期：'+v);return;}
+  if(!svc[pid])svc[pid]={};
+  if(!svc[pid][rno])svc[pid][rno]={};
+  if(v)svc[pid][rno].from=v;else delete svc[pid][rno].from;
+  // 上線日不能晚於停售日，否則服務期間是空的、這間房會整段消失在報表裡
+  const until=svc[pid][rno].until;
+  if(v&&until&&v>=until){alert('上線日（'+v+'）不能晚於停售日（'+until+'）。\n請先恢復銷售，或改一個更早的上線日。');return;}
+  if(!svc[pid][rno].from&&!svc[pid][rno].until)delete svc[pid][rno];
+  if(!Object.keys(svc[pid]).length)delete svc[pid];
+  saveRoomSvc(svc);
   renderPM();
 }
 function setRT(pid,rno,input){
