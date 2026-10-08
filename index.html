@@ -2305,9 +2305,12 @@ function setCustFields(phone,fields){
   saveCusts(all);
 }
 const ROOM_TYPES=['分租套房','分租雅房','獨立套房','兩房','三房','四房'];
+// 行政區一律列齊，不要只列「目前有在做的區」。
+// 原本台北市只列 8 區、新北市只列 7 區，結果真實資料裡的文山區、松山區
+// 整個區都匯不進來，而且錯誤訊息只說「不屬於台北市」，很難聯想到是清單沒列。
 const CITY_DISTRICTS={
-  '台北市':['南港區','信義區','大安區','大同區','士林區','中山區','中正區','萬華區'],
-  '新北市':['板橋區','永和區','中和區','新店區','三重區','林口區','淡水區'],
+  '台北市':['中正區','大同區','中山區','松山區','大安區','萬華區','信義區','士林區','北投區','內湖區','南港區','文山區'],
+  '新北市':['板橋區','三重區','中和區','永和區','新莊區','新店區','土城區','蘆洲區','樹林區','汐止區','鶯歌區','三峽區','淡水區','瑞芳區','五股區','泰山區','林口區','深坑區','石碇區','坪林區','三芝區','石門區','八里區','平溪區','雙溪區','貢寮區','金山區','萬里區','烏來區'],
 };
 function updateDistOpts(cityId,distId,curDist){
   const city=document.getElementById(cityId).value;
@@ -2328,8 +2331,13 @@ function savePropInfo(d){Cloud.set('qj_propinfo',d);}
 function savePropInfoField(pid,field,val){const d=loadPropInfo();if(!d[pid])d[pid]={};d[pid][field]=val;savePropInfo(d);}
 function genId(p){return(p||'ID')+Date.now()+Math.random().toString(36).slice(2,5).toUpperCase();}
 // 舊房型名稱 → 新標準名稱對應表
+// 「分雅/四房」這種寫法是舊台帳在表達「這是四房公寓裡的一間分租雅房」。
+// 排房系統的房型欄位問的是「這個房間是什麼」，所以取斜線前面那半。
+// 樓中樓與 1+1 房沒有對應的標準房型，歸到最接近的使用型態。
 const RTYPE_MAP={'分套':'分租套房','分雅':'分租雅房','獨套':'獨立套房',
-  '分套房':'分租套房','雅房':'分租雅房','獨立套':'獨立套房','獨套房':'獨立套房'};
+  '分套房':'分租套房','雅房':'分租雅房','獨立套':'獨立套房','獨套房':'獨立套房',
+  '分套/四房':'分租套房','分雅/四房':'分租雅房','分套/三房':'分租套房','分雅/三房':'分租雅房',
+  '樓中樓':'獨立套房','1+1房':'兩房','1+1':'兩房'};
 function normalizeRoomType(t){if(!t)return t;return RTYPE_MAP[t.trim()]||t.trim();}
 
 // ════════════════════════════════════════════════
@@ -8189,6 +8197,13 @@ function processImportRows(rows){
   });
   renderImportPreview(Object.values(groups),errors);
 }
+// 解析時是用「館別名＋地址」分組的，合併時也必須用同一把鑰匙。
+// 原本合併只比館別名，碰到真實資料裡的「松江南京館」（四平107 包租、
+// 吉林142 代租代管 兩個不同物件同名）就會把第二個併進第一個，
+// 地址與服務類型被靜默吃掉，房號又剛好撞到的話連房間都會消失。
+function cpKeyOf(x){return String(x.name||'').trim()+'|'+String(x.address||'').trim();}
+function cpMatch(list,p){const k=cpKeyOf(p);return list.find(c=>cpKeyOf(c)===k);}
+
 function renderImportPreview(properties,errors){
   importParsed=errors.length===0?properties:null;
   const existing=loadCPs();
@@ -8206,9 +8221,9 @@ function renderImportPreview(properties,errors){
       '</div>';
     html+='<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;margin-bottom:10px">'+
       properties.map(p=>{
-        const isMerge=existing.some(e=>e.name===p.name);
+        const isMerge=!!cpMatch(existing,p);
         return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">'+
-          '<b>'+escH(p.name)+'</b>'+(isMerge?' <span style="color:#e67700">（將併入現有同名館別）</span>':' <span style="color:#2f9e44">（新建館別）</span>')+
+          '<b>'+escH(p.name)+'</b>'+(isMerge?' <span style="color:#e67700">（將併入現有同名同地址館別）</span>':' <span style="color:#2f9e44">（新建館別）</span>')+
           ' — '+escH(p.city+p.district)+' '+escH(p.address)+'，'+p.rooms.length+'間房'+
         '</div>';
       }).join('')+
@@ -8230,19 +8245,19 @@ function confirmImport(){
   // 批次匯入是最容易一口氣爆掉額度的入口：先算清楚這批會新增幾個館別、幾間房，
   // 整批擋下來並說明差多少，不要讓使用者匯進一半才失敗。
   {
-    const names=new Set(cps.map(c=>c.name));
+    const keys=new Set(cps.map(cpKeyOf));
     let np=0,nr=0;
     importParsed.forEach(p=>{
-      const exist=cps.find(c=>c.name===p.name);
+      const exist=cpMatch(cps,p);
       if(exist){nr+=p.rooms.filter(r=>!exist.rooms.some(er=>er.room===r.room)).length;}
-      else if(!names.has(p.name)){names.add(p.name);np++;nr+=p.rooms.length;}
+      else if(!keys.has(cpKeyOf(p))){keys.add(cpKeyOf(p));np++;nr+=p.rooms.length;}
     });
     if(np&&!planGuard('props',np))return;
     if(nr&&!planGuard('rooms',nr))return;
   }
   let newCount=0,mergedCount=0,addedRooms=0;
   importParsed.forEach(p=>{
-    const exist=cps.find(c=>c.name===p.name);
+    const exist=cpMatch(cps,p);
     if(exist){
       p.rooms.forEach(r=>{
         if(!exist.rooms.some(er=>er.room===r.room)){exist.rooms.push(r);addedRooms++;}
