@@ -396,6 +396,58 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   </div>
 </div>
 
+<!-- Chloe 線上銷售顧問 懸浮聊天小工具 -->
+<style>
+#chloeWidgetBtn{
+  position:fixed;right:20px;bottom:20px;z-index:9999;
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,#58a6ff,#3fb950);
+  color:#0d1117;border:none;box-shadow:0 4px 16px rgba(0,0,0,.25);
+  font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+#chloeWidgetPanel{
+  position:fixed;right:20px;bottom:88px;z-index:9999;
+  width:380px;max-width:92vw;height:600px;max-height:75vh;
+  border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.35);
+  display:none;background:#0d1117;
+}
+#chloeWidgetPanel.open{display:block}
+#chloeWidgetFrame{border:none;width:100%;height:100%;display:block}
+#chloeWidgetClose{
+  position:absolute;top:8px;right:8px;z-index:10000;
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:rgba(0,0,0,.45);color:#fff;font-size:14px;cursor:pointer;
+}
+@media (max-width:480px){
+  #chloeWidgetPanel{right:0;bottom:0;width:100vw;height:100vh;max-height:100vh;border-radius:0}
+}
+</style>
+<button id="chloeWidgetBtn" title="詢問線上顧問 Chloe">💬</button>
+<div id="chloeWidgetPanel">
+  <button id="chloeWidgetClose" aria-label="關閉">✕</button>
+  <iframe id="chloeWidgetFrame" title="Chloe 線上銷售顧問"></iframe>
+</div>
+<script>
+(function(){
+  var btn=document.getElementById('chloeWidgetBtn');
+  var panel=document.getElementById('chloeWidgetPanel');
+  var closeBtn=document.getElementById('chloeWidgetClose');
+  var frame=document.getElementById('chloeWidgetFrame');
+  var loaded=false;
+  function openPanel(){
+    if(!loaded){ frame.src='https://sales-agent-chloe.vercel.app/'; loaded=true; }
+    panel.classList.add('open');
+    btn.style.display='none';
+  }
+  function closePanel(){
+    panel.classList.remove('open');
+    btn.style.display='flex';
+  }
+  btn.addEventListener('click',openPanel);
+  closeBtn.addEventListener('click',closePanel);
+})();
+</script>
+
 <script>
 'use strict';
 
