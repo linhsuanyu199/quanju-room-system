@@ -557,7 +557,6 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" id="top-propmgr" style="display:none" onclick="openPropMgr()">管理房源</button>
     <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
-    <button class="btn-top" style="background:#6741d9;color:#fff" onclick="openAna()">分析</button>
   </div>
   <div class="topbar-fixed">
     <button class="btn-top btn-mgt-top" id="btn-todo" onclick="openTodo()" title="今日待辦提醒"
@@ -611,6 +610,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(openPayout)">📄 房東撥款單</button>
             <div class="more-sep"></div>
             <button class="more-item" id="more-pnl" style="display:none" onclick="pickMore(openPnl)">📊 月損益總表</button>
+            <button class="more-item" onclick="pickMore(openAna)">📈 分析</button>
           </div>
         </div>
         <div class="more-group">
@@ -7608,6 +7608,12 @@ function geoCandidates(addr,city,district){
       const n=cur.replace(re,'').replace(/[\s,，、－-]+$/,'');
       if(n&&n!==cur){ if(!steps.includes(n))steps.push(n); cur=n; }
     });
+  // 內部慣用簡寫地址完全省略路/街等字樣（例如「汀州188」實際是「汀州路188號」），
+  // 這種字串直接查一定查無，OSM 也不會湊巧命中——嘗試補上路／街字尾再查路段。
+  if(!/[路街道巷弄段]/.test(a)){
+    const m=a.match(/^([\u4e00-\u9fff]+?)[0-9０-９]/);
+    if(m){['路','街'].forEach(suf=>{const n=m[1]+suf;if(!steps.includes(n))steps.push(n);});}
+  }
   // 帶門牌的原字串在台灣一定查不到，直接跳過省一次請求
   const base=/[0-9０-９]\s*號/.test(a)?steps.slice(1):steps;
   const pre=String(city||'')+String(district||'');
@@ -7645,7 +7651,13 @@ async function autoGeocodeAll(){
           encodeURIComponent(q),{headers:{'Accept':'application/json'}});
         if(r.ok){
           const j=await r.json();
-          if(j&&j[0]&&j[0].lat&&j[0].lon)hit={lat:+j[0].lat,lng:+j[0].lon};
+          // 地址字串太短太模糊時，OSM 偶爾會湊巧命中外縣市／新北市交界的同名路段
+          // （例如查「中興路」命中新北市三重區），光靠經緯度範圍不夠準（新北市
+          // 與台北市緊鄰、範圍會重疊），一定要連 display_name 一起核對縣市名稱。
+          const dn=j&&j[0]&&j[0].display_name||'';
+          if(j&&j[0]&&j[0].lat&&j[0].lon&&+j[0].lat>24.6&&+j[0].lat<25.35&&+j[0].lon>121.25&&+j[0].lon<121.85
+             &&(!city||dn.includes(city)||dn.includes(city.replace('台','臺'))))
+            hit={lat:+j[0].lat,lng:+j[0].lon};
         }
       }catch(e){/* 單筆失敗不該中斷整批，留給下一個候選字串或人工 */}
       await new Promise(s=>setTimeout(s,1100));   // Nominatim 政策：每秒最多 1 筆
