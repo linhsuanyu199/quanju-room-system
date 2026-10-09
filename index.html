@@ -4,23 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>短期租賃管理營運系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f0f2f7;--white:#fff;--primary:#1a56a0;--primary-d:#143e7a;
-  --primary-light:#e8f0fb;--border:#d8dde8;--text:#1a2535;--muted:#6b7a99;
+  --bg:#F3F4F1;--white:#FCFCFA;--primary:#2F5664;--primary-d:#22424C;
+  --primary-light:#E1EAEC;--border:#DCE0DA;--text:#1F2A2E;--muted:#4F5D62;
   --cell-h:38px;--room-w:232px;--day-w:34px;
-  --s-reserved:#7048e8;--s-pending:#e67700;--s-checkin:#2f9e44;
-  --s-checkout:#495057;--s-cleaning:#0c8599;--s-repair:#c92a2a;
-  --c-airbnb:#e03131;--c-monthly:#1971c2;--c-direct:#2f9e44;
-  --c-mra:#7048e8;--c-other:#868e96;
+  --s-reserved:#8A5A7A;--s-pending:#8A6A1F;--s-checkin:#3E6B4E;
+  --s-checkout:#4F5D62;--s-cleaning:#3F6B70;--s-repair:#923A2E;
+  --c-airbnb:#923A2E;--c-monthly:#2F5664;--c-direct:#3E6B4E;
+  --c-mra:#8A5A7A;--c-other:#86918F;
 }
-body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",-apple-system,sans-serif;
   background:var(--bg);color:var(--text);height:100vh;display:flex;
   flex-direction:column;overflow:hidden}
+.num,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 
 /* ─── TopBar ─── */
-.topbar{height:52px;background:var(--primary);color:#fff;display:flex;
+.topbar{height:52px;background:var(--primary);color:#FCFCFA;display:flex;
   align-items:center;padding:0 12px;gap:8px;
   box-shadow:0 2px 10px rgba(0,0,0,.28);z-index:200;flex-shrink:0;flex-wrap:nowrap}
 #cloud-user-box{flex-shrink:0;white-space:nowrap}
@@ -35,7 +39,7 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .topbar-legend{display:flex;align-items:center;gap:5px;margin:0 8px;flex-wrap:nowrap}
 .tleg{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
   padding:2px 8px;border-radius:20px;white-space:nowrap;
-  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;flex-shrink:0}
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#FCFCFA;flex-shrink:0}
 .tleg .tdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .topbar-spacer{flex:1}
 .stat-box{text-align:center;padding:0 8px;border-left:1px solid rgba(255,255,255,.18);flex-shrink:0}
@@ -73,16 +77,16 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
    否則箭頭會黏在紅點左邊、看起來像是紅點的一部分。 */
 .more-badge-inline+.more-arrow{margin-left:6px}
 .more-badge-inline{display:none;margin-left:auto;min-width:16px;height:16px;padding:0 4px;
-  border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;line-height:16px;
+  border-radius:99px;background:#923A2E;color:#FCFCFA;font-size:10px;line-height:16px;
   font-weight:700;text-align:center}
 /* 頂列按鈕上的紅點。選單收合時看不到裡面的 .more-badge-inline，
    所以底下所有待辦的總數要浮到「⚙️ 更多」這顆按鈕上。 */
 .nav-badge{display:none;position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;
-  padding:0 4px;border-radius:99px;background:#c92a2a;color:#fff;font-size:10px;
+  padding:0 4px;border-radius:99px;background:#923A2E;color:#FCFCFA;font-size:10px;
   line-height:16px;font-weight:700;text-align:center}
-.btn-add-top{background:#fff;color:var(--primary)}
-.btn-mgt-top{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3)}
-.btn-task-top{background:#e67700;color:#fff}
+.btn-add-top{background:#FCFCFA;color:var(--primary)}
+.btn-mgt-top{background:rgba(255,255,255,.18);color:#FCFCFA;border:1px solid rgba(255,255,255,.3)}
+.btn-task-top{background:#8A6A1F;color:#FCFCFA}
 
 /* ─── Toolbar ─── */
 .toolbar{height:44px;background:var(--white);border-bottom:1px solid var(--border);
@@ -115,7 +119,7 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   flex-shrink:0;z-index:110}
 .head-room{min-width:var(--room-w);max-width:var(--room-w);flex-shrink:0;
   border-right:2px solid var(--border);display:flex;align-items:center;
-  padding:0 10px;font-size:10px;font-weight:600;color:var(--muted);background:#f8fafc}
+  padding:0 10px;font-size:10px;font-weight:600;color:var(--muted);background:#ECEEEA}
 .head-dates-scroll{overflow:hidden;flex:1}
 .head-dates{display:flex}
 .dh{min-width:var(--day-w);max-width:var(--day-w);height:36px;display:flex;
@@ -123,25 +127,25 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
   border-right:1px solid var(--border);font-size:10px;flex-shrink:0}
 .dh .dn{font-weight:600}
 .dh .dw{font-size:8px;color:var(--muted)}
-.dh.today-col{background:#fff3e0}.dh.today-col .dn{color:#e67700;font-weight:800}
-.dh.weekend .dn{color:#c92a2a}
+.dh.today-col{background:#F5E7D7}.dh.today-col .dn{color:#8A6A1F;font-weight:800}
+.dh.weekend .dn{color:#923A2E}
 .dh.month-start{border-left:2px solid var(--primary)}
-.day-cell.month-start{border-left:2px solid #aebbd4}
+.day-cell.month-start{border-left:2px solid #BEC5BE}
 
 .head-months{display:flex}
 .hm-seg{height:18px;display:flex;align-items:center;justify-content:center;
-  font-size:10.5px;font-weight:700;color:#fff;background:var(--primary);
+  font-size:10.5px;font-weight:700;color:#FCFCFA;background:var(--primary);
   border-right:2px solid rgba(255,255,255,.3);flex-shrink:0;letter-spacing:.3px;
   overflow:hidden;white-space:nowrap}
 .hm-seg.alt{background:var(--primary-d)}
 
 .grid-body{flex:1;overflow:auto;display:flex}
 .room-col-list{min-width:var(--room-w);max-width:var(--room-w);flex-shrink:0;
-  border-right:2px solid var(--border);background:#f8fafc;overflow:hidden}
+  border-right:2px solid var(--border);background:#ECEEEA;overflow:hidden}
 .cal-area{flex:1;overflow:auto;position:relative}
 .cal-inner{position:relative}
 
-.prop-hdr{height:28px;background:var(--primary);color:#fff;display:flex;
+.prop-hdr{height:28px;background:var(--primary);color:#FCFCFA;display:flex;
   align-items:center;padding:0 8px;gap:6px;font-size:11px;font-weight:700;
   cursor:pointer;user-select:none}
 .prop-hdr:hover{background:var(--primary-d)}
@@ -149,32 +153,32 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .prop-toggle.closed{transform:rotate(-90deg)}
 .prop-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prop-cnt{font-size:9px;background:rgba(255,255,255,.2);padding:1px 5px;border-radius:10px}
-.custom-badge{font-size:8px;background:#ffd43b;color:#333;padding:1px 4px;border-radius:3px}
-.cal-prop-hdr{height:28px;background:rgba(26,86,160,.04);border-bottom:1px solid var(--border)}
+.custom-badge{font-size:8px;background:#C9A227;color:#1F2A2E;padding:1px 4px;border-radius:3px}
+.cal-prop-hdr{height:28px;background:rgba(47,86,100,.04);border-bottom:1px solid var(--border)}
 
 .room-row{height:var(--cell-h);display:flex;align-items:center;
   padding:0 5px 0 14px;border-bottom:1px solid var(--border);
   font-size:11px;gap:4px;transition:background .1s}
-.room-row:hover{background:#eef2ff}
+.room-row:hover{background:#E1EAEC}
 .rno{font-weight:700;color:var(--primary);min-width:48px}
 .rtype{font-size:9px;background:var(--primary-light);color:var(--primary);
   padding:1px 4px;border-radius:8px;white-space:nowrap}
 .rprice{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap}
 
 .cal-room-row{height:var(--cell-h);border-bottom:1px solid var(--border);
-  position:relative;display:flex;background:#fff}
-.cal-room-row:hover{background:#fafbff}
+  position:relative;display:flex;background:#FCFCFA}
+.cal-room-row:hover{background:#FCFCFA}
 .day-cell{min-width:var(--day-w);max-width:var(--day-w);height:100%;
   border-right:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:background .1s}
-.day-cell:hover{background:#e8f0fb}
-.day-cell.today-col{background:#fff9f0}
-.day-cell.weekend{background:#fff5f5}
-.day-cell.weekend:hover{background:#ffe8e8}
+.day-cell:hover{background:#E1EAEC}
+.day-cell.today-col{background:#F5E7D7}
+.day-cell.weekend{background:#F4E1DD}
+.day-cell.weekend:hover{background:#F4E1DD}
 
 /* Booking + task blocks */
 .bk{position:absolute;border-radius:4px;cursor:pointer;overflow:hidden;
   display:flex;align-items:center;padding:0 6px;
-  font-size:10px;font-weight:600;color:#fff;white-space:nowrap;z-index:10;
+  font-size:10px;font-weight:600;color:#FCFCFA;white-space:nowrap;z-index:10;
   border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.14);
   transition:filter .12s,box-shadow .12s}
 .bk:hover{filter:brightness(1.1);box-shadow:0 3px 10px rgba(0,0,0,.24);z-index:20}
@@ -182,13 +186,13 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .bk.task-block:hover{opacity:1;filter:brightness(1.08)}
 
 .today-line{position:absolute;top:0;bottom:0;width:2px;
-  background:#f97316;z-index:15;pointer-events:none}
+  background:#A65F22;z-index:15;pointer-events:none}
 .today-line::after{content:"今";position:absolute;top:2px;left:-8px;
-  font-size:8px;color:#f97316;font-weight:800;background:#fff;
+  font-size:8px;color:#A65F22;font-weight:800;background:#FCFCFA;
   border-radius:2px;padding:0 1px}
 
 /* ─── Cell context menu ─── */
-.cell-menu{position:fixed;background:#fff;border:1.5px solid var(--border);
+.cell-menu{position:fixed;background:#FCFCFA;border:1.5px solid var(--border);
   border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);
   z-index:2500;min-width:160px;overflow:hidden;display:none}
 .cell-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;
@@ -198,7 +202,7 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .cell-menu .cm-sep{height:1px;background:var(--border);margin:2px 0}
 
 /* ─── Tooltip ─── */
-.tooltip{display:none;position:fixed;background:#1a2535;color:#fff;
+.tooltip{display:none;position:fixed;background:#1F2A2E;color:#FCFCFA;
   padding:8px 12px;border-radius:8px;font-size:11px;z-index:3000;
   pointer-events:none;max-width:260px;line-height:1.65;
   box-shadow:0 6px 20px rgba(0,0,0,.32)}
@@ -236,35 +240,35 @@ body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
 .field{display:flex;flex-direction:column;gap:3px}
 .field.span2{grid-column:1/-1}
 label{font-size:11px;font-weight:600;color:var(--muted)}
-label .req{color:#c92a2a}
+label .req{color:#923A2E}
 input,select,textarea{height:33px;border:1.5px solid var(--border);border-radius:7px;
   padding:0 9px;font-size:12px;color:var(--text);background:var(--white);
   transition:border-color .12s;font-family:inherit;outline:none}
-input[readonly]{background:#f5f5f5;cursor:not-allowed}
+input[readonly]{background:#ECEEEA;cursor:not-allowed}
 input:focus,select:focus,textarea:focus{border-color:var(--primary)}
 textarea{height:58px;padding:7px 9px;resize:vertical}
 
 /* Task type toggle */
 .type-toggle{display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
-.type-btn{flex:1;height:33px;border:none;background:#f8f9fa;font-size:12px;
+.type-btn{flex:1;height:33px;border:none;background:#ECEEEA;font-size:12px;
   font-weight:600;cursor:pointer;transition:background .15s,color .15s;color:var(--muted)}
-.type-btn.active{background:var(--primary);color:#fff}
+.type-btn.active{background:var(--primary);color:#FCFCFA}
 .type-btn:first-child{border-right:1px solid var(--border)}
 
 /* Auto badge */
 .auto-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;
-  padding:2px 8px;border-radius:10px;background:#e3fafc;color:#0c8599;
-  border:1px solid #0c8599;font-weight:600;margin-bottom:8px}
+  padding:2px 8px;border-radius:10px;background:#DCEAEA;color:#3F6B70;
+  border:1px solid #3F6B70;font-weight:600;margin-bottom:8px}
 
 /* Quick Actions */
 .qa-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;
-  padding:8px 10px;background:#f8f9fa;border-radius:8px;border:1px solid var(--border)}
+  padding:8px 10px;background:#ECEEEA;border-radius:8px;border:1px solid var(--border)}
 .qa-lbl{font-size:10px;color:var(--muted);font-weight:600;align-self:center;flex-shrink:0}
 .qa-btn{height:28px;padding:0 10px;border-radius:5px;font-size:11px;
   font-weight:700;cursor:pointer;transition:opacity .12s}
 .qa-btn:hover{opacity:.85}
-.qa-green{background:#ebfbee;color:#2f9e44;border:1.5px solid #2f9e44}
-.qa-red{background:#fff5f5;color:#c92a2a;border:1.5px solid #c92a2a}
+.qa-green{background:#E3ECE5;color:#3E6B4E;border:1.5px solid #3E6B4E}
+.qa-red{background:#F4E1DD;color:#923A2E;border:1.5px solid #923A2E}
 
 /* Segment cards */
 .seg-card{border:1.5px solid var(--border);border-radius:9px;
@@ -272,19 +276,19 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 .seg-hdr{padding:7px 11px;background:var(--primary-light);
   display:flex;align-items:center;gap:7px}
 .seg-num{font-size:11px;font-weight:700;color:var(--primary);flex:1}
-.seg-clean-note{font-size:9px;color:#0c8599;background:#e3fafc;
+.seg-clean-note{font-size:9px;color:#3F6B70;background:#DCEAEA;
   padding:2px 6px;border-radius:8px;white-space:nowrap}
-.seg-del-btn{background:#fee2e2;border:1px solid #fca5a5;color:#c92a2a;
+.seg-del-btn{background:#F4E1DD;border:1px solid #C98F85;color:#923A2E;
   border-radius:4px;padding:1px 7px;font-size:9px;cursor:pointer;transition:background .12s}
-.seg-del-btn:hover{background:#fca5a5}
-.seg-ck-btn{background:#fff3bf;border:1px solid #f0c000;color:#8a6100;
+.seg-del-btn:hover{background:#C98F85}
+.seg-ck-btn{background:#F3ECD9;border:1px solid #C9A227;color:#6B5016;
   border-radius:4px;padding:1px 7px;font-size:9px;cursor:pointer;
   white-space:nowrap;transition:background .12s}
-.seg-ck-btn:hover{background:#ffe066}
-.seg-ck-btn.ck-done{background:#ebfbee;border-color:#8ce99a;color:#2b8a3e}
-.seg-ck-btn.ck-done:hover{background:#b2f2bb}
+.seg-ck-btn:hover{background:#E3D18A}
+.seg-ck-btn.ck-done{background:#E3ECE5;border-color:#9FC2A8;color:#2F4F3A}
+.seg-ck-btn.ck-done:hover{background:#CFE0D3}
 .seg-body{padding:9px 11px}
-.seg-calc{padding:6px 11px;background:#f0f7ff;font-size:11px;
+.seg-calc{padding:6px 11px;background:#E1EAEC;font-size:11px;
   border-top:1px solid var(--border);display:flex;gap:12px;align-items:center}
 .seg-calc strong{color:var(--primary)}
 .btn-add-seg{width:100%;height:34px;border:2px dashed var(--border);
@@ -292,13 +296,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   color:var(--primary);cursor:pointer;margin-top:2px;transition:background .12s}
 .btn-add-seg:hover{background:var(--primary-light)}
 .total-bar{display:flex;justify-content:space-between;align-items:center;
-  padding:9px 13px;background:var(--primary);color:#fff;
+  padding:9px 13px;background:var(--primary);color:#FCFCFA;
   border-radius:8px;margin-top:9px;font-weight:600}
 .total-big{font-size:19px;font-weight:800}
 
 /* Conflict warning */
-.conflict-warn{background:#fff3cd;border:1.5px solid #f59f00;border-radius:7px;
-  padding:8px 12px;font-size:11px;color:#7c5c00;margin-top:8px;display:none}
+.conflict-warn{background:#F3ECD9;border:1.5px solid #A5771F;border-radius:7px;
+  padding:8px 12px;font-size:11px;color:#6B5016;margin-top:8px;display:none}
 .conflict-warn strong{display:block;margin-bottom:3px}
 
 /* Form Actions */
@@ -308,8 +312,8 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   font-weight:600;cursor:pointer;border:none;transition:opacity .12s}
 .btn.sm{height:26px;padding:0 9px;font-size:11px}
 .btn:hover{opacity:.87}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-danger{background:#c92a2a;color:#fff}
+.btn-primary{background:var(--primary);color:#FCFCFA}
+.btn-danger{background:#923A2E;color:#FCFCFA}
 .btn-ghost{background:var(--bg);color:var(--text);border:1px solid var(--border)}
 
 /* Detail modal */
@@ -326,30 +330,30 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 /* Property Manager */
 /* 說明文字一行、功能鍵一行。全部擠成一列時按鈕字會被壓扁。 */
 .pm-toolbar{display:flex;flex-direction:column;gap:8px;
-  margin-bottom:11px;padding:9px 11px;background:#f8f9fa;
+  margin-bottom:11px;padding:9px 11px;background:#ECEEEA;
   border-radius:7px;border:1px solid var(--border)}
 .pm-toolbar-tips{display:flex;flex-wrap:wrap;align-items:center;gap:3px 14px}
 .pm-toolbar-btns{display:flex;flex-wrap:wrap;gap:6px}
 .pm-toolbar-btns .btn{white-space:nowrap}
 .pm-tip{font-size:10px;color:var(--muted)}
-.bg-row{padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
+.bg-row{padding:7px 9px;border-bottom:1px solid var(--border);cursor:pointer;background:#FCFCFA}
 .bg-row:last-child{border-bottom:none}
-.bg-row:hover{background:#f1f5f9}
-.bg-row.on{background:#e7f5ff;box-shadow:inset 3px 0 0 var(--primary)}
+.bg-row:hover{background:#ECEEEA}
+.bg-row.on{background:#E1EAEC;box-shadow:inset 3px 0 0 var(--primary)}
 .pm-prop{border:1.5px solid var(--border);border-radius:9px;margin-bottom:9px;overflow:hidden}
-.pm-prop-hdr{padding:8px 11px;background:var(--primary);color:#fff;
+.pm-prop-hdr{padding:8px 11px;background:var(--primary);color:#FCFCFA;
   display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .pm-prop-hdr .prop-nm{font-weight:700;font-size:12px;flex:1}
 .pm-prop-hdr .prop-addr{font-size:9px;opacity:.75}
 .pm-hdr-btns{display:flex;gap:4px;margin-left:auto}
 .pm-icon-btn{height:22px;padding:0 7px;border-radius:4px;font-size:10px;
   cursor:pointer;border:1px solid rgba(255,255,255,.4);
-  background:rgba(255,255,255,.15);color:#fff;transition:background .12s}
+  background:rgba(255,255,255,.15);color:#FCFCFA;transition:background .12s}
 .pm-icon-btn:hover{background:rgba(255,255,255,.3)}
-.pm-icon-btn.danger{background:rgba(200,40,40,.25);border-color:rgba(255,150,150,.4)}
+.pm-icon-btn.danger{background:rgba(146,58,46,.25);border-color:rgba(201,143,133,.4)}
 .pm-rooms{border-top:1px solid var(--border)}
 .pm-room-row{display:flex;align-items:center;gap:7px;
-  padding:6px 11px;border-bottom:1px solid #f0f0f0;background:#fff}
+  padding:6px 11px;border-bottom:1px solid #ECEEEA;background:#FCFCFA}
 .pm-room-row:last-child{border-bottom:none}
 .pm-rno{font-weight:700;color:var(--primary);min-width:42px;font-size:11px}
 .pm-rtype{font-size:9px;background:var(--primary-light);color:var(--primary);
@@ -360,20 +364,20 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   border-radius:5px;padding:0 6px;font-size:11px;text-align:right;
   transition:border-color .12s;outline:none}
 .pm-price-input:focus{border-color:var(--primary)}
-.pm-price-input.changed{border-color:#2f9e44;background:#ebfbee}
+.pm-price-input.changed{border-color:#3E6B4E;background:#E3ECE5}
 .pm-icon-del{background:none;border:none;cursor:pointer;font-size:13px;
   opacity:.45;transition:opacity .12s;padding:0 2px}
 .pm-icon-del:hover{opacity:1}
-.pm-add-row{padding:6px 11px;background:#f8fafc;display:flex;gap:7px;align-items:center}
-.pm-add-form{padding:9px 11px;background:#f0f7ff;border-top:1px solid var(--border);display:none}
+.pm-add-row{padding:6px 11px;background:#ECEEEA;display:flex;gap:7px;align-items:center}
+.pm-add-form{padding:9px 11px;background:#E1EAEC;border-top:1px solid var(--border);display:none}
 .pm-add-prop-section{margin-top:14px;padding:11px;
-  background:#f8fafc;border-radius:8px;border:1.5px dashed var(--border)}
+  background:#ECEEEA;border-radius:8px;border:1.5px dashed var(--border)}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#c5cdd8;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#a0aab8}
+::-webkit-scrollbar-thumb{background:#BEC5BE;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#86918F}
 
 .oo-row{cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
 .oo-row:hover{background:var(--primary-light)}
@@ -385,13 +389,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 
 .room-status{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;
   white-space:nowrap;flex-shrink:0;border:1px solid transparent}
-.room-status.empty{color:#aaa;background:#f5f5f5;border-color:#e0e0e0;font-weight:400}
+.room-status.empty{color:#86918F;background:#ECEEEA;border-color:#DCE0DA;font-weight:400}
 
 /* ─── Login Screen ─── */
-.login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a3a6b 0%,#2563a8 100%);
+.login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1F2A2E 0%,#2F5664 100%);
   display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:16px}
 .login-screen.hidden{display:none}
-.login-box{background:#fff;border-radius:18px;padding:38px 42px;width:380px;max-width:94vw;
+.login-box{background:#FCFCFA;border-radius:18px;padding:38px 42px;width:380px;max-width:94vw;
   box-shadow:0 28px 70px rgba(0,0,0,.38);text-align:center}
 .login-logo{font-size:22px;font-weight:800;color:var(--primary);margin-bottom:4px;letter-spacing:.3px}
 .login-sub{font-size:11px;color:var(--muted);margin-bottom:26px}
@@ -399,42 +403,42 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 .login-field label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px}
 .login-field input{width:100%;height:40px;border:1.5px solid var(--border);border-radius:9px;
   padding:0 13px;font-size:13px;outline:none;transition:border-color .15s;font-family:inherit}
-.login-field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,160,.12)}
+.login-field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(47,86,100,.12)}
 .pw-wrap{position:relative}
 .pw-wrap input{padding-right:38px!important;box-sizing:border-box}
 .pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:30px;height:30px;
-  border:none;background:none;cursor:pointer;font-size:16px;color:#888;display:flex;
+  border:none;background:none;cursor:pointer;font-size:16px;color:#4F5D62;display:flex;
   align-items:center;justify-content:center;border-radius:6px;padding:0}
-.pw-eye:hover{background:#f1f3f5;color:#555}
-.login-btn{width:100%;height:42px;background:var(--primary);color:#fff;border:none;
+.pw-eye:hover{background:#ECEEEA;color:#4F5D62}
+.login-btn{width:100%;height:42px;background:var(--primary);color:#FCFCFA;border:none;
   border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;
   transition:opacity .15s,transform .1s;letter-spacing:.3px}
 .login-btn:hover{opacity:.88;transform:translateY(-1px)}
 .login-btn:active{transform:translateY(0)}
-.login-err{color:#c92a2a;font-size:11px;margin-top:10px;display:none;
-  background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px}
+.login-err{color:#923A2E;font-size:11px;margin-top:10px;display:none;
+  background:#F4E1DD;border:1px solid #C98F85;border-radius:6px;padding:6px 10px}
 .login-hint{color:rgba(255,255,255,.55);font-size:10px;text-align:center}
-.login-tab{height:36px;border:1.5px solid var(--border);background:#fff;color:var(--muted);
+.login-tab{height:36px;border:1.5px solid var(--border);background:#FCFCFA;color:var(--muted);
   border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
-.login-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.login-tab.active{background:var(--primary);border-color:var(--primary);color:#FCFCFA}
 
 /* ─── Parallel segment ─── */
-.seg-card.seg-parallel .seg-hdr{background:linear-gradient(90deg,#fff3e0,#fff8f0)}
-.seg-card.seg-parallel .seg-num{color:#e67700}
+.seg-card.seg-parallel .seg-hdr{background:linear-gradient(90deg,#F5E7D7,#F5E7D7)}
+.seg-card.seg-parallel .seg-num{color:#8A6A1F}
 .seg-btns-row{display:flex;gap:8px;margin-top:2px}
 .seg-btns-row .btn-add-seg,.btn-add-parallel{flex:1;height:34px;border-radius:7px;
   font-size:11px;cursor:pointer;margin-top:2px;transition:background .12s;display:flex;
   align-items:center;justify-content:center;gap:4px;font-weight:600}
 .seg-btns-row .btn-add-seg{border:2px dashed var(--border);background:transparent;color:var(--primary)}
 .seg-btns-row .btn-add-seg:hover{background:var(--primary-light)}
-.btn-add-parallel{border:2px dashed #e67700;background:transparent;color:#e67700}
-.btn-add-parallel:hover{background:#fff3e0}
-.parallel-badge{font-size:9px;background:#fff3e0;color:#e67700;border:1px solid #e67700;
+.btn-add-parallel{border:2px dashed #8A6A1F;background:transparent;color:#8A6A1F}
+.btn-add-parallel:hover{background:#F5E7D7}
+.parallel-badge{font-size:9px;background:#F5E7D7;color:#8A6A1F;border:1px solid #8A6A1F;
   padding:1px 6px;border-radius:8px;white-space:nowrap;font-weight:700}
 /* Parallel seg: independent dates label */
-.seg-card.seg-parallel .seg-ci{border-color:#e67700!important;background:#fff8f0}
+.seg-card.seg-parallel .seg-ci{border-color:#8A6A1F!important;background:#F5E7D7}
 /* Conflict hard-block color */
-.conflict-warn.hard-block{background:#fff5f5;border-color:#c92a2a}
+.conflict-warn.hard-block{background:#F4E1DD;border-color:#923A2E}
 /* Per-segment guest fields */
 .seg-guest-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;
   border-top:1px dashed var(--border);margin-top:6px;padding-top:6px}
@@ -469,7 +473,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <button class="login-btn" onclick="Cloud.doLogin()">登入系統</button>
       <div style="text-align:center;margin-top:12px">
         <a href="#" onclick="Cloud.doForgotPassword();return false;"
-          style="font-size:11px;color:#aaa;text-decoration:none;border-bottom:1px dashed #ccc">忘記密碼？點此寄送重設信</a>
+          style="font-size:11px;color:#86918F;text-decoration:none;border-bottom:1px dashed #BEC5BE">忘記密碼？點此寄送重設信</a>
       </div>
     </div>
 
@@ -488,7 +492,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <input type="password" id="reg-pass" placeholder="設定密碼" autocomplete="new-password">
           <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('reg-pass',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
         </div>
-        <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.5">
+        <div style="font-size:11px;color:#86918F;margin-top:4px;line-height:1.5">
           建議至少 8 碼，並混合大寫、小寫、數字與符號<br>（如 !@#$%）以提高安全性
         </div>
       </div>
@@ -496,11 +500,11 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     </div>
 
     <div class="login-err" id="login-err" style="display:none"></div>
-    <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#bbb">
+    <div style="text-align:center;margin-top:16px;font-size:10.5px;color:#BEC5BE">
       註冊或登入即表示您同意
-      <a href="./terms.html" target="_blank" style="color:#999">服務條款</a>、
-      <a href="./privacy.html" target="_blank" style="color:#999">隱私權政策</a> 與
-      <a href="./refund.html" target="_blank" style="color:#999">退訂與退費條款</a>
+      <a href="./terms.html" target="_blank" style="color:#86918F">服務條款</a>、
+      <a href="./privacy.html" target="_blank" style="color:#86918F">隱私權政策</a> 與
+      <a href="./refund.html" target="_blank" style="color:#86918F">退訂與退費條款</a>
     </div>
   </div>
 </div>
@@ -535,7 +539,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="login-err" id="co-err" style="display:none"></div>
     <div style="text-align:center;margin-top:12px">
       <a href="#" onclick="Cloud.doLogout();return false;"
-        style="font-size:11px;color:#aaa;text-decoration:none;border-bottom:1px dashed #ccc">登出，換其他帳號</a>
+        style="font-size:11px;color:#86918F;text-decoration:none;border-bottom:1px dashed #BEC5BE">登出，換其他帳號</a>
     </div>
   </div>
 </div>
@@ -547,16 +551,16 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div id="cloud-user-box" style="font-size:11px;color:rgba(255,255,255,.75);margin-left:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1" title=""></div>
   <button id="plan-badge" onclick="openPlan()" title="查看方案、用量與價目表"
-    style="display:none;margin-left:8px;flex-shrink:0;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;border-radius:99px;padding:2px 9px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
+    style="display:none;margin-left:8px;flex-shrink:0;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#FCFCFA;border-radius:99px;padding:2px 9px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
   <div class="topbar-scroll">
     <div class="topbar-spacer"></div>
     <div class="stat-box"><div class="stat-val" id="s-rooms">—</div><div class="stat-lbl">總房間數</div></div>
-    <div class="stat-box" title="年度可銷售天數＝每間房「已上線且未停賣」的天數合計，再扣除打掃／維修占用的日數。還沒上線與已停賣的房間不列入。"><div class="stat-val" style="color:#c084fc" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
-    <div class="stat-box" title="分母只算本月「已上線且未停賣」的房間天數，未上線／停賣的房間不會稀釋入住率"><div class="stat-val" style="color:#ffd43b" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
-    <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#8ce99a" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
-    <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#74c0fc" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
+    <div class="stat-box" title="年度可銷售天數＝每間房「已上線且未停賣」的天數合計，再扣除打掃／維修占用的日數。還沒上線與已停賣的房間不列入。"><div class="stat-val" style="color:#B08098" id="s-sell">—</div><div class="stat-lbl">年度可銷售天數</div></div>
+    <div class="stat-box" title="分母只算本月「已上線且未停賣」的房間天數，未上線／停賣的房間不會稀釋入住率"><div class="stat-val" style="color:#C9A227" id="s-occ">—</div><div class="stat-lbl">本月入住率</div></div>
+    <div class="stat-box" onclick="openOrderOverview()" title="點擊查看本月訂單清單" style="cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background=''"><div class="stat-val" style="color:#9FC2A8" id="s-bk">—</div><div class="stat-lbl">本月訂單</div></div>
+    <div class="stat-box" title="本月實際入住中及已退房訂單的租金合計"><div class="stat-val" style="color:#5A6E9A" id="s-rev">—</div><div class="stat-lbl">本月營業額</div></div>
     <button class="btn-top btn-mgt-top" id="top-propmgr" style="display:none" onclick="openPropMgr()">管理房源</button>
-    <button class="btn-top" style="background:#c92a2a;color:#fff" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
+    <button class="btn-top" style="background:#923A2E;color:#FCFCFA" onclick="openMaint()" title="維修追蹤與維修報表">維修追蹤</button>
   </div>
   <div class="topbar-fixed">
     <button class="btn-top btn-mgt-top" id="btn-todo" onclick="openTodo()" title="今日待辦提醒"
@@ -725,9 +729,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <div id="qa-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
     <!-- 提前退房選擇面板 -->
-    <div id="earlychk-panel" style="display:none;background:#fff5f5;border:1.5px solid #c92a2a;
+    <div id="earlychk-panel" style="display:none;background:#F4E1DD;border:1.5px solid #923A2E;
       border-radius:8px;padding:10px 13px;margin-top:6px">
-      <div style="font-size:11px;font-weight:700;color:#c92a2a;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;color:#923A2E;margin-bottom:6px">
         🚪 選擇要提前退房的房間（其他房間不受影響）
       </div>
       <div id="earlychk-rows"></div>
@@ -742,9 +746,9 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       </div>
     </div>
     <!-- 續約面板 -->
-    <div id="renewal-panel" style="display:none;background:#ebfbee;border:1.5px solid #2f9e44;
+    <div id="renewal-panel" style="display:none;background:#E3ECE5;border:1.5px solid #3E6B4E;
       border-radius:8px;padding:10px 13px;margin-top:6px">
-      <div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:#3E6B4E;margin-bottom:8px">
         🔄 續約 / 延長租期 — 請設定新的退房日期（需晚於原退房日）
       </div>
       <div id="renewal-rows"></div>
@@ -774,7 +778,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <div class="field"><label>姓名 <span class="req">*</span></label><input id="g-name" type="text" placeholder="客戶全名"></div>
       <!-- 3. 聯絡電話（必填） -->
       <div class="field"><label>聯絡電話 <span class="req">*</span></label><input id="g-phone" type="tel" placeholder="0912-345-678" required onblur="lookupCustByPhone()">
-        <div id="g-phone-hint" style="display:none;font-size:10px;color:#2f9e44;margin-top:3px"></div></div>
+        <div id="g-phone-hint" style="display:none;font-size:10px;color:#3E6B4E;margin-top:3px"></div></div>
       <!-- 4. 客戶類型（必填） -->
       <div class="field"><label>客戶類型 <span class="req">*</span></label>
         <select id="g-ctype" onchange="toggleTaxId()">
@@ -837,7 +841,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
       <button class="btn-add-parallel" onclick="addParallelSeg()">🏠 加同組房間（獨立日期）</button>
     </div>
     <div id="seg-tip" style="display:none;font-size:10px;color:var(--muted);padding:4px 6px;
-      background:#f8f9fa;border-radius:5px;margin-top:4px;line-height:1.6">
+      background:#ECEEEA;border-radius:5px;margin-top:4px;line-height:1.6">
       💡 取消單一房間：點該房間右上角「✕ 取消此房間」→ 再按「儲存預定」，其他房間不受影響。<br>
       取消整筆訂單：按底部「🗑 取消整筆訂單」（會刪除此客戶的所有房間預定）。
     </div>
@@ -906,13 +910,13 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   </div>
   <div class="modal-body" style="max-height:unset">
     <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="field"><label>目前帳號 Email</label><input id="cpw-email-show" type="text" readonly style="background:#f5f5f5"></div>
+      <div class="field"><label>目前帳號 Email</label><input id="cpw-email-show" type="text" readonly style="background:#ECEEEA"></div>
       <div class="field">
         <label>修改新名稱</label>
         <input id="cpw-dname" type="text" maxlength="6" placeholder="同企業內不可重複">
         <div id="cpw-dname-hint" style="font-size:10.5px;color:var(--muted);margin-top:3px"></div>
       </div>
-      <div class="field"><label>新密碼 <span style="color:#999;font-weight:400">（不修改請留空）</span></label>
+      <div class="field"><label>新密碼 <span style="color:#86918F;font-weight:400">（不修改請留空）</span></label>
         <div class="pw-wrap"><input id="cpw-new1" type="password" placeholder="至少8碼，混合大小寫/數字/符號中至少3種">
           <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-new1',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div>
       </div>
@@ -925,7 +929,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
           <button type="button" class="pw-eye" tabindex="-1" onclick="togglePwField('cpw-current',this)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div>
       </div>
     </div>
-    <div id="cpw-err" style="display:none;color:#c92a2a;font-size:11px;margin-top:6px"></div>
+    <div id="cpw-err" style="display:none;color:#923A2E;font-size:11px;margin-top:6px"></div>
   </div>
   <div class="form-actions">
     <button class="btn btn-ghost" onclick="Cloud.closeCPW()">取消</button>
@@ -946,12 +950,12 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <div class="field">
       <label>企業邀請碼</label>
       <div style="display:flex;gap:8px">
-        <input id="invite-code-show" type="text" readonly style="background:#f5f5f5;flex:1;font-weight:700;letter-spacing:1px">
+        <input id="invite-code-show" type="text" readonly style="background:#ECEEEA;flex:1;font-weight:700;letter-spacing:1px">
         <button class="btn btn-primary" onclick="Cloud.copyInviteCode()">複製</button>
         <button class="btn btn-ghost" onclick="doResetInvite()" title="重設後舊邀請碼立即失效">🔄 重設</button>
       </div>
     </div>
-    <div id="mb-invite-tip" style="display:none;font-size:11.5px;color:#a61e4d;background:#fff0f6;border:1px solid #f8b4cf;border-radius:6px;padding:8px 10px;margin:-4px 0 12px"></div>
+    <div id="mb-invite-tip" style="display:none;font-size:11.5px;color:#6E1F3C;background:#F7E9EE;border:1px solid #C98FA8;border-radius:6px;padding:8px 10px;margin:-4px 0 12px"></div>
     <div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">企業成員</div>
     <div id="mb-list"></div>
   </div>
@@ -1077,7 +1081,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
         <textarea id="tk-note" placeholder="維修項目、廠商資訊、打掃注意事項…"></textarea>
       </div>
       <div class="field span2" id="tk-replace-hint" style="display:none">
-        <div style="background:#fff0f6;border:1px solid #f783ac;border-radius:6px;padding:8px 10px;font-size:11px;color:#a61e4d;line-height:1.6">
+        <div style="background:#F7E9EE;border:1px solid #B06E8A;border-radius:6px;padding:8px 10px;font-size:11px;color:#6E1F3C;line-height:1.6">
           ⚠️ 標記「建議汰換」後，日曆上此房間會出現提醒，但<strong>仍可正常接受預定</strong>。<br>
           若要完全擋下新訂單，請到「房源管理」把該房間設為<strong>停售</strong>。
         </div>
@@ -1102,7 +1106,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
   <div class="modal-body" style="max-height:70vh;overflow-y:auto;font-size:12px;line-height:1.8;color:var(--muted)">
     <p style="margin-bottom:10px">您啟用本功能，即授權本平台於訂單成立時，蒐集、處理及利用該筆交易之下列<strong>去識別化</strong>資料，並提供予本平台其他企業用戶作為市場行情參考之用。</p>
 
-    <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:9px">
+    <div style="background:#ECEEEA;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:9px">
       <div style="font-weight:800;color:var(--text);margin-bottom:4px">一、蒐集項目</div>
       縣市、行政區、路名（含路段，不含巷弄與門牌號）、社區或大樓名稱、房型、月租金、成交月份（僅記錄至月份，不含日期）。
 
@@ -1143,7 +1147,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
     <button class="close-btn" onclick="closeEstForm()">✕</button>
   </div>
   <iframe id="estform-frame" title="短租物件估價問卷"
-    style="width:100%;height:76vh;border:0;display:block;background:#f4f6fa"></iframe>
+    style="width:100%;height:76vh;border:0;display:block;background:#ECEEEA"></iframe>
 </div>
 </div>
 
@@ -1278,26 +1282,26 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
 // CONSTANTS
 // ════════════════════════════════════════════════
 const STATUS={
-  reserved: {label:'預定中',    color:'#7048e8',bg:'#f3f0ff',emoji:'🟣'},
-  pending:  {label:'已付款待入住',color:'#e67700',bg:'#fff3bf',emoji:'🟠'},
-  checkin:  {label:'入住中',    color:'#2f9e44',bg:'#ebfbee',emoji:'🟢'},
-  checkout: {label:'已退房',    color:'#495057',bg:'#f1f3f5',emoji:'⚫'},
-  cleaning: {label:'打掃中',    color:'#0c8599',bg:'#e3fafc',emoji:'🔵'},
-  repair:   {label:'維修中',    color:'#c92a2a',bg:'#fff5f5',emoji:'🔴'},
-  cancelled:{label:'已取消',    color:'#868e96',bg:'#f1f3f5',emoji:'🚫'},
+  reserved: {label:'預定中',    color:'#8A5A7A',bg:'#EFE3EA',emoji:'🟣'},
+  pending:  {label:'已付款待入住',color:'#8A6A1F',bg:'#F3ECD9',emoji:'🟠'},
+  checkin:  {label:'入住中',    color:'#3E6B4E',bg:'#E3ECE5',emoji:'🟢'},
+  checkout: {label:'已退房',    color:'#4F5D62',bg:'#ECEEEA',emoji:'⚫'},
+  cleaning: {label:'打掃中',    color:'#3F6B70',bg:'#DCEAEA',emoji:'🔵'},
+  repair:   {label:'維修中',    color:'#923A2E',bg:'#F4E1DD',emoji:'🔴'},
+  cancelled:{label:'已取消',    color:'#86918F',bg:'#ECEEEA',emoji:'🚫'},
 };
-const TC={airbnb:'#e03131',monthly:'#1971c2',direct:'#2f9e44',mra:'#7048e8',other:'#868e96'};
+const TC={airbnb:'#923A2E',monthly:'#2F5664',direct:'#3E6B4E',mra:'#8A5A7A',other:'#86918F'};
 const TL={airbnb:'Airbnb',monthly:'月租',direct:'直客',mra:'MRA',other:'其他'};
 const WD=['日','一','二','三','四','五','六'];
 // ── 清潔/維修任務的處理進度 ──
 // suggest_replace（建議汰換）＝已判定該設備/房間值得換掉但尚未執行；
 // replaced（已汰換）＝汰換動作已完成。兩者刻意分開，才能看出「建議了卻一直沒做」的積壓。
 const TASK_STATUS={
-  todo:           {label:'待處理',  color:'#e67700',bg:'#fff3bf'},
-  doing:          {label:'處理中',  color:'#1971c2',bg:'#e7f5ff'},
-  done:           {label:'已完成',  color:'#2f9e44',bg:'#ebfbee'},
-  suggest_replace:{label:'建議汰換',color:'#d6336c',bg:'#fff0f6'},
-  replaced:       {label:'已汰換',  color:'#495057',bg:'#f1f3f5'},
+  todo:           {label:'待處理',  color:'#8A6A1F',bg:'#F3ECD9'},
+  doing:          {label:'處理中',  color:'#2F5664',bg:'#E1EAEC'},
+  done:           {label:'已完成',  color:'#3E6B4E',bg:'#E3ECE5'},
+  suggest_replace:{label:'建議汰換',color:'#923A5A',bg:'#F7E9EE'},
+  replaced:       {label:'已汰換',  color:'#4F5D62',bg:'#ECEEEA'},
 };
 const CLEAN_STATUS_KEYS=['todo','doing','done'];
 const REPAIR_STATUS_KEYS=['todo','doing','done','suggest_replace','replaced'];
@@ -1437,7 +1441,7 @@ const COMPLAINT_CAT_TO_VENDOR={
   '環境品質':'清潔','備品缺漏':'其他','安全事項':'其他',
 };
 const COMPLAINT_SRC=['現場口頭','電話','LINE／通訊軟體','Email','官網詢問','訂房平台評論','其他'];
-const COMPLAINT_SEV={輕:{color:'#495057',bg:'#f1f3f5'},中:{color:'#e67700',bg:'#fff3bf'},重:{color:'#c92a2a',bg:'#ffe3e3'}};
+const COMPLAINT_SEV={輕:{color:'#4F5D62',bg:'#ECEEEA'},中:{color:'#8A6A1F',bg:'#F3ECD9'},重:{color:'#923A2E',bg:'#F4E1DD'}};
 
 // ── 入住前複查清單 ──────────────────────────────
 // 結構：[[群組名稱, [[檢查項目, SOP 編號], ...]], ...]
@@ -1524,10 +1528,10 @@ const RISK_TH={
   sev:2,                  // 期間「重」級客訴達此數即至少橙燈
 };
 const RISK_LAMP={
-  g:{label:'綠燈',color:'#2f9e44',bg:'#ebfbee',advice:'維持短租'},
-  y:{label:'黃燈',color:'#e67700',bg:'#fff3bf',advice:'列入觀察'},
-  o:{label:'橙燈',color:'#d9480f',bg:'#ffe8cc',advice:'建議轉年租'},
-  r:{label:'紅燈',color:'#c92a2a',bg:'#ffe3e3',advice:'建議停賣'},
+  g:{label:'綠燈',color:'#3E6B4E',bg:'#E3ECE5',advice:'維持短租'},
+  y:{label:'黃燈',color:'#8A6A1F',bg:'#F3ECD9',advice:'列入觀察'},
+  o:{label:'橙燈',color:'#7A4A1A',bg:'#F5E7D7',advice:'建議轉年租'},
+  r:{label:'紅燈',color:'#923A2E',bg:'#F4E1DD',advice:'建議停賣'},
 };
 const RISK_ORDER=['g','y','o','r'];
 // 取三段門檻中最嚴重的那一級；門檻由低到高排列，由高往低比才會命中最嚴重的一級
@@ -1546,10 +1550,10 @@ const GUEST_TH={
   lateout:[1,2],     // 退房日已過仍停在「入住中」＝賴著不退房
 };
 const GUEST_LAMP={
-  g:{label:'綠燈',  color:'#2f9e44',bg:'#ebfbee',advice:'正常承租'},
-  y:{label:'黃燈',  color:'#e67700',bg:'#fff3bf',advice:'列入觀察'},
-  o:{label:'橙燈',  color:'#d9480f',bg:'#ffe8cc',advice:'謹慎承租'},
-  r:{label:'黑名單',color:'#c92a2a',bg:'#ffe3e3',advice:'不建議承租'},
+  g:{label:'綠燈',  color:'#3E6B4E',bg:'#E3ECE5',advice:'正常承租'},
+  y:{label:'黃燈',  color:'#8A6A1F',bg:'#F3ECD9',advice:'列入觀察'},
+  o:{label:'橙燈',  color:'#7A4A1A',bg:'#F5E7D7',advice:'謹慎承租'},
+  r:{label:'黑名單',color:'#923A2E',bg:'#F4E1DD',advice:'不建議承租'},
 };
 // 兩段門檻版的 lampBy（房源用三段、房客用兩段，因為房客不自動判紅燈）
 function lampBy2(v,th){return (th[1]!=null&&v>=th[1])?'o':(th[0]!=null&&v>=th[0])?'y':'g';}
@@ -1753,7 +1757,7 @@ function openTodo(){
     '<div style="font-size:10.5px;color:var(--muted);margin:3px 0 6px;line-height:1.7">'+note+'</div>'+
     '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+rows+'</table></div>';
   const bkRow=(x,color,label,dayTxt)=>'<tr style="border-top:1px solid var(--border)">'+
-    '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk(\''+escH(x.bk.id)+'\')" style="color:#1a56a0">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
+    '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk(\''+escH(x.bk.id)+'\')" style="color:#2F5664">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
     '<td style="padding:5px 6px">'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+'</td>'+
     '<td style="padding:5px 6px;white-space:nowrap">'+label+'</td>'+
     '<td style="padding:5px 6px;white-space:nowrap;color:'+color+';font-weight:700">'+dayTxt+'</td>'+
@@ -1762,7 +1766,7 @@ function openTodo(){
     'onchange="'+fn+'(this.value)" style="width:56px;padding:3px 6px;border:1px solid var(--border);'+
     'border-radius:4px;font-size:11px">';
   let h='<div style="font-size:11px;color:var(--muted);padding:8px 10px;'+
-    'background:var(--bg2,#f6f7f9);border-radius:6px;line-height:2.1">'+
+    'background:var(--bg2,#ECEEEA);border-radius:6px;line-height:2.1">'+
     '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
     '<span>入住前預告：提前</span>'+numIn(a.lead,0,30,'setTodoLead')+
     '<span>天開始提醒尚未收款的訂單（設 0 ＝關閉預告）</span></div>'+
@@ -1774,7 +1778,7 @@ function openTodo(){
     '<span>資料備份：每</span>'+numIn(a.backupDays,0,365,'setTodoBackup')+
     '<span>天提醒下載一次站外備份（設 0 ＝關閉）</span></div></div>';
   if(a.total===0){
-    h+='<div style="padding:26px;text-align:center;color:#2f9e44;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
+    h+='<div style="padding:26px;text-align:center;color:#3E6B4E;font-size:13px;font-weight:700">✅ 目前沒有待辦</div>'+
       '<div style="text-align:center;font-size:10.5px;color:var(--muted);line-height:1.8">'+
       '這裡會列出「日期已經到了、但狀態還沒跟上」的項目：<br>入住日已到仍未確認付款、已付款卻未辦入住、退房日已過仍未辦退房、清潔／維修已過預計完成日，<br>以及即將入住但尚未收款、租金逾期未收、或複查清單尚未完成的訂單，<br>還有水電表度數未登錄、押金已逾退還期限、上月撥款單尚未撥款、<br>房東契約即將到期，以及房客租約即將到期（該談續租或開始招租了）。<br>另外若太久沒有下載站外備份，也會在這裡提醒。</div>';
   }else{
@@ -1782,8 +1786,8 @@ function openTodo(){
     // 這一條是「全部資料只剩雲端一份」，漏掉就沒有東西可以補。
     if(a.backup)
       h+='<div style="margin-top:14px;padding:11px 13px;border-radius:7px;'+
-        'border-left:4px solid #c92a2a;background:#fff5f5">'+
-        '<div style="font-weight:800;font-size:12.5px;color:#c92a2a">🛡️ 資料備份（1）</div>'+
+        'border-left:4px solid #923A2E;background:#F4E1DD">'+
+        '<div style="font-weight:800;font-size:12.5px;color:#923A2E">🛡️ 資料備份（1）</div>'+
         '<div style="font-size:10.5px;color:var(--muted);margin:3px 0 7px;line-height:1.8">'+
         (a.backup.days===null
           ?'<strong>目前完全沒有站外備份。</strong>全公司的房源、訂單、客戶、租金與契約只存在雲端一份。'
@@ -1793,104 +1797,104 @@ function openTodo(){
         '下載一次只要幾秒，檔案請存到加密磁碟或有密碼的雲端硬碟。</div>'+
         '<button class="btn btn-primary sm" onclick="closeTodo();bkOpen()">🛡️ 立即備份</button>'+
       '</div>';
-    h+=sec('💰 租金逾期未收','#c92a2a',a.rent.length,
+    h+=sec('💰 租金逾期未收','#923A2E',a.rent.length,
       '月租是每個月收一次，這裡列出已過繳款日＋寬限期卻還沒收足的期數。點客戶姓名可開啟「租金收款」逐期標記；寬限天數在該畫面右下角調整。',
       a.rent.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenRent(\''+escH(x.bkId)+'\')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenRent(\''+escH(x.bkId)+'\')" style="color:#2F5664">'+escH(x.guest)+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(x.propName)+' '+escH(x.room)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">第 '+x.no+' 期 · '+escH(x.from)+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#923A2E;font-weight:700">'+
           '尚差 '+money(x.due-x.amt)+(x.over>0?'　逾 '+x.over+' 天':'')+'</td>'+
       '</tr>').join(''));
-    h+=sec('🔌 水電表度數尚未登錄','#c92a2a',a.meter.length,
+    h+=sec('🔌 水電表度數尚未登錄','#923A2E',a.meter.length,
       '兩種情形都會列在這裡：已入住卻還沒抄入住度數（沒有基準值，退租時無從計算用了多少），以及已退房卻還沒抄退租度數（人走了就再也抄不到）。兩種拖下去都只能自己吸收或跟房客爭執。點房客姓名可直接開啟「🔌 水電抄表」補登。',
       a.meter.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+',\'meter\')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+',\'meter\')" style="color:#2F5664">'+escH(x.guest)+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(x.propName)+' '+escH(x.room)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">'+
           (x.status==='checkout'?'退房 '+escH(x.checkout):'入住 '+escH(x.checkin))+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+escH(x.why||'尚未抄表')+'</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#923A2E;font-weight:700">'+escH(x.why||'尚未抄表')+'</td>'+
       '</tr>').join(''));
-    h+=sec('🧾 押金已逾約定退還期限','#c92a2a',a.settle.length,
+    h+=sec('🧾 押金已逾約定退還期限','#923A2E',a.settle.length,
       '房間都已退房、也過了設定的退款作業天數，但押金結算單還沒確認。押金遲付是租賃糾紛與客訴的第一名，先把扣抵算出來給房客看，即使要扣也比沒下文好。點房客姓名開啟結算單。',
       a.settle.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+')" style="color:#1a56a0">'+escH(x.guest)+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenSettle('+jsArg(x.bkId)+')" style="color:#2F5664">'+escH(x.guest)+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(x.segs.map(s=>s.propName+' '+s.room).join('、'))+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">應退期限 '+escH(x.dueBy)+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#c92a2a;font-weight:700">'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#923A2E;font-weight:700">'+
           (x.refund<0?'房客應補付 '+money(-x.refund):'應退 '+money(x.refund))+'　逾 '+x.overdue+' 天</td>'+
       '</tr>').join(''));
-    h+=sec('📄 上月撥款單尚未撥款','#7048e8',a.payout.length,
+    h+=sec('📄 上月撥款單尚未撥款','#8A5A7A',a.payout.length,
       '上個月已經結算完成、但還沒標記撥款的房東對帳單。包租是本公司該付房東的保證租金，代管是代收租金扣掉報酬後該撥回房東的餘額（金額為負數時表示房東應付本公司）。點房東姓名可開啟撥款單。',
       a.payout.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenPayout('+jsArg(x.lordKey)+')" style="color:#1a56a0">'+escH(x.lordName)+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenPayout('+jsArg(x.lordKey)+')" style="color:#2F5664">'+escH(x.lordName)+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(x.propName)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">'+escH(x.ym)+' · '+escH(x.serviceType)+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#7048e8;font-weight:700">'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#8A5A7A;font-weight:700">'+
           (x.net<0?'房東應付 ':'應撥付 ')+money(Math.abs(x.net))+'</td>'+
       '</tr>').join(''));
-    h+=sec('📝 房東契約即將到期／已過期','#e67700',a.lordTerm.length,
+    h+=sec('📝 房東契約即將到期／已過期','#8A6A1F',a.lordTerm.length,
       '房東契約（包租或委託管理）剩 30 天以內到期。已過期卻還在管理與收租，等於沒有契約依據，房東隨時可以要求停止並拒付報酬。請提前談續約並重新簽署。',
       a.lordTerm.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenLord('+jsArg(x.key)+')" style="color:#1a56a0">'+escH(x.name)+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenLord('+jsArg(x.key)+')" style="color:#2F5664">'+escH(x.name)+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(x.props.map(b=>b.name).join('、'))+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">'+escH(x.termEnd)+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:'+(x.termExpired?'#c92a2a':'#e67700')+'">'+
+        '<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:'+(x.termExpired?'#923A2E':'#8A6A1F')+'">'+
           (x.termExpired?'已過期 '+Math.abs(x.termDays)+' 天':x.termDays+' 天後到期')+'</td>'+
       '</tr>').join(''));
-    h+=sec('🔁 房客租約即將到期','#1098ad',a.leaseEnd.length,
+    h+=sec('🔁 房客租約即將到期','#3F6B70',a.leaseEnd.length,
       '剩 '+a.leaseLead+' 天以內到期、且租期滿 '+a.minStay+' 天的在住訂單。續租或重新招租都需要前置時間，'+
       '等到退房日才發現，房間就是實際空著在等人，空一天就是少一天租金。'+
       '談成續租按「🔄 續約」直接延長退房日；房客確定要走就按「✅ 已確認退租」把提醒收起來，'+
       '訂單與退房日都不會被改動。',
       a.leaseEnd.map(x=>'<tr style="border-top:1px solid var(--border)">'+
-        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk('+jsArg(x.bk.id)+')" style="color:#1a56a0">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
+        '<td style="padding:5px 6px;font-weight:700"><a href="javascript:void(0)" onclick="todoOpenBk('+jsArg(x.bk.id)+')" style="color:#2F5664">'+escH(x.bk.guest||'(未命名)')+'</a></td>'+
         '<td style="padding:5px 6px">'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">退房 '+escH(x.seg.checkout)+
           '<div style="color:var(--muted);font-size:10px">租期 '+x.stay+' 天</div></td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#1098ad;font-weight:700">'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#3F6B70;font-weight:700">'+
           (x.days===0?'今天到期':'還有 '+x.days+' 天')+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap;text-align:right">'+
           '<button class="btn btn-ghost sm" onclick="todoLeaseRenew('+jsArg(x.bk.id)+')">🔄 續約</button> '+
           '<button class="btn btn-ghost sm" onclick="todoLeaseLeave('+jsArg(x.key)+')">✅ 已確認退租</button></td>'+
       '</tr>').join(''));
-    h+=sec('💳 入住日已到但尚未確認付款','#c92a2a',a.unpaid.length,
+    h+=sec('💳 入住日已到但尚未確認付款','#923A2E',a.unpaid.length,
       '這些訂單仍是「預定中」，代表款項尚未確認，但客人的入住日已經到了。請確認收款後把狀態改為「已付款待入住」，或聯繫客人。',
-      a.unpaid.map(x=>bkRow(x,'#c92a2a','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
-    h+=sec('🔑 已付款但尚未辦理入住','#1c7ed6',a.noShow.length,
+      a.unpaid.map(x=>bkRow(x,'#923A2E','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
+    h+=sec('🔑 已付款但尚未辦理入住','#2F5664',a.noShow.length,
       '款項已收、入住日也到了，狀態卻仍停在「已付款待入住」。房間在房態上看起來像是還沒有人，容易被誤判為可售。請確認客人是否已入住並更新狀態。',
-      a.noShow.map(x=>bkRow(x,'#1c7ed6','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
-    h+=sec('🚪 退房日已過但尚未辦理退房','#e67700',a.lateOut.length,
+      a.noShow.map(x=>bkRow(x,'#2F5664','入住 '+x.seg.checkin,'已逾 '+x.days+' 天')).join(''));
+    h+=sec('🚪 退房日已過但尚未辦理退房','#8A6A1F',a.lateOut.length,
       '狀態仍是「入住中」，房間在系統上被佔用、營收也還沒結算。請確認客人是否已離開並辦理退房。',
-      a.lateOut.map(x=>bkRow(x,'#e67700','應退 '+x.seg.checkout,'已逾 '+x.days+' 天')).join(''));
-    h+=sec('⏳ 即將入住但尚未收款','#f08c00',a.upcoming.length,
+      a.lateOut.map(x=>bkRow(x,'#8A6A1F','應退 '+x.seg.checkout,'已逾 '+x.days+' 天')).join(''));
+    h+=sec('⏳ 即將入住但尚未收款','#8A6A1F',a.upcoming.length,
       '這些訂單還沒到入住日，但已進入預告區間且仍是「預定中」。趁現在還有時間催款或改期，不要等到客人到現場才發現沒收到錢。',
-      a.upcoming.map(x=>bkRow(x,'#f08c00','入住 '+x.seg.checkin,'還有 '+x.days+' 天')).join(''));
-    h+=sec('📋 即將入住但複查清單尚未完成','#0c8599',a.precheck.length,
+      a.upcoming.map(x=>bkRow(x,'#8A6A1F','入住 '+x.seg.checkin,'還有 '+x.days+' 天')).join(''));
+    h+=sec('📋 即將入住但複查清單尚未完成','#3F6B70',a.precheck.length,
       '入住前複查清單還沒逐項確認完。點客人姓名開啟訂單後，在對應房間按「📋 複查」即可繼續勾選。',
-      a.precheck.map(x=>bkRow(x,'#0c8599','入住 '+x.seg.checkin,
+      a.precheck.map(x=>bkRow(x,'#3F6B70','入住 '+x.seg.checkin,
         x.done+'/'+x.total+'　還有 '+x.days+' 天')).join(''));
-    h+=sec('🧹 清潔／維修已過預計完成日','#7048e8',a.tasks.length,
+    h+=sec('🧹 清潔／維修已過預計完成日','#8A5A7A',a.tasks.length,
       '狀態仍是待處理／處理中。系統不會因為日期過了就自動標記完成，需由執行人員回報。',
       a.tasks.map(t=>'<tr style="border-top:1px solid var(--border)">'+
         '<td style="padding:5px 6px;font-weight:700">'+(t.type==='repair'?'🔧 維修':'🧹 清潔')+'</td>'+
         '<td style="padding:5px 6px">'+escH(pn(t.prop_id))+' '+escH(t.room)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">預計 '+t.dueDate+'</td>'+
-        '<td style="padding:5px 6px;white-space:nowrap;color:#7048e8;font-weight:700">已逾 '+diffDays(t.dueDate,a.tod)+' 天</td>'+
+        '<td style="padding:5px 6px;white-space:nowrap;color:#8A5A7A;font-weight:700">已逾 '+diffDays(t.dueDate,a.tod)+' 天</td>'+
       '</tr>').join(''));
   }
   // 放在 if/else 之外：已確認退租的不計入待辦數，所以其他事情都做完時會走到
   // 「沒有待辦」那一支，但這張名單還是得看得到——否則承辦人只會發現提醒不見了，
   // 查不到是誰、什麼時候下的結論，也沒辦法反悔。
   if(a.leaseAcked.length)
-    h+='<div style="margin-top:12px;padding:8px 10px;background:var(--bg2,#f6f7f9);border-radius:6px;'+
+    h+='<div style="margin-top:12px;padding:8px 10px;background:var(--bg2,#ECEEEA);border-radius:6px;'+
       'font-size:10.5px;color:var(--muted);line-height:1.9;text-align:left">'+
       '<strong>🔁 租約到期・已確認退租（'+a.leaseAcked.length+'）</strong>　不列入待辦數。'+
       '若之後改成續約，延長退房日後提醒會自動恢復。<br>'+
       a.leaseAcked.map(x=>'· '+escH(x.bk.guest||'(未命名)')+'　'+escH(pn(x.seg.prop_id))+' '+escH(x.seg.room)+
         '　退房 '+escH(x.seg.checkout)+'（'+(x.days===0?'今天':'還有 '+x.days+' 天')+'）'+
-        '　<span style="color:#868e96">'+escH((x.ack&&x.ack.by)||'')+(x.ack&&x.ack.at?' '+escH(x.ack.at):'')+'</span>'+
-        ' <a href="javascript:void(0)" onclick="todoLeaseUndo('+jsArg(x.key)+')" style="color:#1a56a0">取消標記</a>').join('<br>')+
+        '　<span style="color:#86918F">'+escH((x.ack&&x.ack.by)||'')+(x.ack&&x.ack.at?' '+escH(x.ack.at):'')+'</span>'+
+        ' <a href="javascript:void(0)" onclick="todoLeaseUndo('+jsArg(x.key)+')" style="color:#2F5664">取消標記</a>').join('<br>')+
       '</div>';
   document.getElementById('td-body').innerHTML=h;
   document.getElementById('td-ov').classList.add('open');
@@ -1991,7 +1995,7 @@ function renderCcPreview(){
     return '<tr><td style="padding:4px 8px">'+escH(t)+'</td>'+
       '<td style="padding:4px 8px">'+fmtHrs(cfg.hoursByType[t])+'</td>'+
       '<td style="padding:4px 8px">'+min2hm(ready)+'</td>'+
-      '<td style="padding:4px 8px;font-weight:700;color:'+(ok?'#2f9e44':'#c92a2a')+'">'+
+      '<td style="padding:4px 8px;font-weight:700;color:'+(ok?'#3E6B4E':'#923A2E')+'">'+
         (ok?'✔ 可當日換房':'✕ 需隔日或加派人手')+'</td></tr>';
   }).join('');
   document.getElementById('cc-preview').innerHTML=
@@ -2072,7 +2076,7 @@ function vendorPerfLine(p){
   else seg.push('尚無已結案的單可算天數');
   if(p.onTimeRate!==null)seg.push('準時率 <strong>'+p.onTimeRate+'%</strong>（'+p.dueN+' 筆有設期限）');
   if(p.avgCost!==null)seg.push('平均每次 <strong>'+money(p.avgCost)+'</strong>');
-  if(p.open>0)seg.push('<span style="color:#e67700">未結案 '+p.open+' 筆</span>');
+  if(p.open>0)seg.push('<span style="color:#8A6A1F">未結案 '+p.open+' 筆</span>');
   if(p.lastAt)seg.push('最近 '+p.lastAt);
   return '<div style="'+base+';color:var(--muted)">📊 '+seg.join(' · ')+'</div>';
 }
@@ -2321,7 +2325,7 @@ function updateDistOpts(cityId,distId,curDist){
 }
 function rtSel(cur,onchg,extraStyle){
   return '<select class="pm-rtype-sel" '+(onchg?'onchange="'+onchg+'"':'')+
-    ' style="width:82px;height:22px;border:1px solid var(--border);border-radius:4px;font-size:10px;padding:0 3px;background:#fff;'+(extraStyle||'')+'">'+
+    ' style="width:82px;height:22px;border:1px solid var(--border);border-radius:4px;font-size:10px;padding:0 3px;background:#FCFCFA;'+(extraStyle||'')+'">'+
     '<option value="">— 類型 —</option>'+
     ROOM_TYPES.map(t=>'<option value="'+t+'" '+(cur===t?'selected':'')+'>'+t+'</option>').join('')+
   '</select>';
@@ -2827,14 +2831,14 @@ function renderAna(tab){
     const pct=Math.max(1,Math.round(val/max*100));
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'+
       '<div style="font-size:9px;color:var(--muted);font-weight:600">'+(val>=10000?Math.round(val/1000)+'K':val)+'</div>'+
-      '<div style="width:100%;height:'+h+'px;background:#f0f2f7;border-radius:4px;display:flex;align-items:flex-end;overflow:hidden">'+
+      '<div style="width:100%;height:'+h+'px;background:#F3F4F1;border-radius:4px;display:flex;align-items:flex-end;overflow:hidden">'+
         '<div style="width:100%;height:'+pct+'%;background:'+color+';border-radius:4px 4px 0 0;transition:height .3s"></div>'+
       '</div></div>';
   }
   function rankRow(label,val,color,note){
-    return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #f0f2f7">'+
+    return '<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #F3F4F1">'+
       '<div style="width:120px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+label+'">'+label+'</div>'+
-      '<div style="flex:1;height:12px;background:#f0f2f7;border-radius:3px;overflow:hidden">'+
+      '<div style="flex:1;height:12px;background:#F3F4F1;border-radius:3px;overflow:hidden">'+
         '<div style="height:100%;width:'+Math.min(100,val)+'%;background:'+color+';border-radius:3px"></div>'+
       '</div>'+
       '<div style="width:40px;text-align:right;font-size:10px;font-weight:700;color:'+color+'">'+val+'%</div>'+
@@ -2856,37 +2860,37 @@ function renderAna(tab){
   const html=navBar+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'+
       // Revenue chart
-      '<div style="background:#f8f9fa;border-radius:8px;padding:12px">'+
+      '<div style="background:#ECEEEA;border-radius:8px;padding:12px">'+
         '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:8px">💰 各期營業額 (NT$)</div>'+
         '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;align-items:end">'+
-          stats.map(s=>bar(s.rev,maxRev,'#1a56a0')).join('')+
+          stats.map(s=>bar(s.rev,maxRev,'#2F5664')).join('')+
         '</div>'+
         '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;margin-top:3px">'+
           stats.map(s=>'<div style="font-size:7.5px;text-align:center;color:var(--muted)">'+s.label+'</div>').join('')+
         '</div>'+
       '</div>'+
       // Occupancy chart
-      '<div style="background:#f8f9fa;border-radius:8px;padding:12px">'+
-        '<div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:8px">📈 入住率 / 維修率 (%)</div>'+
+      '<div style="background:#ECEEEA;border-radius:8px;padding:12px">'+
+        '<div style="font-size:11px;font-weight:700;color:#3E6B4E;margin-bottom:8px">📈 入住率 / 維修率 (%)</div>'+
         '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;align-items:end">'+
           stats.map(s=>'<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;align-items:end">'+
-            bar(s.occRate,100,'#2f9e44',36)+bar(s.maintRate,100,'#c92a2a',36)+'</div>').join('')+
+            bar(s.occRate,100,'#3E6B4E',36)+bar(s.maintRate,100,'#923A2E',36)+'</div>').join('')+
         '</div>'+
         '<div style="display:grid;grid-template-columns:repeat('+stats.length+',1fr);gap:3px;margin-top:3px">'+
           stats.map(s=>'<div style="font-size:7.5px;text-align:center;color:var(--muted)">'+s.label+'</div>').join('')+
         '</div>'+
         '<div style="display:flex;gap:10px;margin-top:5px;font-size:9px">'+
-          '<span><span style="display:inline-block;width:8px;height:8px;background:#2f9e44;border-radius:2px"></span> 入住率</span>'+
-          '<span><span style="display:inline-block;width:8px;height:8px;background:#c92a2a;border-radius:2px"></span> 維修率</span>'+
+          '<span><span style="display:inline-block;width:8px;height:8px;background:#3E6B4E;border-radius:2px"></span> 入住率</span>'+
+          '<span><span style="display:inline-block;width:8px;height:8px;background:#923A2E;border-radius:2px"></span> 維修率</span>'+
         '</div>'+
       '</div>'+
     '</div>'+
     // Summary table
-    '<div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px">'+
+    '<div style="background:#ECEEEA;border-radius:8px;padding:12px;margin-bottom:12px">'+
       '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">📋 各期數據摘要</div>'+
       '<div style="overflow-x:auto">'+
       '<table style="width:100%;border-collapse:collapse;font-size:10px">'+
-        '<thead><tr style="background:var(--primary);color:#fff">'+
+        '<thead><tr style="background:var(--primary);color:#FCFCFA">'+
           '<th style="padding:5px 7px;text-align:left">期間</th>'+
           '<th style="padding:5px 7px;text-align:right">營業額</th>'+
           '<th style="padding:5px 7px;text-align:right">入住率</th>'+
@@ -2896,13 +2900,13 @@ function renderAna(tab){
           '<th style="padding:5px 7px;text-align:right" title="分母＝每房已上線且未停賣的天數合計，不含還沒上線與已停賣的房間">可賣晚數</th>'+
         '</tr></thead>'+
         '<tbody>'+
-          stats.map((s,i)=>'<tr style="background:'+(i%2?'#fff':'#f8f9fa')+'">'+
+          stats.map((s,i)=>'<tr style="background:'+(i%2?'#FCFCFA':'#ECEEEA')+'">'+
             '<td style="padding:4px 7px">'+s.label+'</td>'+
             '<td style="padding:4px 7px;text-align:right;font-weight:700">$'+(s.rev>=1000?s.rev.toLocaleString():s.rev)+'</td>'+
-            '<td style="padding:4px 7px;text-align:right;color:#2f9e44">'+s.occRate+'%</td>'+
-            '<td style="padding:4px 7px;text-align:right;color:#1971c2">'+s.netOccRate+'%</td>'+
-            '<td style="padding:4px 7px;text-align:right;color:#e67700">'+s.vacRate+'%</td>'+
-            '<td style="padding:4px 7px;text-align:right;color:#c92a2a">'+s.maintRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#3E6B4E">'+s.occRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#2F5664">'+s.netOccRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#8A6A1F">'+s.vacRate+'%</td>'+
+            '<td style="padding:4px 7px;text-align:right;color:#923A2E">'+s.maintRate+'%</td>'+
             '<td style="padding:4px 7px;text-align:right;color:var(--muted)">'+s.totalAvailDays.toLocaleString()+'</td>'+
           '</tr>').join('')+
         '</tbody>'+
@@ -2914,24 +2918,24 @@ function renderAna(tab){
     '</div>'+
     // Property ranking
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'+
-      '<div style="background:#ebfbee;border-radius:8px;padding:10px">'+
-        '<div style="font-size:11px;font-weight:700;color:#2f9e44;margin-bottom:6px">🏆 入住率最高 TOP 5</div>'+
-        topOcc.map(p=>rankRow(p.name,p.occRate,'#2f9e44',p.rooms+'間')).join('')+
+      '<div style="background:#E3ECE5;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#3E6B4E;margin-bottom:6px">🏆 入住率最高 TOP 5</div>'+
+        topOcc.map(p=>rankRow(p.name,p.occRate,'#3E6B4E',p.rooms+'間')).join('')+
       '</div>'+
-      '<div style="background:#fff5f5;border-radius:8px;padding:10px">'+
-        '<div style="font-size:11px;font-weight:700;color:#e67700;margin-bottom:6px">⚠️ 入住率最低 TOP 5</div>'+
-        lowOcc.map(p=>rankRow(p.name,p.occRate,'#e67700',p.rooms+'間')).join('')+
+      '<div style="background:#F4E1DD;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#8A6A1F;margin-bottom:6px">⚠️ 入住率最低 TOP 5</div>'+
+        lowOcc.map(p=>rankRow(p.name,p.occRate,'#8A6A1F',p.rooms+'間')).join('')+
       '</div>'+
-      '<div style="background:#fff5f5;border-radius:8px;padding:10px">'+
-        '<div style="font-size:11px;font-weight:700;color:#c92a2a;margin-bottom:6px">🔧 維修率最高 TOP 5</div>'+
-        highMaint.map(p=>rankRow(p.name,p.maintRate,'#c92a2a',p.rooms+'間')).join('')+
+      '<div style="background:#F4E1DD;border-radius:8px;padding:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#923A2E;margin-bottom:6px">🔧 維修率最高 TOP 5</div>'+
+        highMaint.map(p=>rankRow(p.name,p.maintRate,'#923A2E',p.rooms+'間')).join('')+
       '</div>'+
     '</div>'+
     // District demand
-    '<div style="background:#f0f4ff;border-radius:8px;padding:10px">'+
+    '<div style="background:#E1EAEC;border-radius:8px;padding:10px">'+
       '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">📍 各行政區平均入住率（近12個月）</div>'+
       (distRank.length===0?'<div style="font-size:11px;color:var(--muted)">尚無行政區資料，請至「管理房源」→「✏️ 編輯」設定各館別的行政區</div>':
-        distRank.map(d=>rankRow(d.dist,d.avg,'#1a56a0','')).join(''))+
+        distRank.map(d=>rankRow(d.dist,d.avg,'#2F5664','')).join(''))+
     '</div>';
 
   // ──────── 業務績效分析 ────────
@@ -2993,22 +2997,22 @@ function renderAna(tab){
 
   // 計算合計行
   const hasAgentData=agentData.some(a=>a.pStats.some(p=>p.orders>0));
-  const AGENT_COLORS=['#1a56a0','#2f9e44','#e67700','#c92a2a','#6741d9','#0c8599','#e64980','#495057'];
+  const AGENT_COLORS=['#2F5664','#3E6B4E','#8A6A1F','#923A2E','#6E4559','#3F6B70','#9C5570','#4F5D62'];
 
   const agentHtml=
-    '<div style="background:#f5f0ff;border-radius:8px;padding:12px;margin-top:12px">'+
-      '<div style="font-size:12px;font-weight:700;color:#6741d9;margin-bottom:10px">👤 業務績效分析（'+navLabel+'）</div>'+
+    '<div style="background:#F7F0F4;border-radius:8px;padding:12px;margin-top:12px">'+
+      '<div style="font-size:12px;font-weight:700;color:#6E4559;margin-bottom:10px">👤 業務績效分析（'+navLabel+'）</div>'+
       (!hasAgentData?
         '<div style="font-size:11px;color:var(--muted)">目前無業務績效資料，新增預定時請填寫「負責業務」欄位。</div>':
         '<div style="overflow-x:auto">'+
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
           '<thead>'+
-            '<tr style="background:#ede9fe">'+
+            '<tr style="background:#EFE3EA">'+
               '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap;min-width:60px">業務</th>'+
               periods.map(p=>
-                '<th style="padding:6px 8px;text-align:center;font-weight:600;color:#495057;white-space:nowrap">'+p.label+'</th>'
+                '<th style="padding:6px 8px;text-align:center;font-weight:600;color:#4F5D62;white-space:nowrap">'+p.label+'</th>'
               ).join('')+
-              '<th style="padding:6px 8px;text-align:center;font-weight:700;color:#6741d9;white-space:nowrap">合計</th>'+
+              '<th style="padding:6px 8px;text-align:center;font-weight:700;color:#6E4559;white-space:nowrap">合計</th>'+
             '</tr>'+
           '</thead>'+
           '<tbody>'+
@@ -3023,18 +3027,18 @@ function renderAna(tab){
                   });
                 }
               }));
-              return '<tr style="border-bottom:1px solid #ede9fe;'+(ai%2?'background:#faf8ff;':'')+'">' +
+              return '<tr style="border-bottom:1px solid #EFE3EA;'+(ai%2?'background:#F7F0F4;':'')+'">' +
                 '<td style="padding:6px 8px;font-weight:700;white-space:nowrap;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+escH(a.agent)+
                   (a.former?'<span style="font-size:9.5px;color:var(--muted);font-weight:400;margin-left:4px">（已離職）</span>':'')+'</td>'+
                 a.pStats.map(s=>
                   '<td style="padding:5px 8px;text-align:center;vertical-align:middle">'+
                     (s.orders>0?
                       '<div style="font-weight:700;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+'">'+s.orders+' 筆</div>'+
-                      '<div style="color:#495057;font-size:10.5px">$'+Math.round(s.rev).toLocaleString()+'</div>':
-                      '<span style="color:#ccc">—</span>')+
+                      '<div style="color:#4F5D62;font-size:10.5px">$'+Math.round(s.rev).toLocaleString()+'</div>':
+                      '<span style="color:#BEC5BE">—</span>')+
                   '</td>'
                 ).join('')+
-                '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+';background:#f3f0ff">'+
+                '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+AGENT_COLORS[ai%AGENT_COLORS.length]+';background:#EFE3EA">'+
                   (totOrd.size>0?totOrd.size+' 筆<br><span style="font-weight:400;font-size:10.5px">$'+Math.round(totRev).toLocaleString()+'</span>':'—')+
                 '</td>'+
               '</tr>';
@@ -3063,17 +3067,17 @@ function renderAna(tab){
     Object.keys(srcMap).filter(k=>!SOURCE_ORDER.includes(k))
   ).map(k=>({label:k,...srcMap[k]}));
   const srcTotal=srcEntries.reduce((s,e)=>s+e.count,0);
-  const SRC_COLORS={'老客戶':'#1a56a0','MRA':'#7048e8','官網':'#2f9e44',
-    '客戶轉借':'#e67700','房東':'#0c8599','粉絲團':'#c92a2a','合作廠商':'#6741d9','(未填寫)':'#868e96'};
+  const SRC_COLORS={'老客戶':'#2F5664','MRA':'#8A5A7A','官網':'#3E6B4E',
+    '客戶轉借':'#8A6A1F','房東':'#3F6B70','粉絲團':'#923A2E','合作廠商':'#6E4559','(未填寫)':'#86918F'};
 
   const sourceHtml=
     '<div style="background:#f0f8ff;border-radius:8px;padding:12px;margin-top:12px">'+
-      '<div style="font-size:12px;font-weight:700;color:#1a56a0;margin-bottom:10px">📣 客戶來源分析（'+navLabel+'）</div>'+
+      '<div style="font-size:12px;font-weight:700;color:#2F5664;margin-bottom:10px">📣 客戶來源分析（'+navLabel+'）</div>'+
       (srcEntries.length===0?
         '<div style="font-size:11px;color:var(--muted)">目前無資料，新增預定時請填寫「客戶來源」欄位。</div>':
         '<div style="overflow-x:auto">'+
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
-          '<thead><tr style="background:#dbeafe">'+
+          '<thead><tr style="background:#E1EAEC">'+
             '<th style="padding:6px 10px;text-align:left;font-weight:700">來源</th>'+
             '<th style="padding:6px 10px;text-align:center;font-weight:700">筆數</th>'+
             '<th style="padding:6px 10px;text-align:center;font-weight:700">佔比</th>'+
@@ -3083,20 +3087,20 @@ function renderAna(tab){
           '<tbody>'+
             srcEntries.map((e,i)=>{
               const pct=srcTotal>0?Math.round(e.count/srcTotal*100):0;
-              const col=SRC_COLORS[e.label]||'#868e96';
-              return '<tr style="border-bottom:1px solid #dbeafe;'+(i%2?'background:#f8fbff;':'')+'">' +
+              const col=SRC_COLORS[e.label]||'#86918F';
+              return '<tr style="border-bottom:1px solid #E1EAEC;'+(i%2?'background:#F3F4F1;':'')+'">' +
                 '<td style="padding:5px 10px;font-weight:600;color:'+col+'">'+e.label+'</td>'+
                 '<td style="padding:5px 10px;text-align:center;font-weight:700">'+e.count+' 筆</td>'+
                 '<td style="padding:5px 10px;text-align:center;color:var(--muted)">'+pct+'%</td>'+
                 '<td style="padding:5px 10px">'+
-                  '<div style="background:#e2e8f0;border-radius:4px;height:10px;overflow:hidden">'+
+                  '<div style="background:#DCE0DA;border-radius:4px;height:10px;overflow:hidden">'+
                     '<div style="background:'+col+';height:100%;width:'+pct+'%;border-radius:4px;transition:width .3s"></div>'+
                   '</div>'+
                 '</td>'+
-                '<td style="padding:5px 10px;text-align:right;color:#1a56a0">$'+e.rev.toLocaleString()+'</td>'+
+                '<td style="padding:5px 10px;text-align:right;color:#2F5664">$'+e.rev.toLocaleString()+'</td>'+
               '</tr>';
             }).join('')+
-            '<tr style="background:#dbeafe;font-weight:700">'+
+            '<tr style="background:#E1EAEC;font-weight:700">'+
               '<td style="padding:6px 10px">合計</td>'+
               '<td style="padding:6px 10px;text-align:center">'+srcTotal+' 筆</td>'+
               '<td style="padding:6px 10px;text-align:center">100%</td>'+
@@ -3115,17 +3119,17 @@ function renderAna(tab){
   );
 
   const cancelHtml=
-    '<div style="background:#fff5f5;border-radius:8px;padding:12px;margin-top:12px">'+
+    '<div style="background:#F4E1DD;border-radius:8px;padding:12px;margin-top:12px">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
-        '<span style="font-size:12px;font-weight:700;color:#c92a2a">🚫 取消訂單分析（'+navLabel+'）</span>'+
-        '<span style="background:#ffd6d6;color:#c92a2a;font-size:11px;font-weight:700;'+
+        '<span style="font-size:12px;font-weight:700;color:#923A2E">🚫 取消訂單分析（'+navLabel+'）</span>'+
+        '<span style="background:#F4E1DD;color:#923A2E;font-size:11px;font-weight:700;'+
           'padding:2px 8px;border-radius:10px">共 '+cancelledInPeriod.length+' 筆取消</span>'+
       '</div>'+
       (cancelledInPeriod.length===0?
         '<div style="font-size:11px;color:var(--muted)">本期間無取消訂單。</div>':
         '<div style="overflow-x:auto">'+
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'+
-          '<thead><tr style="background:#ffd6d6">'+
+          '<thead><tr style="background:#F4E1DD">'+
             '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">客戶姓名</th>'+
             '<th style="padding:6px 8px;text-align:left;font-weight:700">房間</th>'+
             '<th style="padding:6px 8px;text-align:left;font-weight:700;white-space:nowrap">入住日</th>'+
@@ -3143,15 +3147,15 @@ function renderAna(tab){
               const cis=bk.segments.map(s=>s.checkin).filter(Boolean).sort();
               const cos=bk.segments.map(s=>s.checkout).filter(Boolean).sort();
               const cancelDate=bk.cancelledAt?bk.cancelledAt.slice(0,10):'—';
-              return '<tr style="border-bottom:1px solid #ffd6d6;'+(i%2?'background:#fff8f8;':'')+'">' +
+              return '<tr style="border-bottom:1px solid #F4E1DD;'+(i%2?'background:#F4E1DD;':'')+'">' +
                 '<td style="padding:5px 8px;font-weight:600">'+bk.guest+'</td>'+
                 '<td style="padding:5px 8px;color:var(--primary)">'+propName+'<br>'+
                   '<span style="font-size:10px;font-weight:700">'+rooms+'</span></td>'+
                 '<td style="padding:5px 8px;font-size:10.5px">'+( cis[0]||'—')+'</td>'+
                 '<td style="padding:5px 8px;font-size:10.5px">'+(cos[cos.length-1]||'—')+'</td>'+
-                '<td style="padding:5px 8px;text-align:right;text-decoration:line-through;color:#aaa">'+
+                '<td style="padding:5px 8px;text-align:right;text-decoration:line-through;color:#86918F">'+
                   '$'+(bk.totalRent||0).toLocaleString()+'</td>'+
-                '<td style="padding:5px 8px;color:#c92a2a;font-size:11px">'+
+                '<td style="padding:5px 8px;color:#923A2E;font-size:11px">'+
                   (bk.cancelReason||'—')+'</td>'+
                 '<td style="padding:5px 8px;font-size:10px;color:var(--muted);white-space:nowrap">'+cancelDate+'</td>'+
               '</tr>';
@@ -3381,12 +3385,12 @@ function getRoomCurrentStatus(propId,roomNo){
   const repairTask=tasks.find(t=>
     String(t.prop_id)===String(propId)&&t.room===roomNo&&
     t.start<=tod&&t.end>tod&&t.type==='repair'&&!tkClosed(t));
-  if(repairTask)return{status:'repair',label:'維修中',color:'#c92a2a'};
+  if(repairTask)return{status:'repair',label:'維修中',color:'#923A2E'};
   // Cleaning next
   const cleanTask=tasks.find(t=>
     String(t.prop_id)===String(propId)&&t.room===roomNo&&
     t.start<=tod&&t.end>tod&&t.type==='cleaning'&&!tkClosed(t));
-  if(cleanTask)return{status:'cleaning',label:'打掃中',color:'#0c8599'};
+  if(cleanTask)return{status:'cleaning',label:'打掃中',color:'#3F6B70'};
   // Booking segments
   const bks=loadBks();
   // Priority: checkin > checkout > pending > reserved
@@ -3468,7 +3472,7 @@ function render(){
       const room=prop.rooms?prop.rooms.find(r=>r.room===o.room)||{room:o.room,price:0}:{room:o.room,price:0};
       addB(o.prop_id,o.room,{
         ci:o.checkin,co:o.checkout,lbl:o.guest||o.order,
-        color:TC[o.type]||'#868e96',isTask:false,
+        color:TC[o.type]||'#86918F',isTask:false,
         onClick:e=>{e.stopPropagation();showHistDt(o,prop,room);},
         onHover:e=>showTT(e,'<div class="tt-title">'+(o.guest||o.order)+'</div>'+
           '<div class="tt-row"><span class="tt-lbl">類型</span>'+(TL[o.type]||o.type)+'</div>'+
@@ -3519,7 +3523,7 @@ function render(){
   else if(fs==='repair')tasks=tasks.filter(t=>t.type==='repair');
   else if(fs&&newSts.includes(fs)&&fs!=='cleaning'&&fs!=='repair')tasks=[];
   tasks.forEach(tk=>{
-    const color=tk.type==='repair'?'#c92a2a':'#0c8599';
+    const color=tk.type==='repair'?'#923A2E':'#3F6B70';
     const icon=tk.isAuto?'🔄':'';
     const closed=tkClosed(tk);
     const st=TASK_STATUS[tk.status]||TASK_STATUS.todo;
@@ -3600,10 +3604,10 @@ function render(){
       // 停售＝擋新訂單（房源管理設定）；建議汰換＝只提醒、仍可預訂（維修單狀態）
       const replAlert=roomReplaceAlert(prop.id,room.room);
       const flagBadge=room.offSale
-        ?'<span class="room-status" style="background:#fee2e2;color:#c92a2a;border-color:#ffa8a8">⛔ 停售</span>'
-        :(replAlert?'<span class="room-status" style="background:#fff0f6;color:#d6336c;border-color:#f783ac">⚠️ 建議汰換</span>':'');
-      if(room.offSale)rr.style.background='#fff7f7';
-      rr.innerHTML='<span class="rno"'+(room.offSale?' style="color:#c92a2a"':'')+'>'+room.room+'</span>'+
+        ?'<span class="room-status" style="background:#F4E1DD;color:#923A2E;border-color:#C98F85">⛔ 停售</span>'
+        :(replAlert?'<span class="room-status" style="background:#F7E9EE;color:#923A5A;border-color:#B06E8A">⚠️ 建議汰換</span>':'');
+      if(room.offSale)rr.style.background='#F4E1DD';
+      rr.innerHTML='<span class="rno"'+(room.offSale?' style="color:#923A2E"':'')+'>'+room.room+'</span>'+
         (room.type?'<span class="rtype">'+room.type+'</span>':'')+
         (room.price>0?'<span class="rprice">$'+room.price.toLocaleString()+'/月</span>':'')+
         flagBadge+stBadge;
@@ -4134,7 +4138,7 @@ function lookupCustByPhone(){
   const bl=custBlacklist(phone);
   const lamp=guestLamp(phone,buildGuestRisk()[phone]);
   if(bl&&!bl.expired){
-    hint.innerHTML='<span style="color:#c92a2a;font-weight:700">🚫 黑名單客戶</span> — '+escH(bl.reason)+
+    hint.innerHTML='<span style="color:#923A2E;font-weight:700">🚫 黑名單客戶</span> — '+escH(bl.reason)+
       '（'+escH(bl.by||'')+' 標記'+(bl.until?'、有效至 '+escH(bl.until):'')+'）。儲存時會再次確認。';
   }else if(lamp==='o'||lamp==='y'){
     const L=GUEST_LAMP[lamp];
@@ -4158,14 +4162,14 @@ function renderQA(bk){
   // 預定中 → 可確認付款（轉已付款待入住，不限日期，因客人可提前付款）
   if(hasReserved)
     html+='<button class="qa-btn" onclick="doConfirmPaid()" '+
-      'style="background:#fff3bf;color:#e67700;border:1px solid #e67700">💳 確認付款待入住</button>';
+      'style="background:#F3ECD9;color:#8A6A1F;border:1px solid #8A6A1F">💳 確認付款待入住</button>';
   // 已付款待入住 → 可辦理入住（入住日到了才能轉）；或客戶取消
   if(hasPending){
     html+='<button class="qa-btn qa-green" onclick="doConfirmCheckin()">✅ 辦理入住（入住中）</button>';
-    html+='<button class="qa-btn" onclick="doCancel()" style="background:#fff5f5;color:#c92a2a;border:1px solid #ffa8a8">❌ 客戶取消訂單</button>';
+    html+='<button class="qa-btn" onclick="doCancel()" style="background:#F4E1DD;color:#923A2E;border:1px solid #C98F85">❌ 客戶取消訂單</button>';
   }
   if(hasCi){
-    html+='<button class="qa-btn qa-green" onclick="doRenewal()" style="background:#d3f9d8;color:#2f9e44;border-color:#2f9e44">🔄 續約/延長租期</button>';
+    html+='<button class="qa-btn qa-green" onclick="doRenewal()" style="background:#E3ECE5;color:#3E6B4E;border-color:#3E6B4E">🔄 續約/延長租期</button>';
     html+='<button class="qa-btn qa-red" onclick="doEarlyCheckout()">🚪 確定提前退房</button>';
   }
   if(html){btns.innerHTML=html;bar.style.display='flex';}else bar.style.display='none';
@@ -4188,7 +4192,7 @@ function doRenewal(){
       '<div style="display:flex;align-items:center;gap:4px">'+
       '<label style="font-size:10px;color:var(--muted)">新退房日：</label>'+
       '<input type="date" id="rn-'+i+'" value="'+seg.checkout+'" min="'+addDays(seg.checkout,1)+'" '+
-      'style="height:28px;font-size:11px;border:1.5px solid #2f9e44;border-radius:5px;padding:0 6px;outline:none"></div>';
+      'style="height:28px;font-size:11px;border:1.5px solid #3E6B4E;border-radius:5px;padding:0 6px;outline:none"></div>';
     rows.appendChild(div);
   });
   if(!hasCheckin){alert('目前沒有「入住中」狀態的房間可以續約');return;}
@@ -4302,12 +4306,12 @@ function doEarlyCheckout(){
     const preChecked=allSameDates||checkinIdxs.length===1?'checked':'';
     div.innerHTML=
       '<input type="checkbox" id="ec-'+i+'" '+preChecked+
-        ' style="width:14px;height:14px;accent-color:#c92a2a;cursor:pointer">'+
+        ' style="width:14px;height:14px;accent-color:#923A2E;cursor:pointer">'+
       '<label for="ec-'+i+'" style="font-size:11px;cursor:pointer;line-height:1.5">'+
         (p?p.name:'?')+' 【'+s.room+'】'+
         '<span style="color:var(--muted);font-size:10px;margin-left:6px">'+
           s.checkin+' ~ '+s.checkout+'</span>'+
-        (allSameDates?'<span style="color:#c92a2a;font-size:9px;margin-left:4px">（同日期全選）</span>':'')+
+        (allSameDates?'<span style="color:#923A2E;font-size:9px;margin-left:4px">（同日期全選）</span>':'')+
       '</label>';
     rows.appendChild(div);
   });
@@ -4416,16 +4420,16 @@ function renderSegs(){
           '<div class="field"><label>入住人姓名</label>'+
             '<div style="display:flex;gap:3px">'+
             '<input class="seg-gname" type="text" value="'+(seg.guestName||'')+'" placeholder="同主訂人可留空" style="flex:1">'+
-            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'name\')" title="帶入主訂人姓名" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#f8f9fa">👤 同</button>'+
+            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'name\')" title="帶入主訂人姓名" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#ECEEEA">👤 同</button>'+
             '</div></div>'+
           '<div class="field"><label>入住人電話</label>'+
             '<div style="display:flex;gap:3px">'+
             '<input class="seg-gphone" type="tel" value="'+(seg.guestPhone||'')+'" placeholder="同主訂人可留空" style="flex:1">'+
-            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'phone\')" title="帶入主訂人電話" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#f8f9fa">📞 同</button>'+
+            '<button type="button" onclick="copyMainGuestToSeg('+i+',\'phone\')" title="帶入主訂人電話" style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:5px;font-size:10px;cursor:pointer;white-space:nowrap;background:#ECEEEA">📞 同</button>'+
             '</div></div>'+
         '</div>'+
       '</div>'+
-      '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(days>0&&sub>0?' <span style="color:#888;font-size:10px;margin-left:6px">一晚 $'+Math.round(sub/days).toLocaleString()+'</span>':'')+'</div>'+
+      '<div class="seg-calc" id="sc-'+i+'">此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(days>0&&sub>0?' <span style="color:#4F5D62;font-size:10px;margin-left:6px">一晚 $'+Math.round(sub/days).toLocaleString()+'</span>':'')+'</div>'+
     '</div>';
   }).join('');
   // Bind events via JS (more reliable than inline handlers)
@@ -4490,7 +4494,7 @@ function updSegCalc(i){
   s.totalRent=sub;
   const el=document.getElementById('sc-'+i);
   const nightly=days>0&&sub>0?Math.round(sub/days):0;
-  if(el)el.innerHTML='此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(nightly>0?' <span style="color:#888;font-size:10px;margin-left:6px">一晚 $'+nightly.toLocaleString()+'</span>':'');
+  if(el)el.innerHTML='此段：<strong>'+days+'</strong> 天 ／ 小計：<strong>$'+sub.toLocaleString()+'</strong>'+(nightly>0?' <span style="color:#4F5D62;font-size:10px;margin-left:6px">一晚 $'+nightly.toLocaleString()+'</span>':'');
 }
 function toggleTaxId(){
   const v=document.getElementById('g-ctype').value;
@@ -4500,7 +4504,7 @@ function toggleTaxId(){
   const isLegal=v==='法人';
   if(reqMark)reqMark.style.display=isLegal?'':'none';
   if(hint)hint.style.display=isLegal?'none':'';
-  if(inp){inp.required=isLegal;inp.style.borderColor=isLegal?'#e67700':'';}
+  if(inp){inp.required=isLegal;inp.style.borderColor=isLegal?'#8A6A1F':'';}
 }
 function updateTotal(){
   let days=0,rent=0;
@@ -4550,7 +4554,7 @@ function checkConflWarn(){
   const msg=document.getElementById('conflict-msg');
   const parts=[];
   if(bkCf.length>0){
-    warn.style.borderColor='#c92a2a';warn.style.background='#fff5f5';
+    warn.style.borderColor='#923A2E';warn.style.background='#F4E1DD';
     bkCf.forEach(c=>{
       const s=curSegs[c.segIdx];const es=c.existSeg;
       parts.push('❌ 第'+(c.segIdx+1)+'段['+s.room+'] 衝突'+
@@ -4568,7 +4572,7 @@ function checkConflWarn(){
   if(parts.length>0){
     msg.textContent=parts.join(' | ');
     warn.style.display='block';
-    if(bkCf.length===0){warn.style.borderColor='#f59f00';warn.style.background='#fff3cd';}
+    if(bkCf.length===0){warn.style.borderColor='#A5771F';warn.style.background='#F3ECD9';}
   }else warn.style.display='none';
 }
 function addSwitchSeg(){
@@ -4816,11 +4820,11 @@ function openOrderOverview(){
       tr.className='oo-row';
       if(isCancelled)tr.style.opacity='.65';
       const statusCell=isCancelled
-        ?'<span style="background:#86869622;color:#868e96;font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">🚫 已取消</span>'+
-          (b.cancelReason?'<div style="font-size:10px;color:#c92a2a;margin-top:3px">原因：'+b.cancelReason+'</div>':'')
+        ?'<span style="background:#86918F22;color:#86918F;font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">🚫 已取消</span>'+
+          (b.cancelReason?'<div style="font-size:10px;color:#923A2E;margin-top:3px">原因：'+b.cancelReason+'</div>':'')
         :'<span style="background:'+st.color+'22;color:'+st.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+st.emoji+' '+st.label+'</span>';
       const amountCell=isCancelled
-        ?'<span style="text-decoration:line-through;color:#aaa;font-size:11px">$'+(b.totalRent||0).toLocaleString()+'</span> <span style="color:#c92a2a;font-size:10px;font-weight:700">取消</span>'
+        ?'<span style="text-decoration:line-through;color:#86918F;font-size:11px">$'+(b.totalRent||0).toLocaleString()+'</span> <span style="color:#923A2E;font-size:10px;font-weight:700">取消</span>'
         :'$'+(b.totalRent||0).toLocaleString();
       tr.innerHTML=
         '<td style="font-size:10px;color:var(--muted);font-family:monospace">'+b.id.slice(0,12)+'</td>'+
@@ -4953,17 +4957,17 @@ function renderGreet(){
         (canMail?'<input type="checkbox" class="gr-ck" data-gid="'+escH(gid)+'" data-kind="'+kind+'" data-fkey="'+escH(fk)+'"'+
           (sent?'':' checked')+' onchange="updGreetSel()">':'')+'</td>'+
       '<td style="padding:7px 9px">'+(prefix||'')+
-        (c.isLord?'<span style="display:inline-block;background:#e7f5ff;color:#1971c2;border-radius:4px;'+
+        (c.isLord?'<span style="display:inline-block;background:#E1EAEC;color:#2F5664;border-radius:4px;'+
           'padding:0 5px;font-size:9.5px;font-weight:700;margin-right:4px">房東</span>':'')+
         '<strong>'+escH(c.name)+'</strong>'+
         '<div style="font-size:10px;color:var(--muted)">'+escH(c.phone)+'</div></td>'+
       '<td style="padding:7px 9px;font-size:11px">'+escH(c.owner||'—')+'</td>'+
       '<td style="padding:7px 9px;font-size:11px">'+(c.email?escH(c.email):'<span style="color:var(--muted)">未填</span>')+'</td>'+
       '<td style="padding:7px 9px;font-size:11px">'+
-        (c.optIn?'<span style="color:#2f9e44;font-weight:700">✔ 已同意</span>':'<span style="color:#c92a2a;font-weight:700">✕ 未同意</span>')+
+        (c.optIn?'<span style="color:#3E6B4E;font-weight:700">✔ 已同意</span>':'<span style="color:#923A2E;font-weight:700">✕ 未同意</span>')+
         (why?'<div style="font-size:9.5px;color:var(--muted);margin-top:2px">'+why+'</div>':'')+'</td>'+
       '<td style="padding:7px 9px;font-size:10.5px;white-space:nowrap">'+
-        (sent?'<span style="color:#2f9e44;font-weight:700">✔ 今年已寄</span><div style="color:var(--muted);font-size:9.5px">'+
+        (sent?'<span style="color:#3E6B4E;font-weight:700">✔ 今年已寄</span><div style="color:var(--muted);font-size:9.5px">'+
           escH((sent.at||'').slice(0,10))+' '+escH(sent.by||'')+'</div>'
         :'<span style="color:var(--muted)">尚未寄送</span>')+'</td>'+
       '<td style="padding:7px 9px;text-align:right;white-space:nowrap">'+
@@ -4976,7 +4980,7 @@ function renderGreet(){
   }
   function tableWrap(rows){
     return '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">'+
+      '<thead><tr style="background:#ECEEEA;border-bottom:2px solid var(--border)">'+
         ['','客戶','歸屬業務','Email','祝福同意','寄送狀態',''].map((h,i)=>
           '<th style="padding:7px 9px;text-align:'+(i===6?'right':'left')+';color:var(--muted);font-size:10px">'+h+'</th>').join('')+
       '</tr></thead><tbody>'+rows+'</tbody></table>';
@@ -4986,7 +4990,7 @@ function renderGreet(){
   // 寄件方式列＋批次寄送列。放在最上方，因為業務通常是「先確認用哪個信箱、再一次處理完一整批」。
   html+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--primary-light);border-radius:8px;padding:9px 12px;margin-bottom:12px">'+
     '<span style="font-size:11.5px;font-weight:700;color:var(--primary-d)">寄件方式</span>'+
-    '<select onchange="setMailClient(this.value)" style="height:28px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:0 6px;background:#fff">'+
+    '<select onchange="setMailClient(this.value)" style="height:28px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:0 6px;background:#FCFCFA">'+
       Object.keys(MAIL_CLIENTS).map(k=>'<option value="'+k+'"'+(getMailClient()===k?' selected':'')+'>'+
         escH(MAIL_CLIENTS[k].label)+'</option>').join('')+
     '</select>'+
@@ -4998,11 +5002,11 @@ function renderGreet(){
   '</div>';
   html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin-bottom:7px">🎂 '+m+' 月壽星（'+stars.length+' 位）</div>';
   if(stars.length===0){
-    html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted);margin-bottom:16px">'+
+    html+='<div style="padding:14px;background:#ECEEEA;border-radius:8px;font-size:11.5px;color:var(--muted);margin-bottom:16px">'+
       '本月沒有壽星。生日不是必填欄位，房客可到「👥 客戶列表」、房東可到「🏠 房東建檔」點進去補填。</div>';
   }else{
     html+=tableWrap(stars.map(x=>{
-      const dayTag=x.d===tod?'<span style="color:#c92a2a;font-weight:700">今天</span>'
+      const dayTag=x.d===tod?'<span style="color:#923A2E;font-weight:700">今天</span>'
         :(x.d>tod?'還有 '+diffDays(tod,x.d)+' 天':'已過 '+diffDays(x.d,tod)+' 天');
       return custRow(x.c,'bday',null,
         '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">'+x.d.slice(5)+'　'+dayTag+'</div>');
@@ -5011,21 +5015,21 @@ function renderGreet(){
 
   html+='<div style="font-size:12.5px;font-weight:700;color:var(--primary);margin:6px 0 7px">🏮 近期節日</div>';
   if(!nextF){
-    html+='<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted)">'+
+    html+='<div style="padding:14px;background:#ECEEEA;border-radius:8px;font-size:11.5px;color:var(--muted)">'+
       '未來 45 天內沒有三節。'+(y>=FESTIVAL_TABLE_LAST_YEAR?'（提醒：內建節日對照表只到 '+FESTIVAL_TABLE_LAST_YEAR+' 年，需要更新）':'')+'</div>';
   }else{
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">'+
-      fests.map(f=>'<div style="background:#fff3bf;border:1px solid #ffd43b;border-radius:8px;padding:7px 11px;font-size:11.5px">'+
+      fests.map(f=>'<div style="background:#F3ECD9;border:1px solid #C9A227;border-radius:8px;padding:7px 11px;font-size:11.5px">'+
         '<strong>'+f.name+'</strong>　'+f.date+'　'+(f.days===0?'就是今天':'還有 '+f.days+' 天')+'</div>').join('')+'</div>';
     const fObj=FESTIVALS.find(x=>x.name===nextF.name);
     const okList=list.filter(c=>c.optIn);
     html+='<div style="font-size:11px;color:var(--muted);margin-bottom:6px">下方為可發送「'+nextF.name+'」祝福的名單（'+okList.length+' 位已同意 / 共 '+list.length+' 位）</div>';
     html+=list.length===0
-      ?'<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:11.5px;color:var(--muted)">目前沒有可發送的客戶。</div>'
+      ?'<div style="padding:14px;background:#ECEEEA;border-radius:8px;font-size:11.5px;color:var(--muted)">目前沒有可發送的客戶。</div>'
       :tableWrap(list.map(c=>custRow(c,'fest',fObj)).join(''));
   }
 
-  html+='<div style="margin-top:16px;padding:11px 13px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
+  html+='<div style="margin-top:16px;padding:11px 13px;background:#ECEEEA;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
     '<strong style="color:var(--text)">關於發送方式</strong><br>'+
     '「✉️ 寄祝福」會依上方選的寄件方式，開啟一封<strong>已經填好收件人、主旨與內文</strong>的信件撰寫視窗，您過目或修改後再按送出。'+
     '寄件人是您自己信箱裡的帳號（與登入本系統的帳號無關），<strong>系統本身不會自動寄信</strong>。<br>'+
@@ -5128,11 +5132,11 @@ function renderGreetQueue(){
   const cur=gqList[gqIdx]||null;
   document.getElementById('gq-title').textContent='📤 批次寄送（'+Math.min(gqIdx+(cur?1:0),gqList.length)+' / '+gqList.length+'）';
   const rows=gqList.map((x,i)=>{
-    const st=x.done?'<span style="color:#2f9e44;font-weight:700">✅ 已開啟</span>'
+    const st=x.done?'<span style="color:#3E6B4E;font-weight:700">✅ 已開啟</span>'
       :x.skipped?'<span style="color:var(--muted)">⏭ 已跳過</span>'
-      :i===gqIdx?'<span style="color:#1971c2;font-weight:700">▶ 目前這封</span>'
+      :i===gqIdx?'<span style="color:#2F5664;font-weight:700">▶ 目前這封</span>'
       :'<span style="color:var(--muted)">⬜ 待寄</span>';
-    return '<tr style="border-bottom:1px solid var(--border)'+(i===gqIdx?';background:#e7f5ff':'')+'">'+
+    return '<tr style="border-bottom:1px solid var(--border)'+(i===gqIdx?';background:#E1EAEC':'')+'">'+
       '<td style="padding:6px 9px;width:34px;color:var(--muted);font-size:10.5px">'+(i+1)+'</td>'+
       '<td style="padding:6px 9px"><strong>'+escH(x.name)+'</strong></td>'+
       '<td style="padding:6px 9px;font-size:11px;color:var(--muted)">'+escH(x.email)+'</td>'+
@@ -5141,7 +5145,7 @@ function renderGreetQueue(){
   }).join('');
   document.getElementById('gq-list').innerHTML=
     '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-    '<thead><tr style="background:#f8fafc;border-bottom:2px solid var(--border)">'+
+    '<thead><tr style="background:#ECEEEA;border-bottom:2px solid var(--border)">'+
       ['#','客戶','Email','狀態'].map(h=>'<th style="padding:6px 9px;text-align:left;color:var(--muted);font-size:10px">'+h+'</th>').join('')+
     '</tr></thead><tbody>'+rows+'</tbody></table>';
   const bar=document.getElementById('gq-bar');
@@ -5152,7 +5156,7 @@ function renderGreetQueue(){
       '<button class="btn btn-ghost sm" onclick="gqSkip()">跳過</button>'+
       '<button class="btn btn-primary sm" onclick="gqOpenCurrent()">開啟這封 ▶</button>';
   }else{
-    bar.innerHTML='<div style="font-size:12px;font-weight:700;color:#2f9e44">✅ 全部處理完畢：已開啟 '+done+' 封'+
+    bar.innerHTML='<div style="font-size:12px;font-weight:700;color:#3E6B4E">✅ 全部處理完畢：已開啟 '+done+' 封'+
       (skipped?'、跳過 '+skipped+' 位':'')+'</div>'+
       '<span style="flex:1"></span>'+
       '<button class="btn btn-primary sm" onclick="closeGreetQueue()">完成</button>';
@@ -5220,7 +5224,7 @@ function renderComplaints(){
   }
   const tasks=loadTasks();
   box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:880px">'+
-    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+    '<thead><tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">'+
       ['日期','館別 / 房號','類別 · 項目','嚴重度','來源','處理人員','賠償 / 退款','維修單','狀態',''].map((h,i)=>
         '<th style="padding:8px 9px;text-align:'+(i===9?'right':'left')+
         ';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
@@ -5245,8 +5249,8 @@ function renderComplaints(){
           ?'<a href="javascript:void(0)" onclick="cpOpenTask('+jsArg(c.taskId)+')">'+stChip(tk.status)+'</a>'
           :(c.taskId?'<span style="color:var(--muted)">已刪除</span>':'<span style="color:var(--muted)">—</span>'))+'</td>'+
         '<td style="padding:7px 9px">'+(closed
-          ?'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#2f9e44;background:#ebfbee">已結案</span>'
-          :'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#c92a2a;background:#ffe3e3">處理中</span>')+'</td>'+
+          ?'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#3E6B4E;background:#E3ECE5">已結案</span>'
+          :'<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#923A2E;background:#F4E1DD">處理中</span>')+'</td>'+
         '<td style="padding:7px 9px;text-align:right">'+
           '<button class="btn btn-ghost sm" onclick="openCpForm('+jsArg(c.id)+')">編輯</button></td>'+
       '</tr>';
@@ -5497,7 +5501,7 @@ function riskHtml(){
   let h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
     RISK_ORDER.map(card).join('')+'</div>';
   h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">'+
-    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+    '<thead><tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">'+
       ['燈號','館別 / 房號','房型','月租','維修天數','維修金額','客訴','推估損失營收','建議'].map((t,i)=>
         '<th style="padding:8px 9px;text-align:'+(i>=3&&i<=7?'right':'left')+
         ';color:var(--muted);font-size:10px;white-space:nowrap">'+t+'</th>').join('')+
@@ -5509,7 +5513,7 @@ function riskHtml(){
           'border-radius:99px;font-size:10px;font-weight:700;color:'+L.color+';background:'+L.bg+'">'+L.label+'</span></td>'+
         '<td style="padding:7px 9px;font-size:11px">'+escH(x.pname)+
           '<div style="font-weight:700;color:var(--primary)">'+escH(x.room)+
-          (x.offSale?' <span style="color:#c92a2a;font-weight:600">停售中</span>':'')+'</div></td>'+
+          (x.offSale?' <span style="color:#923A2E;font-weight:600">停售中</span>':'')+'</div></td>'+
         '<td style="padding:7px 9px;font-size:11px;white-space:nowrap">'+escH(x.type||'—')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+
           (x.price>0?money(x.price):'<span style="color:var(--muted)">未定價</span>')+'</td>'+
@@ -5519,7 +5523,7 @@ function riskHtml(){
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+money(x.cost)+
           (x.price>0?'<div style="color:var(--muted);font-size:10px">≒ '+x.costRate.toFixed(1)+' 個月租</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap">'+x.cnt+' 件'+
-          (x.sevN>0?'<div style="color:#c92a2a;font-size:10px;font-weight:700">重 '+x.sevN+' 件</div>':'')+
+          (x.sevN>0?'<div style="color:#923A2E;font-size:10px;font-weight:700">重 '+x.sevN+' 件</div>':'')+
           (x.refund>0?'<div style="color:var(--muted);font-size:10px">賠 '+money(x.refund)+'</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px;text-align:right;white-space:nowrap;font-weight:700">'+
           (x.loss>0?money(x.loss):'<span style="color:var(--muted);font-weight:400">—</span>')+'</td>'+
@@ -5527,7 +5531,7 @@ function riskHtml(){
       '</tr>';
     }).join('')+'</tbody></table></div>';
   h+='<div style="margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.85;'+
-    'background:var(--bg2,#f6f7f9);border-radius:6px;padding:10px 12px">'+
+    'background:var(--bg2,#ECEEEA);border-radius:6px;padding:10px 12px">'+
     '<strong>計算方式（觀察期：近 365 天 '+escH(riskWindow().from)+' ～ '+escH(riskWindow().to)+'）</strong><br>'+
     '‧ <strong>維修天數</strong>＝維修排程天數 ÷ 365，<strong>含房客照住的小維修</strong>（與營運報表的維修率同一定義）。'+
       '燈號要回答的是這間房還值不值得繼續出租，維修負擔不會因為租金照收就消失。'+
@@ -5584,9 +5588,9 @@ function renderChecklist(){
   const done=rec.done||{};
   const total=ckTotal(),n=ckDoneCount(rec);
   document.getElementById('ck-title').textContent='📋 入住前複查清單 — '+n+' / '+total;
-  let h='<div style="background:var(--bg2,#f6f7f9);border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">'+
+  let h='<div style="background:var(--bg2,#ECEEEA);border-radius:99px;height:7px;overflow:hidden;margin-bottom:6px">'+
     '<div id="ck-bar" style="height:100%;width:'+Math.round(n/total*100)+'%;'+
-    'background:'+(n===total?'#2f9e44':'#f08c00')+'"></div></div>'+
+    'background:'+(n===total?'#3E6B4E':'#8A6A1F')+'"></div></div>'+
     '<div style="font-size:10.5px;color:var(--muted);line-height:1.7;margin-bottom:6px">'+
     '依 SOP 逐項確認，勾選會即時儲存並同步給其他成員。尚未完成、又快到入住日的清單會出現在 🔔 今日待辦。</div>';
   PRECHECK_LIB.forEach((g,gi)=>{
@@ -5594,11 +5598,11 @@ function renderChecklist(){
     const gn=items.filter((_,ii)=>done[gi+'-'+ii]).length;
     h+='<div style="font-weight:800;font-size:12.5px;margin:14px 0 4px">'+escH(g[0])+
       ' <span id="ck-gc-'+gi+'" style="font-weight:600;font-size:10.5px;color:'+
-      (gn===items.length?'#2f9e44':'var(--muted)')+'">'+gn+'/'+items.length+'</span></div>'+
+      (gn===items.length?'#3E6B4E':'var(--muted)')+'">'+gn+'/'+items.length+'</span></div>'+
     items.map((it,ii)=>{
       const id=gi+'-'+ii;
       return '<label data-ck="'+id+'" style="display:flex;align-items:flex-start;gap:7px;padding:3px 6px;'+
-        'border-radius:5px;cursor:pointer;font-size:11.5px;line-height:1.6'+(done[id]?';background:#ebfbee':'')+'">'+
+        'border-radius:5px;cursor:pointer;font-size:11.5px;line-height:1.6'+(done[id]?';background:#E3ECE5':'')+'">'+
         '<input type="checkbox" '+(done[id]?'checked ':'')+'onchange="toggleCk('+jsArg(id)+',this.checked)" style="margin-top:3px">'+
         '<span style="flex:1">'+escH(it[0])+'</span>'+
         '<span style="color:var(--muted);font-size:9.5px;white-space:nowrap">'+escH(it[1])+'</span></label>';
@@ -5618,16 +5622,16 @@ function updCkProgress(){
   const done=rec.done||{},total=ckTotal(),n=ckDoneCount(rec);
   document.getElementById('ck-title').textContent='📋 入住前複查清單 — '+n+' / '+total;
   const bar=document.getElementById('ck-bar');
-  if(bar){bar.style.width=Math.round(n/total*100)+'%';bar.style.background=n===total?'#2f9e44':'#f08c00';}
+  if(bar){bar.style.width=Math.round(n/total*100)+'%';bar.style.background=n===total?'#3E6B4E':'#8A6A1F';}
   PRECHECK_LIB.forEach((g,gi)=>{
     const el=document.getElementById('ck-gc-'+gi);
     if(!el)return;
     const gn=g[1].filter((_,ii)=>done[gi+'-'+ii]).length;
     el.textContent=gn+'/'+g[1].length;
-    el.style.color=gn===g[1].length?'#2f9e44':'var(--muted)';
+    el.style.color=gn===g[1].length?'#3E6B4E':'var(--muted)';
   });
   document.querySelectorAll('#ck-body label[data-ck]').forEach(l=>{
-    l.style.background=done[l.dataset.ck]?'#ebfbee':'';
+    l.style.background=done[l.dataset.ck]?'#E3ECE5':'';
   });
   refreshTodoBadge();
 }
@@ -5673,13 +5677,13 @@ function printChecklist(){
   });
   const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'+
     '<title>入住前複查清單</title><style>'+
-    'body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;font-size:12px;color:#222;margin:24px}'+
+    'body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;font-size:12px;color:#1F2A2E;margin:24px}'+
     'h1{font-size:17px;margin:0 0 6px}'+
-    'h3{font-size:13px;margin:15px 0 4px;border-bottom:1px solid #ccc;padding-bottom:3px}'+
-    '.meta{font-size:11px;color:#555;line-height:1.75;margin-bottom:6px}'+
+    'h3{font-size:13px;margin:15px 0 4px;border-bottom:1px solid #BEC5BE;padding-bottom:3px}'+
+    '.meta{font-size:11px;color:#4F5D62;line-height:1.75;margin-bottom:6px}'+
     'table{width:100%;border-collapse:collapse}'+
-    'td{padding:3px 5px;border-bottom:1px solid #eee;vertical-align:top}'+
-    '.bx{width:18px;font-size:14px}.sop{width:86px;text-align:right;color:#888;font-size:10px;white-space:nowrap}'+
+    'td{padding:3px 5px;border-bottom:1px solid #ECEEEA;vertical-align:top}'+
+    '.bx{width:18px;font-size:14px}.sop{width:86px;text-align:right;color:#4F5D62;font-size:10px;white-space:nowrap}'+
     '.sign{margin-top:24px;font-size:11px}@media print{body{margin:10mm}}'+
     '</style></head><body>'+
     '<h1>入住前複查清單</h1>'+
@@ -5800,7 +5804,7 @@ function tkActions(t){
   return h+'<button class="btn btn-ghost sm" style="margin-left:4px;padding:3px 7px" '+
     'title="編輯明細（金額・廠商・日期・備註）" onclick="editMaintTask('+jsArg(t.id)+')">✏️</button>';
 }
-const BILLING={none:{label:'自行吸收',color:'#868e96'},unbilled:{label:'未請款',color:'#e67700'},billed:{label:'已請款',color:'#2f9e44'},tenant:{label:'房客自行負擔',color:'#7048e8'}};
+const BILLING={none:{label:'自行吸收',color:'#86918F'},unbilled:{label:'未請款',color:'#8A6A1F'},billed:{label:'已請款',color:'#3E6B4E'},tenant:{label:'房客自行負擔',color:'#8A5A7A'}};
 function money(n){return '$'+Math.round(n||0).toLocaleString();}
 // 維修金額只對維修單有意義，清潔單一律視為 0
 function tkCost(t){return t.type==='repair'?(Number(t.cost)||0):0;}
@@ -5816,7 +5820,7 @@ function cleanSchedHtml(){
     '<span style="font-size:11px;color:var(--muted);margin-left:6px">依「最早有房客要入住」的順序派工，同日優先派給已在該館別的人員</span></div>';
 
   if(r.cleaners.length===0){
-    return html+'<div style="padding:16px;background:#fff9db;border:1px solid #ffe066;border-radius:8px;font-size:12px;line-height:1.8">'+
+    return html+'<div style="padding:16px;background:#F3ECD9;border:1px solid #E3D18A;border-radius:8px;font-size:12px;line-height:1.8">'+
       '尚未建立清潔人員名單，無法自動派工。<br>請由管理員至「⚙️ 更多 → 🧹 清潔排程設定」新增人員與每日可用工時。</div>';
   }
 
@@ -5826,34 +5830,34 @@ function cleanSchedHtml(){
   const days=Object.keys(byDay).sort();
 
   if(r.unassigned.length>0){
-    html+='<div style="border:2px solid #c92a2a;background:#fff5f5;border-radius:8px;padding:11px 13px;margin-bottom:14px">'+
-      '<div style="font-weight:800;font-size:12.5px;color:#c92a2a;margin-bottom:7px">⚠️ 人力不足，'+r.unassigned.length+' 筆排不進去</div>'+
+    html+='<div style="border:2px solid #923A2E;background:#F4E1DD;border-radius:8px;padding:11px 13px;margin-bottom:14px">'+
+      '<div style="font-weight:800;font-size:12.5px;color:#923A2E;margin-bottom:7px">⚠️ 人力不足，'+r.unassigned.length+' 筆排不進去</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
-      r.unassigned.map(u=>'<tr style="border-top:1px solid #ffc9c9">'+
+      r.unassigned.map(u=>'<tr style="border-top:1px solid #F4E1DD">'+
         '<td style="padding:5px 6px;white-space:nowrap">'+u.task.start+'</td>'+
         '<td style="padding:5px 6px">'+escH(u.propName)+' '+escH(u.task.room)+'</td>'+
         '<td style="padding:5px 6px;white-space:nowrap">'+fmtHrs(u.hours)+'</td>'+
-        '<td style="padding:5px 6px;color:#c92a2a">'+escH(u.reason)+'</td>'+
+        '<td style="padding:5px 6px;color:#923A2E">'+escH(u.reason)+'</td>'+
         '<td style="padding:5px 6px;color:var(--muted)">'+
           (u.hardDeadline?'房客 '+u.deadline+' 要入住':'無後續訂單')+'</td>'+
       '</tr>').join('')+'</table>'+
-      '<div style="font-size:10.5px;color:#a31616;margin-top:8px;line-height:1.7">'+
+      '<div style="font-size:10.5px;color:#7A2F25;margin-top:8px;line-height:1.7">'+
         '可行的處理方式：增加人員或調高該人員每日工時、把該筆訂單的入住日往後移一天、或改由外部清潔廠商支援。</div>'+
     '</div>';
   }
 
   if(r.deferred.length>0){
-    html+='<div style="border:1px solid #ffd8a8;background:#fff9db;border-radius:8px;padding:10px 12px;margin-bottom:14px">'+
-      '<div style="font-weight:800;font-size:12px;color:#e67700;margin-bottom:6px">本期間未排入 '+r.deferred.length+' 筆（期限在 '+schedDays+' 天之後，尚有餘裕）</div>'+
+    html+='<div style="border:1px solid #F5E7D7;background:#F3ECD9;border-radius:8px;padding:10px 12px;margin-bottom:14px">'+
+      '<div style="font-weight:800;font-size:12px;color:#8A6A1F;margin-bottom:6px">本期間未排入 '+r.deferred.length+' 筆（期限在 '+schedDays+' 天之後，尚有餘裕）</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
-      r.deferred.map(u=>'<tr style="border-top:1px solid #ffe8b8">'+
+      r.deferred.map(u=>'<tr style="border-top:1px solid #F3ECD9">'+
         '<td style="padding:4px 6px;white-space:nowrap">'+u.task.start+'</td>'+
         '<td style="padding:4px 6px">'+escH(u.propName)+' '+escH(u.task.room)+'</td>'+
         '<td style="padding:4px 6px;white-space:nowrap">'+fmtHrs(u.hours)+'</td>'+
         '<td style="padding:4px 6px;color:var(--muted)">'+
           (u.hardDeadline?'房客 '+u.deadline+' 才入住':'無後續訂單')+'</td>'+
       '</tr>').join('')+'</table>'+
-      '<div style="font-size:10.5px;color:#a5730a;margin-top:7px;line-height:1.7">'+
+      '<div style="font-size:10.5px;color:#8A6A1F;margin-top:7px;line-height:1.7">'+
         '這些不是人力不足，只是本期間人力已先給更急的房間。把天數切換到更長的區間就會排進去。</div>'+
     '</div>';
   }
@@ -5868,7 +5872,7 @@ function cleanSchedHtml(){
     html+='<div style="font-weight:800;font-size:12.5px;color:var(--primary-d);margin:12px 0 5px">'+
       d+'（'+WD[new Date(d+'T00:00:00').getDay()]+'）　共 '+list.length+' 間 · '+fmtHrs(total)+'</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
-      '<thead><tr style="background:#f8fafc;color:var(--muted)">'+
+      '<thead><tr style="background:#ECEEEA;color:var(--muted)">'+
         ['人員','館別','房號','房型','工時','備註'].map(h=>'<th style="padding:5px 7px;text-align:left;font-size:10px">'+h+'</th>').join('')+
       '</tr></thead><tbody>'+
       list.map(a=>'<tr style="border-top:1px solid var(--border)">'+
@@ -5878,7 +5882,7 @@ function cleanSchedHtml(){
         '<td style="padding:5px 7px">'+escH(getRoomType(a.task.prop_id,a.task.room)||'—')+'</td>'+
         '<td style="padding:5px 7px;white-space:nowrap">'+fmtHrs(a.hours)+'</td>'+
         '<td style="padding:5px 7px;color:var(--muted)">'+
-          (a.late?'<span style="color:#e67700;font-weight:700">順延自 '+a.task.start+'</span> ':'')+
+          (a.late?'<span style="color:#8A6A1F;font-weight:700">順延自 '+a.task.start+'</span> ':'')+
           (a.hardDeadline?'房客 '+a.deadline+' 入住':'')+'</td>'+
       '</tr>').join('')+'</tbody></table>';
   });
@@ -5896,7 +5900,7 @@ function cleanSchedHtml(){
   if(ids.length>0){
     html+='<div style="font-weight:800;font-size:12.5px;margin:18px 0 5px">期間人員負荷</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
-      '<thead><tr style="background:#f8fafc;color:var(--muted)">'+
+      '<thead><tr style="background:#ECEEEA;color:var(--muted)">'+
         ['人員','間數','總工時','每日可用','平均日負荷'].map(h=>'<th style="padding:5px 7px;text-align:left;font-size:10px">'+h+'</th>').join('')+
       '</tr></thead><tbody>'+
       ids.map(id=>{
@@ -5907,11 +5911,11 @@ function cleanSchedHtml(){
           '<td style="padding:5px 7px">'+l.rooms+' 間</td>'+
           '<td style="padding:5px 7px">'+fmtHrs(l.hrs)+'</td>'+
           '<td style="padding:5px 7px">'+fmtHrs(l.cap)+'/日</td>'+
-          '<td style="padding:5px 7px;font-weight:700;color:'+(pct>85?'#c92a2a':pct>60?'#e67700':'#2f9e44')+'">'+pct+'%</td>'+
+          '<td style="padding:5px 7px;font-weight:700;color:'+(pct>85?'#923A2E':pct>60?'#8A6A1F':'#3E6B4E')+'">'+pct+'%</td>'+
         '</tr>';
       }).join('')+'</tbody></table>';
   }
-  html+='<div style="margin-top:14px;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
+  html+='<div style="margin-top:14px;padding:10px 12px;background:#ECEEEA;border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.8">'+
     '班表是依目前訂單與人力即時算出來的建議，不會寫回任務資料；訂單一改，重開此頁就會重算。<br>'+
     '任務的實際完成狀態仍由清潔人員在「追蹤清單」回報，系統不會因為日期過了就自動標記完成。</div>';
   return html;
@@ -5932,7 +5936,7 @@ function renderMaint(){
     return;
   }
   box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-    '<thead><tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">'+
+    '<thead><tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">'+
       ['類型','館別 / 房號','項目說明','金額 / 請款','處理人員','排程期間','預計完成','狀態',''].map((h,i)=>
         '<th style="padding:8px 9px;text-align:'+(i===8?'right':'left')+';color:var(--muted);font-size:10px;white-space:nowrap">'+h+'</th>').join('')+
     '</tr></thead><tbody>'+
@@ -5942,9 +5946,9 @@ function renderMaint(){
       const overdue=isOpen&&t.dueDate&&t.dueDate<tod;
       const lh=lastTkHist(t);
       const dueCell=t.dueDate
-        ?(overdue?'<span style="color:#c92a2a;font-weight:700">'+t.dueDate+' ⚠️逾期</span>':t.dueDate)
+        ?(overdue?'<span style="color:#923A2E;font-weight:700">'+t.dueDate+' ⚠️逾期</span>':t.dueDate)
         :'<span style="color:var(--muted)">—</span>';
-      return '<tr style="border-bottom:1px solid var(--border)'+(overdue?';background:#fff5f5':'')+'">'+
+      return '<tr style="border-bottom:1px solid var(--border)'+(overdue?';background:#F4E1DD':'')+'">'+
         '<td style="padding:7px 9px;white-space:nowrap">'+(t.type==='repair'?'🔧 維修':'🧹 清潔')+(t.isAuto?'<div style="font-size:9px;color:var(--muted)">自動排程</div>':'')+'</td>'+
         '<td style="padding:7px 9px;font-size:11px">'+escH(p?p.name:'—')+'<div style="font-weight:700;color:var(--primary)">'+escH(t.room||'')+'</div></td>'+
         '<td style="padding:7px 9px;font-size:11px;max-width:190px">'+(t.note?escH(t.note):'<span style="color:var(--muted)">—</span>')+'</td>'+
@@ -6007,7 +6011,7 @@ function maintReportHtml(){
   const sumSelf=all.filter(t=>!t.billing||t.billing==='none').reduce((s,t)=>s+tkCost(t),0);
   const withCost=all.filter(t=>tkCost(t)>0);
   function card(label,val,color,sub){
-    return '<div style="flex:1;min-width:112px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+    return '<div style="flex:1;min-width:112px;background:#FCFCFA;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
       '<div style="font-size:20px;font-weight:800;color:'+color+';line-height:1.2">'+val+'</div>'+
       '<div style="font-size:10.5px;color:var(--muted);margin-top:2px">'+label+'</div>'+
       (sub?'<div style="font-size:9.5px;color:var(--muted);margin-top:3px">'+sub+'</div>':'')+
@@ -6021,16 +6025,16 @@ function maintReportHtml(){
     card('已汰換',cnt.replaced,TASK_STATUS.replaced.color,'已執行完成')+
   '</div>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
-    card('逾期未完成',overdue.length,overdue.length>0?'#c92a2a':'#2f9e44','超過預計完成日')+
-    card('平均處理天數',avgDays===null?'—':avgDays+' 天','#1971c2',closed.length?'依 '+closed.length+' 筆已結案單計算':'尚無已結案資料')+
-    card('未結案總數',openList.length,'#e67700','待處理＋處理中＋建議汰換')+
+    card('逾期未完成',overdue.length,overdue.length>0?'#923A2E':'#3E6B4E','超過預計完成日')+
+    card('平均處理天數',avgDays===null?'—':avgDays+' 天','#2F5664',closed.length?'依 '+closed.length+' 筆已結案單計算':'尚無已結案資料')+
+    card('未結案總數',openList.length,'#8A6A1F','待處理＋處理中＋建議汰換')+
   '</div>'+
   '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">💰 維修金額累計</div>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
-    card('累計維修支出',money(sumCost),'#1971c2',withCost.length?'共 '+withCost.length+' 筆有填金額':'尚無金額資料')+
-    card('未向屋主請款',money(sumUnbilled),sumUnbilled>0?'#e67700':'#868e96','可整理後向屋主請款')+
-    card('已向屋主請款',money(sumBilled),'#2f9e44','已完成請款')+
-    card('自行吸收',money(sumSelf),'#868e96','不需請款')+
+    card('累計維修支出',money(sumCost),'#2F5664',withCost.length?'共 '+withCost.length+' 筆有填金額':'尚無金額資料')+
+    card('未向屋主請款',money(sumUnbilled),sumUnbilled>0?'#8A6A1F':'#86918F','可整理後向屋主請款')+
+    card('已向屋主請款',money(sumBilled),'#3E6B4E','已完成請款')+
+    card('自行吸收',money(sumSelf),'#86918F','不需請款')+
   '</div>';
 
   if(topCost.length>0){
@@ -6043,7 +6047,7 @@ function maintReportHtml(){
       topCost.map(([k,v])=>'<tr style="border-bottom:1px solid var(--border)">'+
         '<td style="padding:6px 8px">'+escH(k)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+money(v.cost)+'</td>'+
-        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#e67700':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#8A6A1F':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+v.n+' 次</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost/v.n)+'</td>'+
       '</tr>').join('')+'</tbody></table>';
@@ -6051,7 +6055,7 @@ function maintReportHtml(){
 
   if(topVendors.length>0){
     // 準時率的色階：只在有足夠樣本時才上色，1～2 筆就判定一家廠商不準時並不公平。
-    const otColor=v=>v.dueN<3?'var(--muted)':v.onTimeRate>=90?'#2f9e44':v.onTimeRate>=70?'#e67700':'#c92a2a';
+    const otColor=v=>v.dueN<3?'var(--muted)':v.onTimeRate>=90?'#3E6B4E':v.onTimeRate>=70?'#8A6A1F':'#923A2E';
     html+='<div style="font-size:12px;font-weight:700;color:var(--primary);margin:16px 0 6px">🔧 廠商績效（依叫修次數排序）</div>'+
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:620px">'+
       '<thead><tr style="border-bottom:1px solid var(--border)">'+
@@ -6064,14 +6068,14 @@ function maintReportHtml(){
           '<div style="font-size:9.5px;color:var(--muted);margin-top:2px">'+
             (v.topCat?'主要類別 '+escH(v.topCat):'未分類')+(v.lastAt?'　最近 '+escH(v.lastAt):'')+'</div></td>'+
         '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v.n+' 次</td>'+
-        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.open>0?'#e67700':'var(--muted)')+'">'+v.open+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.open>0?'#8A6A1F':'var(--muted)')+'">'+v.open+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+
           (v.avgDays===null?'<span style="color:var(--muted)">—</span>'
             :'<strong>'+v.avgDays+'</strong> 天<div style="font-size:9.5px;color:var(--muted)">'+v.doneN+' 筆已結案</div>')+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.onTimeRate===null?'var(--muted)':otColor(v))+'">'+
           (v.onTimeRate===null?'—':'<strong>'+v.onTimeRate+'%</strong><div style="font-size:9.5px;color:var(--muted)">'+v.dueN+' 筆有期限</div>')+'</td>'+
         '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+money(v.cost)+'</td>'+
-        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#e67700':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:'+(v.unbilled>0?'#8A6A1F':'var(--muted)')+'">'+money(v.unbilled)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+
           (v.avgCost===null?'—':money(v.avgCost)+'<div style="font-size:9.5px">'+v.costN+' 筆有金額</div>')+'</td>'+
       '</tr>').join('')+'</tbody></table></div>'+
@@ -6082,7 +6086,7 @@ function maintReportHtml(){
   }
 
   if(overdue.length>0){
-    html+='<div style="font-size:12px;font-weight:700;color:#c92a2a;margin:12px 0 6px">⚠️ 已逾期未完成（'+overdue.length+' 筆）</div>'+
+    html+='<div style="font-size:12px;font-weight:700;color:#923A2E;margin:12px 0 6px">⚠️ 已逾期未完成（'+overdue.length+' 筆）</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
       overdue.sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||'')).map(t=>{
         const p=getProp(t.prop_id);
@@ -6090,13 +6094,13 @@ function maintReportHtml(){
           '<td style="padding:6px 8px">'+escH(p?p.name:'—')+' <strong>'+escH(t.room||'')+'</strong></td>'+
           '<td style="padding:6px 8px">'+(t.note?escH(t.note):'—')+'</td>'+
           '<td style="padding:6px 8px">'+(t.handler?escH(t.handler):'未指派')+'</td>'+
-          '<td style="padding:6px 8px;color:#c92a2a;white-space:nowrap">預計 '+t.dueDate+'（逾期 '+diffDays(t.dueDate,tod)+' 天）</td>'+
+          '<td style="padding:6px 8px;color:#923A2E;white-space:nowrap">預計 '+t.dueDate+'（逾期 '+diffDays(t.dueDate,tod)+' 天）</td>'+
           '<td style="padding:6px 8px">'+stChip(t.status)+'</td>'+
         '</tr>';
       }).join('')+'</table>';
   }
   if(pendRepl.length>0){
-    html+='<div style="font-size:12px;font-weight:700;color:#d6336c;margin:16px 0 6px">🔁 建議汰換但尚未執行（'+pendRepl.length+' 筆）</div>'+
+    html+='<div style="font-size:12px;font-weight:700;color:#923A5A;margin:16px 0 6px">🔁 建議汰換但尚未執行（'+pendRepl.length+' 筆）</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
       pendRepl.map(x=>{
         const p=getProp(x.t.prop_id);
@@ -6112,8 +6116,8 @@ function maintReportHtml(){
     topRooms.map(([k,v])=>'<tr style="border-bottom:1px solid var(--border)">'+
       '<td style="padding:6px 8px">'+escH(k)+'</td>'+
       '<td style="padding:6px 8px;width:55%">'+
-        '<div style="background:#f1f3f5;border-radius:4px;height:12px;overflow:hidden">'+
-        '<div style="width:'+Math.round(v.n/topRooms[0][1].n*100)+'%;height:100%;background:#c92a2a"></div></div>'+
+        '<div style="background:#ECEEEA;border-radius:4px;height:12px;overflow:hidden">'+
+        '<div style="width:'+Math.round(v.n/topRooms[0][1].n*100)+'%;height:100%;background:#923A2E"></div></div>'+
       '</td>'+
       '<td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">'+v.n+' 次</td>'+
       '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--muted)">'+money(v.cost)+'</td>'+
@@ -6307,11 +6311,11 @@ function renderMembers(){
   if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:10px">目前沒有成員資料</div>';return;}
   const sq=Cloud.quota('members');
   const seatBar=sq.limit===null?'':
-    '<div style="background:'+(sq.full?'#fff9db':'var(--primary-light,#e8f0fb)')+
+    '<div style="background:'+(sq.full?'#F3ECD9':'var(--primary-light,#E1EAEC)')+
       ';border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.7">'+
       '席次：<strong>'+sq.used+' / '+sq.limit+'</strong> 人（方案「'+
       escH((Cloud.sub&&Cloud.sub.plan_name)||'')+'」）'+
-      (sq.full?'<br><span style="color:#a06000;font-weight:700">已滿，新成員將無法用邀請碼加入。</span>'+
+      (sq.full?'<br><span style="color:#6B5016;font-weight:700">已滿，新成員將無法用邀請碼加入。</span>'+
         '加購席次或升級方案請 <a href="#" onclick="closeMembers();openPlan();return false;" style="color:var(--primary)">查看方案</a>。':'')+
     '</div>';
   el.innerHTML=seatBar+'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
@@ -6322,18 +6326,18 @@ function renderMembers(){
     rows.map(m=>{
       const me=m.id===Cloud.myUserId;
       const nCust=memberWorkload(m.display_name).custs.length;
-      return '<tr style="border-bottom:1px solid var(--border)'+(m.active?'':';background:#fafafa')+'">'+
+      return '<tr style="border-bottom:1px solid var(--border)'+(m.active?'':';background:#FCFCFA')+'">'+
         '<td style="padding:6px 8px;font-weight:700;'+(m.active?'':'color:var(--muted)')+'">'+escH(m.display_name||'（未命名）')+
           (me?'<span style="font-size:9.5px;color:var(--muted);font-weight:400;margin-left:4px">（您本人）</span>':'')+
           (m.active?'':'<div style="font-size:9.5px;color:var(--muted);font-weight:400;margin-top:2px">'+
             (m.left_at?'停用於 '+escH(String(m.left_at).slice(0,10)):'')+
             (m.left_by?'　由 '+escH(m.left_by):'')+'</div>')+'</td>'+
         '<td style="padding:6px 8px">'+(m.role==='admin'
-            ? '<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#0b4f8a;background:#e7f5ff">管理者</span>'
+            ? '<span style="display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;color:#22424C;background:#E1EAEC">管理者</span>'
             : '<span style="color:var(--muted)">一般成員</span>')+'</td>'+
         '<td style="padding:6px 8px">'+(m.active
-            ? '<span style="color:#2f9e44;font-weight:700">在職</span>'
-            : '<span style="color:#c92a2a;font-weight:700">已停用</span>')+'</td>'+
+            ? '<span style="color:#3E6B4E;font-weight:700">在職</span>'
+            : '<span style="color:#923A2E;font-weight:700">已停用</span>')+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+(nCust||'—')+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+memberActions(m,me,activeCnt,adminCnt)+'</td>'+
       '</tr>';
@@ -6350,13 +6354,13 @@ function memberActions(m,me,activeCnt,adminCnt){
     (color?';color:'+color:'')+'" onclick="'+fn+'">'+txt+'</button>';
   if(me)return '<span style="font-size:10.5px;color:var(--muted)">不可修改自己</span>';
   const uid=jsArg(m.id);
-  if(!m.active)return btn('↩ 恢復任職','doReactivate('+uid+')','#2f9e44');
+  if(!m.active)return btn('↩ 恢復任職','doReactivate('+uid+')','#3E6B4E');
   const lastAdmin=m.role==='admin'&&adminCnt<=1;
   let h='';
   h+=m.role==='admin'
     ? btn('取消管理者','doSetRole('+uid+',\'member\')')
     : btn('設為管理者','doSetRole('+uid+',\'admin\')');
-  h+=btn('🚫 停用','openDeact('+uid+')','#c92a2a');
+  h+=btn('🚫 停用','openDeact('+uid+')','#923A2E');
   if(lastAdmin)h+='<div style="font-size:9.5px;color:var(--muted);margin-top:2px">最後一位管理者，需先指定其他管理者</div>';
   else if(activeCnt<=1)h+='<div style="font-size:9.5px;color:var(--muted);margin-top:2px">企業僅剩這位在職成員</div>';
   return h;
@@ -6420,7 +6424,7 @@ async function openDeact(uid){
 
   const others=(Cloud.memberRows||[]).filter(x=>x.active&&x.id!==m.id&&x.display_name);
   if(!others.length){
-    body.innerHTML='<div style="font-size:12.5px;color:#c92a2a;line-height:1.8">'+
+    body.innerHTML='<div style="font-size:12.5px;color:#923A2E;line-height:1.8">'+
       '企業目前沒有其他在職成員可以接手「'+escH(m.display_name||'')+'」名下的客戶與工作。<br><br>'+
       '請先邀請新成員加入並完成交接，再回來停用這個帳號。</div>';
     return;
@@ -6433,7 +6437,7 @@ async function openDeact(uid){
   document.getElementById('mbd-go').disabled=false;
   body.innerHTML=
     '<div style="font-size:12.5px;margin-bottom:12px">即將停用　<strong style="font-size:14px">'+escH(m.display_name||'')+'</strong>'+
-      (m.role==='admin'?'<span style="font-size:10.5px;color:#0b4f8a;margin-left:6px">（目前是管理者）</span>':'')+'</div>'+
+      (m.role==='admin'?'<span style="font-size:10.5px;color:#22424C;margin-left:6px">（目前是管理者）</span>':'')+'</div>'+
     '<div class="field"><label>接手人（必選）</label>'+
       '<select id="mbd-to">'+
         '<option value="">— 請選擇接手的成員 —</option>'+
@@ -6450,7 +6454,7 @@ async function openDeact(uid){
       '・歷史訂單的「負責業務」仍記為 '+escH(m.display_name||'')+'（獎金已依當時紀錄結算，改了會對不上帳）<br>'+
       '・已結案的客訴與任務仍記為原處理人<br>'+
       '・黑名單標記、訂單放行紀錄等稽核欄位保留原簽名</div>'+
-    '<div style="font-size:11.5px;color:#a61e4d;background:#fff0f6;border:1px solid #f8b4cf;border-radius:6px;padding:8px 10px;margin-top:12px;line-height:1.7">'+
+    '<div style="font-size:11.5px;color:#6E1F3C;background:#F7E9EE;border:1px solid #C98FA8;border-radius:6px;padding:8px 10px;margin-top:12px;line-height:1.7">'+
       '停用後對方將立即無法登入使用本企業資料。帳號紀錄會保留，日後可在成員管理中「恢復任職」。</div>';
 }
 function closeDeact(){document.getElementById('mbd-ov').classList.remove('open');deactTarget=null;deactPending=null;}
@@ -6522,8 +6526,8 @@ function refreshAfterTransfer(){
   try{refreshTodoBadge();}catch(e){}
 }
 /* ═══ 官網預約詢問單收件匣 ═══ */
-const INQ_STATUS={new:{label:'未處理',color:'#c92a2a'},contacted:{label:'已聯繫',color:'#f08c00'},
-  converted:{label:'已成訂單',color:'#2f9e44'},closed:{label:'已結案',color:'#868e96'}};
+const INQ_STATUS={new:{label:'未處理',color:'#923A2E'},contacted:{label:'已聯繫',color:'#8A6A1F'},
+  converted:{label:'已成訂單',color:'#3E6B4E'},closed:{label:'已結案',color:'#86918F'}};
 let inqList=[],inqTab='new';
 
 // 選單每收起一層，就看不到下一層的紅點，所以三層各要有自己的紅點：
@@ -6593,7 +6597,7 @@ function renderInq(){
     const target=[i.prop_label||'（未指定物件）',i.room?i.room+' 房':''].filter(Boolean).join(' · ');
     const wish=[i.move_in?'入住 '+i.move_in:'',i.lease_months?i.lease_months+' 個月':''].filter(Boolean).join(' / ')||'—';
     const contact=escH(i.phone)+(i.email?'<br><span style="color:var(--muted)">'+escH(i.email)+'</span>':'');
-    const optin=i.opt_in?'<span title="已同意接收行銷／祝福訊息" style="color:#2f9e44">✔ 同意行銷</span>':'<span style="color:var(--muted)">未同意行銷</span>';
+    const optin=i.opt_in?'<span title="已同意接收行銷／祝福訊息" style="color:#3E6B4E">✔ 同意行銷</span>':'<span style="color:var(--muted)">未同意行銷</span>';
     const acts=i.status==='converted'||i.status==='closed'
       ? '<button class="btn btn-ghost" style="padding:3px 8px;font-size:10.5px" onclick="inqSetStatus(\''+i.id+'\',\'new\')">重新開啟</button>'
       : '<button class="btn btn-ghost" style="padding:3px 8px;font-size:10.5px" onclick="inqSetStatus(\''+i.id+'\',\'contacted\')">已聯繫</button>'
@@ -6671,7 +6675,7 @@ function renderCustomers(){
     const reasons=lamp==='r'?[]:guestRiskReasons(st);
     const ownerCell=isAdmin()
       ?'<select onclick="event.stopPropagation()" onchange="setCustOwner(\''+ph+'\',this.value)" '+
-        'style="height:24px;font-size:10.5px;border:1px solid var(--border);border-radius:4px;background:#fff;max-width:92px">'+
+        'style="height:24px;font-size:10.5px;border:1px solid var(--border);border-radius:4px;background:#FCFCFA;max-width:92px">'+
         '<option value="">— 未歸屬 —</option>'+
         agents.map(a=>'<option value="'+escH(a)+'"'+(a===c.owner?' selected':'')+'>'+escH(a)+'</option>').join('')+
         (c.owner&&!agents.includes(c.owner)?'<option value="'+escH(c.owner)+'" selected>'+escH(c.owner)+'（已離職）</option>':'')+
@@ -6684,7 +6688,7 @@ function renderCustomers(){
       '<td style="font-size:11px">'+ph+'</td>'+
       '<td>'+ownerCell+'</td>'+
       '<td style="text-align:center;font-size:11px">'+(c.birthday||'<span style="color:var(--muted)">未填</span>')+
-        (c.optIn?'<div style="font-size:9px;color:#2f9e44">✔ 同意接收</div>':'')+'</td>'+
+        (c.optIn?'<div style="font-size:9px;color:#3E6B4E">✔ 同意接收</div>':'')+'</td>'+
       '<td style="text-align:center;font-size:12px;font-weight:700">'+c.totalStays+'</td>'+
       '<td style="text-align:right;font-size:12px;font-weight:700;color:var(--primary)">$'+c.totalRevenue.toLocaleString()+'</td>'+
       '<td style="font-size:11px">'+(c.lastCheckin||'—')+'</td>'+
@@ -6716,8 +6720,8 @@ function custRiskHtml(phone){
       (lamp==='g'?'<span style="font-size:10.5px;color:var(--muted)">沒有取消、欠款或逾期退房紀錄</span>':'')+
     '</div>';
   if(bl){
-    h+='<div style="margin-top:7px;font-size:11px;line-height:1.75;background:#fff;border-radius:6px;padding:8px 10px">'+
-      '<div><strong style="color:#c92a2a">'+(bl.expired?'⏳ 黑名單已到期（自動失效）':'🚫 黑名單')+'</strong></div>'+
+    h+='<div style="margin-top:7px;font-size:11px;line-height:1.75;background:#FCFCFA;border-radius:6px;padding:8px 10px">'+
+      '<div><strong style="color:#923A2E">'+(bl.expired?'⏳ 黑名單已到期（自動失效）':'🚫 黑名單')+'</strong></div>'+
       '<div>原因：'+escH(bl.reason)+'</div>'+
       '<div style="color:var(--muted)">標記人：'+escH(bl.by||'—')+'　標記於 '+escH((bl.at||'').slice(0,10))+
         '　'+(bl.until?'有效至 '+escH(bl.until):'無到期日')+'</div></div>';
@@ -6733,12 +6737,12 @@ function custRiskHtml(phone){
         escH(c.date)+'　'+escH(c.item||c.cat||'')+'（'+escH(c.sev||'')+'）</div>').join('')+'</div>';
   }
   if(overrides.length){
-    h+='<div style="margin-top:6px;font-size:10.5px;color:#c92a2a">⚠️ 曾在黑名單狀態下放行建立訂單 '+overrides.length+' 次'+
+    h+='<div style="margin-top:6px;font-size:10.5px;color:#923A2E">⚠️ 曾在黑名單狀態下放行建立訂單 '+overrides.length+' 次'+
       '（最近：'+escH((overrides[overrides.length-1].blOverride.at||'').slice(0,10))+
       ' · '+escH(overrides[overrides.length-1].blOverride.by||'')+'）</div>';
   }
   if(isAdmin()){
-    const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;background:#fff';
+    const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;background:#FCFCFA';
     const d=new Date();d.setFullYear(d.getFullYear()+BLACKLIST_YEARS);
     const defUntil=bl&&bl.until?bl.until:ds(d.getFullYear(),d.getMonth()+1,d.getDate());
     h+='<div style="margin-top:9px;border-top:1px dashed '+L.color+'55;padding-top:8px">'+
@@ -6747,7 +6751,7 @@ function custRiskHtml(phone){
           '<input type="text" id="bl-reason" value="'+escH(bl?bl.reason:'')+'" placeholder="例：惡意毀損設備並拒絕賠償" style="'+inp+';width:100%"></div>'+
         '<div><label style="font-size:10px;color:var(--muted)">有效至</label>'+
           '<input type="date" id="bl-until" value="'+escH(defUntil)+'" style="'+inp+'"></div>'+
-        '<button class="btn btn-ghost sm" style="color:#c92a2a;border-color:#c92a2a55" onclick="setBlacklist('+jsArg(phone)+')">'+
+        '<button class="btn btn-ghost sm" style="color:#923A2E;border-color:#923A2E55" onclick="setBlacklist('+jsArg(phone)+')">'+
           (bl?'💾 更新標記':'🚫 設為黑名單')+'</button>'+
         (bl?'<button class="btn btn-ghost sm" onclick="clearBlacklist('+jsArg(phone)+')">✔ 解除</button>':'')+
       '</div>'+
@@ -6787,16 +6791,16 @@ function renderCustProfile(phone,c){
   if(!box)return;
   if(!c){box.innerHTML='';return;}
   const agents=Cloud.companyMembers||[];
-  const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;width:100%;background:#fff';
+  const inp='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 7px;width:100%;background:#FCFCFA';
   box.innerHTML=custRiskHtml(phone)+
-    '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:11px 13px">'+
+    '<div style="background:#ECEEEA;border:1px solid var(--border);border-radius:8px;padding:11px 13px">'+
       '<div class="form-grid" style="gap:9px">'+
         '<div class="field"><label style="font-size:10px">客戶生日</label>'+
           '<input type="date" id="cd-bday" value="'+(c.birthday||'')+'" style="'+inp+'"></div>'+
         '<div class="field"><label style="font-size:10px">Email（寄祝福用）</label>'+
           '<input type="email" id="cd-email" value="'+escH(c.email||'')+'" placeholder="尚未填寫" style="'+inp+'"></div>'+
         '<div class="field"><label style="font-size:10px">歸屬業務'+(isAdmin()?'':'（僅管理者可改）')+'</label>'+
-          '<select id="cd-owner" '+(isAdmin()?'':'disabled')+' style="'+inp+(isAdmin()?'':';background:#f1f3f5')+'">'+
+          '<select id="cd-owner" '+(isAdmin()?'':'disabled')+' style="'+inp+(isAdmin()?'':';background:#ECEEEA')+'">'+
             '<option value="">— 未歸屬 —</option>'+
             agents.map(a=>'<option value="'+escH(a)+'"'+(a===c.owner?' selected':'')+'>'+escH(a)+'</option>').join('')+
             (c.owner&&!agents.includes(c.owner)?'<option value="'+escH(c.owner)+'" selected>'+escH(c.owner)+'（已離職）</option>':'')+
@@ -6862,7 +6866,7 @@ function openCustomerDetail(phone){
     const anyStatus=isCancelled?'cancelled':((lastSeg&&lastSeg.status)||'reserved');
     const st=STATUS[anyStatus]||STATUS.reserved;
     const statusCell=isCancelled
-      ?'<span style="background:#86869622;color:#868e96;font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">🚫 已取消</span>'
+      ?'<span style="background:#86918F22;color:#86918F;font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">🚫 已取消</span>'
       :'<span style="background:'+st.color+'22;color:'+st.color+';font-weight:700;padding:2px 7px;border-radius:10px;font-size:11px;white-space:nowrap">'+st.emoji+' '+st.label+'</span>';
     return '<tr class="oo-row"'+(isCancelled?' style="opacity:.65"':'')+'>'+
       '<td style="font-size:11px">'+propName+'</td>'+
@@ -6960,7 +6964,7 @@ function estBadgeHtml(pid,room){
   if(!e)return '';
   const t=e.yearly?'建議年租':'旺季 $'+e.rentPK;
   return '<button class="pm-icon-btn" onclick="openEstHistory(\''+pid+'\',\''+room.replace(/'/g,"\\'")+'\')" '+
-    'title="查看此房間的估價紀錄" style="background:#f3f0ff;color:#5f3dc4">📊 '+escH(t)+'</button>';
+    'title="查看此房間的估價紀錄" style="background:#EFE3EA;color:#6E4559">📊 '+escH(t)+'</button>';
 }
 
 let estPending=null;   // {pid, room, ref}；pid 為 null 代表「還沒進系統的新物件」
@@ -7024,8 +7028,8 @@ function showEstResult(id){
   const isNew=!e.prop_id;   // 還沒建檔的新物件
   const p=isNew?null:getProp(e.prop_id);
   const cur=isNew?0:getRoomPrice(e.prop_id,e.room);
-  const clr={ok:'#2f9e44',warn:'#e67700',bad:'#c92a2a'}[e.cls]||'#495057';
-  const bg={ok:'#ebfbee',warn:'#fff9db',bad:'#fff5f5'}[e.cls]||'#f8f9fa';
+  const clr={ok:'#3E6B4E',warn:'#8A6A1F',bad:'#923A2E'}[e.cls]||'#4F5D62';
+  const bg={ok:'#E3ECE5',warn:'#F3ECD9',bad:'#F4E1DD'}[e.cls]||'#ECEEEA';
   document.getElementById('est-title').textContent=isNew
     ?'🧮 估價結果 · 新物件'
     :'🧮 估價結果 · '+(p?p.name:'—')+' '+e.room;
@@ -7035,7 +7039,7 @@ function showEstResult(id){
     '<div style="font-size:11px;margin-top:7px">綜合評分 <strong style="font-size:15px;color:'+clr+'">'+e.total+'</strong> 分（基礎門檻分 '+e.base+'）</div>'+
   '</div>';
   if(e.yearly){
-    h+='<div style="padding:14px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8">'+
+    h+='<div style="padding:14px;background:#ECEEEA;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8">'+
       '本物件建議年租，估價模組不提供短租租金試算，因此沒有可套用的月租金。<br>'+
       '若仍要短租經營，請自行評估風險並手動設定租金。</div>';
   }else{
@@ -7043,7 +7047,7 @@ function showEstResult(id){
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
       ['SP','PK','OP'].map(k=>{
         const v=e['rent'+k];
-        return '<div style="flex:1;min-width:150px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+        return '<div style="flex:1;min-width:150px;background:#FCFCFA;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
           '<div style="font-size:10.5px;color:var(--muted)">'+SEASON[k]+'</div>'+
           '<div style="font-size:20px;font-weight:800;color:var(--primary);line-height:1.3">$'+escH(v)+'</div>'+
           (isNew?'':'<button class="btn btn-ghost sm" style="width:100%;margin-top:6px" onclick="applyEstPrice(\''+e.id+'\',\''+k+'\')">套用為月租金</button>')+
@@ -7057,7 +7061,7 @@ function showEstResult(id){
   h+='<div id="est-market" style="margin-bottom:12px"></div>';
   if(isNew)h+=newPropFormHtml(e);
   if(e.applied){
-    h+='<div style="background:#ebfbee;border:1px solid #2f9e4433;border-radius:8px;padding:9px 12px;font-size:11px;color:#2f9e44;margin-bottom:12px">'+
+    h+='<div style="background:#E3ECE5;border:1px solid #3E6B4E33;border-radius:8px;padding:9px 12px;font-size:11px;color:#3E6B4E;margin-bottom:12px">'+
       '✓ 已於 '+e.applied.at.slice(0,10)+' 套用「'+SEASON[e.applied.season]+'」$'+e.applied.price.toLocaleString()+
       '（原價 '+(e.applied.prevPrice?('$'+e.applied.prevPrice.toLocaleString()):'未設定')+'）</div>';
   }
@@ -7065,7 +7069,7 @@ function showEstResult(id){
     '<table style="width:100%;border-collapse:collapse;font-size:11.5px">'+
     (e.items||[]).map(it=>{
       const sc=it[1];
-      const c=sc>0?'#2f9e44':sc<0?'#c92a2a':'var(--muted)';
+      const c=sc>0?'#3E6B4E':sc<0?'#923A2E':'var(--muted)';
       return '<tr style="border-bottom:1px solid var(--border)">'+
         '<td style="padding:5px 8px">'+escH(it[0])+'<div style="font-size:9.5px;color:var(--muted)">'+escH(it[2]||'')+'</div></td>'+
         '<td style="padding:5px 8px;text-align:right;font-weight:700;color:'+c+';white-space:nowrap">'+(sc>0?'+':'')+sc+'</td>'+
@@ -7087,8 +7091,8 @@ function showEstResult(id){
 // 資料庫端已擋掉樣本數不足的範圍，前端拿不到單筆成交，也看不出是哪間公司成交的。
 const MKT_LEVEL={building:'同一棟大樓',road:'同一條路（含段）',district:'同一個行政區'};
 function mktBox(inner,tone){
-  const c=tone==='ok'?'#5f3dc4':'var(--border)';
-  const bg=tone==='ok'?'#f3f0ff':'#f8f9fa';
+  const c=tone==='ok'?'#6E4559':'var(--border)';
+  const bg=tone==='ok'?'#EFE3EA':'#ECEEEA';
   return '<div style="background:'+bg+';border:1px solid '+c+'33;border-radius:9px;padding:11px 13px">'+inner+'</div>';
 }
 function mktNote(t){
@@ -7133,15 +7137,15 @@ async function loadEstMarket(id){
       '本次估價旺季租金 $'+pk.toLocaleString()+'，'+t+'此範圍中位數 '+Math.abs(d)+'%。</div>';
   })();
   paint(mktBox(
-    '<div style="font-size:11px;font-weight:800;color:#5f3dc4;margin-bottom:6px">📈 成交行情參考 · '+
+    '<div style="font-size:11px;font-weight:800;color:#6E4559;margin-bottom:6px">📈 成交行情參考 · '+
       escH(MKT_LEVEL[s.level]||'')+'</div>'+
     '<div style="font-size:10.5px;color:var(--muted);margin-bottom:8px">'+
       escH(s.scope||'')+'　'+escH(q.rtype)+'　近 2 年 '+s.n+' 筆成交</div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-      '<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
+      '<div style="flex:1;min-width:120px;background:#FCFCFA;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
         '<div style="font-size:10px;color:var(--muted)">成交中位數</div>'+
-        '<div style="font-size:19px;font-weight:800;color:#5f3dc4;line-height:1.3">$'+s.median.toLocaleString()+'</div></div>'+
-      '<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:19px;font-weight:800;color:#6E4559;line-height:1.3">$'+s.median.toLocaleString()+'</div></div>'+
+      '<div style="flex:1;min-width:120px;background:#FCFCFA;border:1px solid var(--border);border-radius:8px;padding:9px 11px">'+
         '<div style="font-size:10px;color:var(--muted)">常見區間（25%–75%）</div>'+
         '<div style="font-size:14px;font-weight:800;line-height:1.75">$'+s.p25.toLocaleString()+' – $'+s.p75.toLocaleString()+'</div></div>'+
     '</div>'+gap+
@@ -7158,8 +7162,8 @@ function newPropFormHtml(e){
   const i=e.input||{};
   const rt=EST_TO_RTYPE[i.rtype]||'';
   const seasons=e.yearly?[]:['SP','PK','OP'].filter(k=>estNum(e['rent'+k])>0);
-  return '<div style="background:#f3f0ff;border:1px solid #5f3dc433;border-radius:9px;padding:12px 14px;margin-bottom:12px">'+
-    '<div style="font-size:12px;font-weight:800;color:#5f3dc4;margin-bottom:2px">➕ 建立成房源</div>'+
+  return '<div style="background:#EFE3EA;border:1px solid #6E455933;border-radius:9px;padding:12px 14px;margin-bottom:12px">'+
+    '<div style="font-size:12px;font-weight:800;color:#6E4559;margin-bottom:2px">➕ 建立成房源</div>'+
     '<div style="font-size:10.5px;color:var(--muted);margin-bottom:9px">'+
       '會用估價填的地址開一個新館別，並建立第一間房。之後可在房源管理繼續加房間。</div>'+
     '<div class="form-grid">'+
@@ -7262,7 +7266,7 @@ function openEstHistory(pid,room){
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+escH(e.rentSP)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:700">'+escH(e.rentPK)+'</td>'+
         '<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+escH(e.rentOP)+'</td>'+
-        '<td style="padding:6px 8px;white-space:nowrap;font-size:10.5px;color:'+(e.applied?'#2f9e44':'var(--muted)')+'">'+
+        '<td style="padding:6px 8px;white-space:nowrap;font-size:10.5px;color:'+(e.applied?'#3E6B4E':'var(--muted)')+'">'+
           (e.applied?('✓ '+SEASON[e.applied.season].slice(0,2)+' $'+e.applied.price.toLocaleString()):'未套用')+'</td>'+
         '<td style="padding:6px 8px;text-align:right"><button class="btn btn-ghost sm" onclick="showEstResult(\''+e.id+'\')">查看</button></td>'+
       '</tr>').join('')+'</tbody></table>';
@@ -7332,15 +7336,15 @@ function renderPhotoGrid(){
     return;
   }
   box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:9px">'+
-    list.map((u,i)=>'<div style="border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#f8f9fa">'+
-      '<div style="position:relative;height:96px;background:#e9ecef">'+
+    list.map((u,i)=>'<div style="border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#ECEEEA">'+
+      '<div style="position:relative;height:96px;background:#DCE0DA">'+
         '<img src="'+escH(u)+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'+
-        (i===0?'<span style="position:absolute;top:4px;left:4px;background:#1a56a0;color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:3px">封面</span>':'')+
+        (i===0?'<span style="position:absolute;top:4px;left:4px;background:#2F5664;color:#FCFCFA;font-size:9px;font-weight:800;padding:1px 6px;border-radius:3px">封面</span>':'')+
       '</div>'+
       '<div style="display:flex;gap:3px;padding:4px">'+
         '<button class="btn btn-ghost sm" style="flex:1;padding:2px 0" onclick="movePhoto('+i+',-1)"'+(i===0?' disabled':'')+'>◀</button>'+
         '<button class="btn btn-ghost sm" style="flex:1;padding:2px 0" onclick="movePhoto('+i+',1)"'+(i===list.length-1?' disabled':'')+'>▶</button>'+
-        '<button class="btn btn-ghost sm" style="flex:1;padding:2px 0;color:#c92a2a" onclick="removePhoto('+i+')">🗑</button>'+
+        '<button class="btn btn-ghost sm" style="flex:1;padding:2px 0;color:#923A2E" onclick="removePhoto('+i+')">🗑</button>'+
       '</div>'+
     '</div>').join('')+'</div>';
 }
@@ -7377,7 +7381,7 @@ async function uploadPhotos(input){
   if(ok.length)setPhotos(phPid,phRoom,photosOf(phPid,phRoom).concat(ok));
   input.disabled=false;input.value='';
   msg.textContent=fail.length?('已上傳 '+ok.length+' 張，失敗 '+fail.length+' 張'):('已上傳 '+ok.length+' 張');
-  msg.style.color=fail.length?'#c92a2a':'#2f9e44';
+  msg.style.color=fail.length?'#923A2E':'#3E6B4E';
   renderPhotoGrid();
   if(fail.length)alert('以下檔案未能上傳：\n\n'+fail.join('\n'));
 }
@@ -7431,7 +7435,7 @@ async function openGeo(pid){
   const msg=document.getElementById('geo-msg');
   msg.textContent='地圖載入中…';msg.style.color='var(--muted)';
   try{ await loadMapLibre(); }
-  catch(e){ msg.textContent=e.message;msg.style.color='#c92a2a';return; }
+  catch(e){ msg.textContent=e.message;msg.style.color='#923A2E';return; }
   msg.textContent='';
   const saved=propLatLng(geoPid);
   const c=saved||DISTRICT_CENTER[(p&&p.district)||'']||TAIPEI_CENTER;
@@ -7443,7 +7447,7 @@ async function openGeo(pid){
       center:[c.lng,c.lat],zoom:z,
     });
     geoMap.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
-    geoMarker=new maplibregl.Marker({draggable:true,color:'#1a56a0'})
+    geoMarker=new maplibregl.Marker({draggable:true,color:'#2F5664'})
       .setLngLat([c.lng,c.lat]).addTo(geoMap);
     geoMarker.on('dragend',renderGeoReadout);
     geoMap.on('click',e=>{geoMarker.setLngLat(e.lngLat);renderGeoReadout();});
@@ -7510,7 +7514,7 @@ async function openBulkGeo(){
   const msg=document.getElementById('bg-msg');
   msg.textContent='地圖載入中…';msg.style.color='var(--muted)';
   try{ await loadMapLibre(); }
-  catch(e){ msg.textContent=e.message;msg.style.color='#c92a2a';return; }
+  catch(e){ msg.textContent=e.message;msg.style.color='#923A2E';return; }
   msg.textContent='';
   if(!bgMap){
     bgMap=new maplibregl.Map({
@@ -7519,10 +7523,10 @@ async function openBulkGeo(){
       center:[TAIPEI_CENTER.lng,TAIPEI_CENTER.lat],zoom:12,
     });
     bgMap.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
-    bgMarker=new maplibregl.Marker({draggable:true,color:'#1a56a0'})
+    bgMarker=new maplibregl.Marker({draggable:true,color:'#2F5664'})
       .setLngLat([TAIPEI_CENTER.lng,TAIPEI_CENTER.lat]).addTo(bgMap);
     bgMarker.on('dragend',renderBgReadout);
-    bgMap.on('click',e=>{ if(!bgPid){bgMsg('請先從左側選一個館別。','#e8590c');return;}
+    bgMap.on('click',e=>{ if(!bgPid){bgMsg('請先從左側選一個館別。','#A65F22');return;}
       bgMarker.setLngLat(e.lngLat);renderBgReadout(); });
   }
   setTimeout(()=>bgMap.resize(),80);   // 同 openGeo：modal 剛開時容器尺寸是 0
@@ -7536,9 +7540,9 @@ function renderBulkList(){
   const list=all.filter(x=>mode==='todo'?!x.has:mode==='auto'?x.auto:true);
   bgOrder=list.map(x=>x.pid);
   document.getElementById('bg-list').innerHTML=list.length?list.map(x=>{
-    const chip=!x.has?'<span style="background:#fff4e6;color:#e8590c;border-radius:4px;padding:1px 5px">未定位</span>'
-      :x.auto?'<span style="background:#fff9db;color:#a1690a;border-radius:4px;padding:1px 5px">待確認</span>'
-      :'<span style="background:#e7f5ff;color:#1971c2;border-radius:4px;padding:1px 5px">已定位</span>';
+    const chip=!x.has?'<span style="background:#F5E7D7;color:#A65F22;border-radius:4px;padding:1px 5px">未定位</span>'
+      :x.auto?'<span style="background:#F3ECD9;color:#8A6A1F;border-radius:4px;padding:1px 5px">待確認</span>'
+      :'<span style="background:#E1EAEC;color:#2F5664;border-radius:4px;padding:1px 5px">已定位</span>';
     return '<div class="bg-row'+(x.pid===bgPid?' on':'')+'" onclick="selectBulk(\''+x.pid+'\')">'+
       '<div style="display:flex;justify-content:space-between;gap:6px;align-items:center">'+
         '<strong style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+bgEscape(x.name)+'</strong>'+
@@ -7566,7 +7570,7 @@ function selectBulk(pid){
   bgMap.flyTo({center:[c.lng,c.lat],zoom:saved?17:15,speed:1.6});
   bgMarker.setLngLat([c.lng,c.lat]);
   renderBgReadout();
-  bgMsg(saved?'':'尚未定位，地圖已帶到行政區中心，請點出實際位置。',saved?'':'#e8590c');
+  bgMsg(saved?'':'尚未定位，地圖已帶到行政區中心，請點出實際位置。',saved?'':'#A65F22');
 }
 function renderBgReadout(){
   if(!bgMarker)return;
@@ -7575,7 +7579,7 @@ function renderBgReadout(){
     bgPid?(ll.lat.toFixed(6)+', '+ll.lng.toFixed(6)):'—';
 }
 function saveBulkAndNext(){
-  if(!bgPid){bgMsg('請先從左側選一個館別。','#e8590c');return;}
+  if(!bgPid){bgMsg('請先從左側選一個館別。','#A65F22');return;}
   const ll=bgMarker.getLngLat();
   const d=loadPropInfo();
   if(!d[bgPid])d[bgPid]={};
@@ -7589,7 +7593,7 @@ function saveBulkAndNext(){
   renderBulkList();
   const next=prevOrder.slice(idx+1).find(x=>bgOrder.includes(x))||bgOrder[0]||'';
   selectBulk(next);
-  bgMsg(next?'已儲存，已跳到下一個。':'已儲存，這批都完成了 🎉','#16a34a');
+  bgMsg(next?'已儲存，已跳到下一個。':'已儲存，這批都完成了 🎉','#3E6B4E');
 }
 
 // 台灣的 OSM 幾乎沒有門牌資料（查「○○路二段106號」一律回空陣列），
@@ -7628,7 +7632,7 @@ function geoCandidates(addr,city,district){
 async function autoGeocodeAll(){
   if(bgBusy)return;
   const targets=bulkGeoProps().filter(x=>!x.has&&x.address);
-  if(!targets.length){bgMsg('沒有「未定位且已填地址」的館別。','#e8590c');return;}
+  if(!targets.length){bgMsg('沒有「未定位且已填地址」的館別。','#A65F22');return;}
   if(!confirm('將對 '+targets.length+' 個館別依地址自動推算座標。\n\n'+
     '· 使用 OpenStreetMap 免費服務，每秒 1 筆，不會產生費用\n'+
     '· 台灣的圖資沒有門牌，只能定位到「路段」，落點可能離實際位置數百公尺\n'+
@@ -7680,7 +7684,7 @@ async function autoGeocodeAll(){
   if(bgOrder.length)selectBulk(bgOrder[0]);
   bgMsg('推算完成：成功 '+ok+' 筆、查不到 '+fail+' 筆。'+
     (ok?'落點只到路段，請逐一點開拖到正確位置後按「儲存並跳下一個」。':'請改用手動定位。'),
-    ok?'#e8590c':'#c92a2a');
+    ok?'#A65F22':'#923A2E');
 }
 function closeBulkGeo(){
   if(bgBusy&&!confirm('自動粗定位還在執行，要中斷嗎？（已完成的結果會保留）'))return;
@@ -7756,7 +7760,7 @@ function saveSiteInfo(){
   }
   Cloud.set('qj_pub_info',d);
   const msg=document.getElementById('si-msg');
-  msg.style.color='#16a34a';
+  msg.style.color='#3E6B4E';
   msg.textContent='已儲存，租客重新整理官網就會看到。';
 }
 
@@ -7777,8 +7781,8 @@ function renderPM(){
       const curP=ov[origRoom]!==undefined?ov[origRoom]:room.price;
       const changed=ov[origRoom]!==undefined&&ov[origRoom]!==origP;
       const off=!!room.offSale;
-      return '<div class="pm-room-row"'+(off?' style="background:#fff5f5"':'')+'>'+
-        '<span class="pm-rno"'+(off?' style="color:#c92a2a"':'')+'>'+room.room+'</span>'+
+      return '<div class="pm-room-row"'+(off?' style="background:#F4E1DD"':'')+'>'+
+        '<span class="pm-rno"'+(off?' style="color:#923A2E"':'')+'>'+room.room+'</span>'+
         rtSel(room.type||'','setRT(\''+pid+'\',\''+origRoom+'\',this)')+
         '<span class="pm-price-wrap">NT$&nbsp;'+
           '<input class="pm-price-input'+(changed?' changed':'')+'" type="number" '+
@@ -7787,7 +7791,7 @@ function renderPM(){
         '</span>'+
         '<button class="pm-icon-btn" onclick="toggleOffSale(\''+pid+'\',\''+origRoom+'\')" '+
           'title="'+(off?'目前停售中，點擊恢復銷售':'目前正常銷售，點擊設為停售（停售後無法新增訂單）')+'" '+
-          'style="background:'+(off?'#fee2e2;color:#c92a2a':'#f1f3f5;color:#495057')+'">'+
+          'style="background:'+(off?'#F4E1DD;color:#923A2E':'#ECEEEA;color:#4F5D62')+'">'+
           (off?'⛔ 停售中':'✔ 銷售中')+'</button>'+
         // 上線日：這間房是哪天開始營運的。報表分母只算上線後的天數，
         // 否則「3 月才上線的房間」整個 1~2 月都會被當成空房拉低住房率。
@@ -7796,11 +7800,11 @@ function renderPM(){
           const has=!!w.from;
           return '<button class="pm-icon-btn" onclick="setRoomFrom(\''+pid+'\',\''+origRoom+'\')" '+
             'title="'+(has?'上線日 '+w.from+'（之前的天數不列入住房率分母）':'設定上線日：未設定＝從一開始就在營運')+'" '+
-            'style="background:'+(has?'#e7f5ff;color:#1971c2':'#f1f3f5;color:#868e96')+'">🗓 '+
+            'style="background:'+(has?'#E1EAEC;color:#2F5664':'#ECEEEA;color:#86918F')+'">🗓 '+
             (has?w.from.slice(2):'上線日')+'</button>';
         })()+
         '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\''+origRoom+'\')" '+
-          'title="管理這間房在官網顯示的照片" style="background:#f3f0ff;color:#7048e8">📷 '+photoBadge(pid,origRoom)+'</button>'+
+          'title="管理這間房在官網顯示的照片" style="background:#EFE3EA;color:#8A5A7A">📷 '+photoBadge(pid,origRoom)+'</button>'+
         // 房間層級的設備清單是「覆寫」，沒設定就沿用館別預設，所以按鈕上
         // 直接標出目前用的是哪一份——否則業者會以為這間房沒有設備清單。
         (function(){
@@ -7810,13 +7814,13 @@ function renderPM(){
             'title="'+(own?'這間房有專屬設備清單（'+eq.items.length+' 項）':
               eq.src==='default'?'目前沿用館別預設清單（'+eq.items.length+' 項），點擊可為這間房單獨設定':
               '尚未建立設備清單，無法點交')+'" '+
-            'style="background:'+(eq.items.length?(own?'#e6fcf5;color:#087f5b':'#f1f3f5;color:#495057')
-              :'#fff4e6;color:#e8590c')+'">🧰 '+
+            'style="background:'+(eq.items.length?(own?'#E3ECE5;color:#2F4F3A':'#ECEEEA;color:#4F5D62')
+              :'#F5E7D7;color:#A65F22')+'">🧰 '+
             (own?'設備 '+eq.items.length:eq.src==='default'?'沿用預設':'無設備')+'</button>';
         })()+
         estBadgeHtml(pid,origRoom)+
         '<button class="pm-icon-btn" onclick="openEstimate(\''+pid+'\',\''+origRoom+'\')" '+
-          'title="用估價模組試算這間房的建議租金" style="background:#e7f5ff;color:#1971c2">🧮 估價</button>'+
+          'title="用估價模組試算這間房的建議租金" style="background:#E1EAEC;color:#2F5664">🧮 估價</button>'+
         (isCustom?'<button class="pm-icon-del" onclick="delRoom(\''+pid+'\',\''+origRoom+'\')">🗑</button>':'')+
       '</div>';
     }).join('');
@@ -7834,7 +7838,7 @@ function renderPM(){
             const isVisible=vis[pid]!==false;
             return '<button class="pm-icon-btn" onclick="togglePubVis(\''+pid+'\')" '+
               'title="'+(isVisible?'已上架官網，點擊下架':'已下架，點擊上架官網')+'" '+
-              'style="background:'+(isVisible?'#d1fae5;color:#16a34a':'#fee2e2;color:#c92a2a')+'">'+
+              'style="background:'+(isVisible?'#E3ECE5;color:#3E6B4E':'#F4E1DD;color:#923A2E')+'">'+
               (isVisible?'👁 上架中':'🙈 已下架')+'</button>';
           })()+
           '<button class="pm-icon-btn" onclick="openPhotos(\''+pid+'\',\'\')" '+
@@ -7847,14 +7851,14 @@ function renderPM(){
             return '<button class="pm-icon-btn" onclick="hoOpenEquip(\''+pid+'\',\'\')" '+
               'title="'+(cnt?'本館別預設設備清單共 '+cnt+' 項，所有沒有專屬清單的房間都會用它'
                 :'尚未建立設備主檔，這個館別的房間目前無法做入住／退房點交')+'" '+
-              'style="background:'+(cnt?'#e6fcf5;color:#087f5b':'#fff4e6;color:#e8590c')+'">🧰 '+
+              'style="background:'+(cnt?'#E3ECE5;color:#2F4F3A':'#F5E7D7;color:#A65F22')+'">🧰 '+
               (cnt?'設備主檔 '+cnt:'設備主檔 未建立')+'</button>';
           })()+
           (function(){
             const has=!!propLatLng(pid);
             return '<button class="pm-icon-btn" onclick="openGeo(\''+pid+'\')" '+
               'title="'+(has?'已標定地圖位置，點擊調整':'尚未標定位置，官網地圖不會顯示此館別')+'" '+
-              'style="background:'+(has?'#e7f5ff;color:#1971c2':'#fff4e6;color:#e8590c')+'">'+
+              'style="background:'+(has?'#E1EAEC;color:#2F5664':'#F5E7D7;color:#A65F22')+'">'+
               (has?'📍 已定位':'📍 未定位')+'</button>';
           })()+
           // 契約入口只在「服務類型」選好之後才出現：包租要簽包租契約、
@@ -7862,10 +7866,10 @@ function renderPM(){
           (prop.serviceType
             ? '<button class="pm-icon-btn" onclick="ctOpenData(\''+pid+'\')" '+
                 'title="填寫這個館別的房東資料、建物登記資料與契約條件" '+
-                'style="background:#f3f0ff;color:#7048e8">📋 契約設定</button>'+
+                'style="background:#EFE3EA;color:#8A5A7A">📋 契約設定</button>'+
               '<button class="pm-icon-btn" onclick="ctGenOwner(\''+pid+'\')" '+
                 'title="產生要給房東線上簽署的'+(prop.serviceType==='包租'?'住宅包租契約':'租賃住宅委託管理契約')+'連結" '+
-                'style="background:#e7f5ff;color:#1971c2">🏠 房東契約</button>'
+                'style="background:#E1EAEC;color:#2F5664">🏠 房東契約</button>'
             : '')+
           '<button class="pm-icon-btn" onclick="togglePropEdit(\''+pid+'\')">✏️ 編輯</button>'+
           (isCustom?'<button class="pm-icon-btn danger" onclick="delProp(\''+pid+'\')">🗑</button>':'')+
@@ -7878,7 +7882,7 @@ function renderPM(){
         const cityOpts=['台北市','新北市'].map(c=>'<option value="'+c+'"'+(c===curCity?' selected':'')+'>'+c+'</option>').join('');
         const distOpts=(CITY_DISTRICTS[curCity]||[]).map(d=>'<option value="'+d+'"'+(d===curDist?' selected':'')+'>'+d+'</option>').join('');
         const sel2='height:28px;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 6px;width:100%';
-        return '<div class="pm-edit-panel" id="pe-'+pid+'" style="display:none;padding:10px 11px;background:#f8f9fa;border-top:1px solid var(--border)">'+
+        return '<div class="pm-edit-panel" id="pe-'+pid+'" style="display:none;padding:10px 11px;background:#ECEEEA;border-top:1px solid var(--border)">'+
           '<div class="form-grid">'+
             '<div class="field"><label style="font-size:10px">服務類型 <span class="req">*</span></label>'+
               '<select id="pe-svc-'+pid+'" style="'+sel2+'">'+
@@ -8128,8 +8132,8 @@ function applySubUI(){
     // 唯讀狀態要寫在字面上。只把徽章染紅，使用者不會知道那代表「存不進去」。
     badge.textContent='💎 '+s.plan_name+(!s.writable?' · 已到期'
       :(d===null||d===undefined?'':(' · 剩 '+d+' 天')));
-    badge.style.background=!s.writable?'rgba(201,42,42,.85)'
-      :(d!==null&&d!==undefined&&d<=7?'rgba(230,119,0,.9)':'rgba(255,255,255,.12)');
+    badge.style.background=!s.writable?'rgba(146,58,46,.85)'
+      :(d!==null&&d!==undefined&&d<=7?'rgba(138,106,31,.9)':'rgba(255,255,255,.12)');
   }
 
   if(quotaSpan){
@@ -8142,19 +8146,19 @@ function applySubUI(){
   let msg='',bg='',fg='';
   if(!s.writable){
     msg='🔒 訂閱已到期，系統目前為<strong>唯讀模式</strong>。您的資料都還在、也可以匯出，續訂後立即恢復編輯。';
-    bg='#fff5f5';fg='#c92a2a';
+    bg='#F4E1DD';fg='#923A2E';
   }else if(s.days_left!==null&&s.days_left!==undefined&&s.days_left<=7){
     msg='⏰ 方案將於 <strong>'+s.days_left+' 天後</strong>到期（'+
         String(s.current_period_end||'').slice(0,10)+'）。到期後系統會轉為唯讀，請及早續訂。';
-    bg='#fff9db';fg='#a06000';
+    bg='#F3ECD9';fg='#6B5016';
   }else{
     const rq=Cloud.quota('rooms'),pq=Cloud.quota('props');
     if(rq.limit!==null&&rq.used>=rq.limit){
       msg='📦 房間數已達方案「'+s.plan_name+'」的上限 '+rq.limit+' 間，無法再新增房間。';
-      bg='#fff9db';fg='#a06000';
+      bg='#F3ECD9';fg='#6B5016';
     }else if(pq.limit!==null&&pq.used>=pq.limit){
       msg='📦 館別數已達方案「'+s.plan_name+'」的上限 '+pq.limit+' 個，無法再新增館別。';
-      bg='#fff9db';fg='#a06000';
+      bg='#F3ECD9';fg='#6B5016';
     }
   }
   if(banner){
@@ -8181,9 +8185,9 @@ async function openPlan(){
   const cur=document.getElementById('plan-current');
   const s=Cloud.sub;
   cur.innerHTML=s?(
-    '<div style="background:var(--primary-light,#e8f0fb);border-radius:10px;padding:14px 16px">'+
-      '<div style="font-size:15px;font-weight:800;color:var(--primary-d,#143e7a)">目前方案：'+escH(s.plan_name)+
-        (s.writable?'':' <span style="color:#c92a2a">（已到期·唯讀）</span>')+'</div>'+
+    '<div style="background:var(--primary-light,#E1EAEC);border-radius:10px;padding:14px 16px">'+
+      '<div style="font-size:15px;font-weight:800;color:var(--primary-d,#22424C)">目前方案：'+escH(s.plan_name)+
+        (s.writable?'':' <span style="color:#923A2E">（已到期·唯讀）</span>')+'</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.9">'+
         (s.current_period_end
           ? '有效期限：'+String(s.current_period_end).slice(0,10)+
@@ -8215,13 +8219,13 @@ async function openPlan(){
   box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">'+
     '<thead><tr><th style="text-align:left;padding:8px;border-bottom:2px solid var(--border)"></th>'+
       plans.map(p=>'<th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;'+
-        (p.code===cur_code?'background:var(--primary-light,#e8f0fb);':'')+'">'+
+        (p.code===cur_code?'background:var(--primary-light,#E1EAEC);':'')+'">'+
         '<div style="font-weight:800;font-size:13px">'+escH(p.name)+'</div>'+
-        (p.code===cur_code?'<div style="font-size:10px;color:var(--primary,#1a56a0);font-weight:700">目前方案</div>':'')+
+        (p.code===cur_code?'<div style="font-size:10px;color:var(--primary,#2F5664);font-weight:700">目前方案</div>':'')+
         '</th>').join('')+'</tr></thead><tbody>'+
     rows.map(([label,fn])=>'<tr><td style="padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);white-space:nowrap">'+
       label+'</td>'+plans.map(p=>'<td style="padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;'+
-      (p.code===cur_code?'background:var(--primary-light,#e8f0fb);':'')+'">'+fn(p)+'</td>').join('')+'</tr>').join('')+
+      (p.code===cur_code?'background:var(--primary-light,#E1EAEC);':'')+'">'+fn(p)+'</td>').join('')+'</tr>').join('')+
     '</tbody></table>';
 }
 function closePlan(){document.getElementById('plan-ov').classList.remove('open');}
@@ -8235,8 +8239,8 @@ function payCell(p){
   if(!p.price_monthly&&!p.price_yearly)return '<span style="font-size:11px;color:var(--muted)">免費</span>';
   if(Cloud.myRole!=='admin')return '<span style="font-size:11px;color:var(--muted)">請由管理者辦理</span>';
   const b=(per,label)=>'<button onclick="payNow(\''+p.code+'\',\''+per+'\')" '+
-    'style="display:block;width:100%;margin:2px 0;padding:5px 6px;border:1px solid var(--primary,#1a56a0);'+
-    'background:#fff;color:var(--primary,#1a56a0);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">'+
+    'style="display:block;width:100%;margin:2px 0;padding:5px 6px;border:1px solid var(--primary,#2F5664);'+
+    'background:#FCFCFA;color:var(--primary,#2F5664);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">'+
     label+'</button>';
   return (p.price_monthly?b('monthly','月繳'):'')+
          (p.price_yearly?b('yearly','年繳 省 '+
@@ -8317,7 +8321,7 @@ function handleImportFile(input){
       const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       processImportRows(rows);
     }catch(err){
-      document.getElementById('import-preview').innerHTML='<div style="color:#c92a2a;font-size:12px">檔案解析失敗：'+escH(err.message)+'</div>';
+      document.getElementById('import-preview').innerHTML='<div style="color:#923A2E;font-size:12px">檔案解析失敗：'+escH(err.message)+'</div>';
     }
   };
   reader.readAsArrayBuffer(file);
@@ -8365,13 +8369,13 @@ function renderImportPreview(properties,errors){
   const existing=loadCPs();
   let html='';
   if(errors.length){
-    html+='<div style="background:#fee2e2;border:1px solid #f5c2c7;border-radius:6px;padding:10px;font-size:12px;color:#c92a2a;margin-bottom:10px">'+
+    html+='<div style="background:#F4E1DD;border:1px solid #F4E1DD;border-radius:6px;padding:10px;font-size:12px;color:#923A2E;margin-bottom:10px">'+
       '⚠️ 發現 '+errors.length+' 個錯誤，請修正後重新上傳：<br>'+errors.slice(0,20).map(escH).join('<br>')+
       (errors.length>20?'<br>...還有'+(errors.length-20)+'個錯誤':'')+'</div>';
   }
   if(properties.length){
     const totalRooms=properties.reduce((s,p)=>s+p.rooms.length,0);
-    html+='<div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:10px;font-size:12px;margin-bottom:10px">'+
+    html+='<div style="background:#E3ECE5;border:1px solid #CFE0D3;border-radius:6px;padding:10px;font-size:12px;margin-bottom:10px">'+
       '✅ 解析成功：共 '+properties.length+' 個館別、'+totalRooms+' 個房間'+
       (errors.length?'（僅預覽，需先修正上方錯誤才能匯入）':'')+
       '</div>';
@@ -8379,7 +8383,7 @@ function renderImportPreview(properties,errors){
       properties.map(p=>{
         const isMerge=!!cpMatch(existing,p);
         return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">'+
-          '<b>'+escH(p.name)+'</b>'+(isMerge?' <span style="color:#e67700">（將併入現有同名同地址館別）</span>':' <span style="color:#2f9e44">（新建館別）</span>')+
+          '<b>'+escH(p.name)+'</b>'+(isMerge?' <span style="color:#8A6A1F">（將併入現有同名同地址館別）</span>':' <span style="color:#3E6B4E">（新建館別）</span>')+
           ' — '+escH(p.city+p.district)+' '+escH(p.address)+'，'+p.rooms.length+'間房'+
         '</div>';
       }).join('')+
@@ -8522,7 +8526,7 @@ async function exportCompanyData(){
 // ════════════════════════════════════════════════
 function showHistDt(o,prop,room){
   hideTT();
-  const tc=TC[o.type]||'#868e96',tl=TL[o.type]||o.type;
+  const tc=TC[o.type]||'#86918F',tl=TL[o.type]||o.type;
   const days=diffDays(o.checkin,o.checkout);
   function cell(l,v){return '<div class="detail-cell"><div class="detail-lbl">'+l+'</div><div class="detail-val">'+v+'</div></div>';}
   document.getElementById('dt-content').innerHTML=
@@ -8618,7 +8622,7 @@ init();
   <div style="padding:0 17px 4px;overflow-x:auto;max-height:65vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+        <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap">訂單號</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">客戶姓名</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">館別</th>
@@ -8677,7 +8681,7 @@ init();
         在地圖上<strong>點擊或拖曳圖釘</strong>標出這個館別的實際位置。
         官網地圖只顯示已定位的館別；對外展示時座標會隨機偏移約 100–200 公尺、地址只顯示到路名。
       </div>
-      <div id="geo-map" style="height:420px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#eef1f5"></div>
+      <div id="geo-map" style="height:420px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#ECEEEA"></div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted)">座標：<code id="geo-coord" style="font-size:11px">—</code></span>
         <span id="geo-msg" style="font-size:11px;font-weight:700"></span>
@@ -8702,7 +8706,7 @@ init();
       <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:8px">
         左邊點館別 → 右邊地圖點一下放針 → 按「儲存並跳下一個」。
         也可以先按「自動粗定位」由地址推算，再逐一校正即可。
-        <strong style="color:#e8590c">自動推算結果不保證正確（台灣巷弄常抓歪），請務必逐一確認。</strong>
+        <strong style="color:#A65F22">自動推算結果不保證正確（台灣巷弄常抓歪），請務必逐一確認。</strong>
       </div>
       <div style="display:flex;gap:10px;align-items:flex-start">
         <div style="width:290px;flex:none;display:flex;flex-direction:column;gap:6px">
@@ -8725,7 +8729,7 @@ init();
             <span style="font-size:11px;color:var(--muted)">座標：<code id="bg-coord" style="font-size:11px">—</code></span>
           </div>
           <div id="bg-addr" style="font-size:11px;color:var(--muted);margin-bottom:6px">&nbsp;</div>
-          <div id="bg-map" style="height:400px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#eef1f5"></div>
+          <div id="bg-map" style="height:400px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#ECEEEA"></div>
         </div>
       </div>
       <div id="bg-msg" style="font-size:11.5px;font-weight:700;margin-top:8px;min-height:16px"></div>
@@ -8971,7 +8975,7 @@ init();
   <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+        <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">送出日</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">姓名</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">聯絡方式</th>
@@ -9003,7 +9007,7 @@ init();
   <div style="padding:12px 17px 4px">
     <div style="display:flex;gap:8px">
       <input class="search" id="cust-search" type="text" placeholder="搜尋姓名 / 電話…" oninput="renderCustomers()" style="flex:1">
-      <select id="cust-lamp" onchange="renderCustomers()" style="height:34px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:#fff;padding:0 8px;flex-shrink:0">
+      <select id="cust-lamp" onchange="renderCustomers()" style="height:34px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:#FCFCFA;padding:0 8px;flex-shrink:0">
         <option value="">全部風險燈號</option>
         <option value="r">🚫 黑名單</option>
         <option value="o">🟠 橙燈 謹慎承租</option>
@@ -9015,7 +9019,7 @@ init();
   <div style="padding:0 17px 4px;overflow-x:auto;max-height:60vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+        <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">風險</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">姓名</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">電話</th>
@@ -9052,7 +9056,7 @@ init();
   <div style="padding:0 17px 4px;overflow-x:auto;max-height:46vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="position:sticky;top:0;background:#f8fafc;border-bottom:2px solid var(--border);z-index:1">
+        <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">館別</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">房號</th>
           <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">入住日</th>
@@ -9085,11 +9089,11 @@ init();
     <textarea id="cancel-reason" rows="4" placeholder="請填寫客戶取消原因…"
       style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border);
              border-radius:6px;font-size:12px;resize:vertical;outline:none;font-family:inherit"
-      onfocus="this.style.borderColor='#c92a2a'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      onfocus="this.style.borderColor='#923A2E'" onblur="this.style.borderColor='var(--border)'"></textarea>
   </div>
   <div style="padding:10px 20px 16px;display:flex;gap:8px;justify-content:flex-end">
     <button class="btn btn-ghost" onclick="closeCancelModal()">返回</button>
-    <button class="btn" style="background:#c92a2a;color:#fff;border-color:#c92a2a" onclick="applyCancel()">確認取消訂單</button>
+    <button class="btn" style="background:#923A2E;color:#FCFCFA;border-color:#923A2E" onclick="applyCancel()">確認取消訂單</button>
   </div>
 </div>
 </div>
@@ -9170,7 +9174,7 @@ init();
     </div>
   </div>
   <div style="padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
-    <button class="btn btn-ghost sm" id="cpf-del" style="display:none;color:#c92a2a" onclick="deleteCp()">🗑 刪除</button>
+    <button class="btn btn-ghost sm" id="cpf-del" style="display:none;color:#923A2E" onclick="deleteCp()">🗑 刪除</button>
     <span style="flex:1"></span>
     <button class="btn btn-ghost sm" id="cpf-totask" data-linked="" onclick="cpToTask()">🔧 儲存並開維修單</button>
     <button class="btn btn-ghost sm" onclick="closeCpForm()">取消</button>
