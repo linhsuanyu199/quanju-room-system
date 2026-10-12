@@ -595,6 +595,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
             <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
             <button class="more-item" onclick="pickMore(tnOpenLinks)">🔗 房客自助連結</button>
+            <button class="more-item" onclick="pickMore(openChloeLog)">💬 Chloe對話記錄</button>
           </div>
         </div>
         <div class="more-group">
@@ -6643,6 +6644,57 @@ async function inqConvert(id){
   await inqSetStatus(id,'converted');
 }
 
+// ── Chloe（線上銷售顧問）對話記錄 ──────────
+const CHLOG_STAGE={
+  opening:{label:'開場',color:'#6E7B8B'},discovery:{label:'需求了解',color:'#9FC2A8'},
+  pitch:{label:'推薦房源',color:'#C9A227'},objection_handling:{label:'處理異議',color:'#B08098'},
+  closing:{label:'促成成交',color:'#3E6B4E'},won:{label:'已成交',color:'#3E6B4E'},
+  follow_up_needed:{label:'待追蹤',color:'#C9A227'},handoff_human:{label:'轉真人',color:'#C92A2A'}
+};
+let chlogList=[];
+async function openChloeLog(){
+  document.getElementById('chlog-ov').classList.add('open');
+  document.getElementById('chlog-tbody').innerHTML='<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--muted)">載入中…</td></tr>';
+  chlogList=await Cloud.listAgentConversations();
+  renderChloeLog();
+}
+function closeChloeLog(){document.getElementById('chlog-ov').classList.remove('open');}
+function renderChloeLog(){
+  const tb=document.getElementById('chlog-tbody');
+  if(!chlogList.length){
+    tb.innerHTML='<tr><td colspan="6" style="padding:28px;text-align:center;color:var(--muted)">目前還沒有對話記錄</td></tr>';
+    return;
+  }
+  tb.innerHTML=chlogList.map(c=>{
+    const st=CHLOG_STAGE[c.stage]||{label:c.stage||'—',color:'#6E7B8B'};
+    const n=Array.isArray(c.messages)?c.messages.length:0;
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:8px 10px;white-space:nowrap">'+String(c.created_at||'').slice(0,16).replace('T',' ')+'</td>'
+      +'<td style="padding:8px 10px">'+escH(c.visitor_ref||'—')+'</td>'
+      +'<td style="padding:8px 10px"><span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:'+st.color+'22;color:'+st.color+'">'+st.label+'</span></td>'
+      +'<td style="padding:8px 10px">'+n+'</td>'
+      +'<td style="padding:8px 10px">'+(c.requires_human?'<span style="color:#C92A2A;font-weight:700">是</span>':'<span style="color:var(--muted)">—</span>')+'</td>'
+      +'<td style="padding:8px 10px"><button class="btn btn-ghost" style="padding:3px 8px;font-size:10.5px" onclick="viewChloeLogDetail(\''+c.id+'\')">查看逐字稿</button></td>'
+      +'</tr>';
+  }).join('');
+}
+function viewChloeLogDetail(id){
+  const c=chlogList.find(x=>x.id===id);
+  if(!c)return;
+  document.getElementById('chlog-detail-title').textContent='對話逐字稿 · '+(c.visitor_ref||'');
+  const msgs=Array.isArray(c.messages)?c.messages:[];
+  document.getElementById('chlog-detail-body').innerHTML=msgs.map(m=>{
+    const isBot=m.role==='assistant';
+    return '<div style="margin-bottom:10px;display:flex;justify-content:'+(isBot?'flex-start':'flex-end')+'">'
+      +'<div style="max-width:80%;padding:8px 12px;border-radius:10px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;'
+      +(isBot?'background:#ECEEEA;color:var(--ink)':'background:var(--primary);color:#fff')+'">'
+      +'<div style="font-size:9.5px;opacity:.65;margin-bottom:3px">'+(isBot?'Chloe':'訪客')+'</div>'
+      +escH(m.content||'')+'</div></div>';
+  }).join('')||'<div style="color:var(--muted);text-align:center;padding:20px">沒有逐字稿內容</div>';
+  document.getElementById('chlog-detail-ov').classList.add('open');
+}
+function closeChloeLogDetail(){document.getElementById('chlog-detail-ov').classList.remove('open');}
+
 function openCustomers(){
   document.getElementById('cust-search').value='';
   renderCustomers();
@@ -8994,6 +9046,50 @@ init();
       標示「✔ 同意行銷」者才可納入生日與節日祝福名單。
     </div>
     <button class="btn btn-ghost" onclick="closeInq()" style="flex-shrink:0">關閉</button>
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="chlog-ov" onclick="if(event.target===this)closeChloeLog()">
+<div class="modal" style="width:1000px;max-width:98vw">
+  <div class="modal-h">
+    <h2>Chloe 對話記錄</h2>
+    <button class="close-btn" onclick="closeChloeLog()">✕</button>
+  </div>
+  <div style="padding:0 17px 4px;overflow-x:auto;max-height:64vh;overflow-y:auto;display:block">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">時間</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">訪客</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">階段</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">訊息數</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px">轉人工</th>
+          <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10px"></th>
+        </tr>
+      </thead>
+      <tbody id="chlog-tbody"></tbody>
+    </table>
+  </div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div style="font-size:10.5px;color:var(--muted);line-height:1.6">
+      Chloe 跟訪客的每一輪對話都會自動留底在這裡，方便回頭檢視客戶常問的問題、調整銷售話術。<br>
+      這裡只負責記錄，不會自動幫 Chloe 調整回覆——發現可以改進的地方，要回頭更新她的知識庫內容。
+    </div>
+    <button class="btn btn-ghost" onclick="closeChloeLog()" style="flex-shrink:0">關閉</button>
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="chlog-detail-ov" onclick="if(event.target===this)closeChloeLogDetail()">
+<div class="modal" style="width:620px;max-width:95vw">
+  <div class="modal-h">
+    <h2 id="chlog-detail-title">對話逐字稿</h2>
+    <button class="close-btn" onclick="closeChloeLogDetail()">✕</button>
+  </div>
+  <div id="chlog-detail-body" style="padding:14px 17px;max-height:64vh;overflow-y:auto"></div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="closeChloeLogDetail()">關閉</button>
   </div>
 </div>
 </div>

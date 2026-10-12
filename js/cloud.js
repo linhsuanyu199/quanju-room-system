@@ -235,6 +235,14 @@ const Cloud = {
     return true;
   },
 
+  // ── Chloe（線上銷售顧問 AI Agent）對話記錄（獨立資料表，靠 RLS 隔離企業）──────────
+  async listAgentConversations() {
+    const { data, error } = await _sb.from('agent_conversations').select('*')
+      .eq('company_id', this.companyId).order('created_at', { ascending: false }).limit(300);
+    if (error) { alert('讀取Chloe對話記錄失敗：' + error.message); return []; }
+    return data || [];
+  },
+
   // ── 全平台成交行情庫（跨公司共享，但看不到是誰成交的）──────────
   // 只送出縣市／行政區／路名／社區名／房型／月租金／成交月份；
   // 不含門牌號、房客資料與館別名稱。company_id 由資料庫端蓋章，前端偽造不了。
