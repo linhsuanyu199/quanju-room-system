@@ -6659,7 +6659,46 @@ async function openChloeLog(){
   renderChloeLog();
 }
 function closeChloeLog(){document.getElementById('chlog-ov').classList.remove('open');}
+// 輕量版週報：純前端統計既有的 chlogList，不額外呼叫AI、不需要排程，
+// 開頁籤當下即時算好。重點是把「轉人工」的對話挑出來讓業者優先檢視，
+// 那些就是Chloe答得不夠好、最該回頭調整知識庫的地方。
+function buildChlogSummary(list){
+  const now=Date.now(),day=86400000;
+  const in7=list.filter(c=>now-new Date(c.created_at).getTime()<=7*day);
+  const prev7=list.filter(c=>{const t=now-new Date(c.created_at).getTime();return t>7*day&&t<=14*day;});
+  const stageCounts={};
+  in7.forEach(c=>{const k=c.stage||'—';stageCounts[k]=(stageCounts[k]||0)+1;});
+  const handoffs=in7.filter(c=>c.requires_human);
+  const diff=in7.length-prev7.length;
+  const diffTxt=diff===0?'與前週持平':(diff>0?('較前週 +'+diff):('較前週 '+diff));
+  const stageBadges=Object.keys(CHLOG_STAGE).filter(k=>stageCounts[k]).map(k=>{
+    const st=CHLOG_STAGE[k];
+    return '<span style="display:inline-block;margin:0 6px 6px 0;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:700;background:'+st.color+'22;color:'+st.color+'">'+st.label+' '+stageCounts[k]+'</span>';
+  }).join('');
+  const handoffRows=handoffs.slice(0,8).map(c=>{
+    const msgs=Array.isArray(c.messages)?c.messages:[];
+    const lastUser=[...msgs].reverse().find(m=>m.role!=='assistant');
+    const snippet=lastUser?String(lastUser.content||'').slice(0,60):'（無內容）';
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px;display:flex;justify-content:space-between;gap:10px">'
+      +'<span style="color:var(--ink)">'+escH(c.visitor_ref||'—')+'：'+escH(snippet)+(snippet.length>=60?'…':'')+'</span>'
+      +'<button class="btn btn-ghost" style="padding:2px 7px;font-size:10px;flex-shrink:0" onclick="viewChloeLogDetail(\''+c.id+'\')">查看</button>'
+      +'</div>';
+  }).join('')||'<div style="color:var(--muted);font-size:11.5px;padding:4px 0">本週沒有轉人工的對話 🎉</div>';
+  document.getElementById('chlog-summary').innerHTML=
+    '<div style="background:var(--primary-light);border-radius:8px;padding:12px 14px;margin-bottom:10px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
+    +'<div style="font-size:12.5px;font-weight:700">本週摘要（近7天）</div>'
+    +'<div style="font-size:11px;color:var(--muted)">共 '+in7.length+' 筆對話・'+diffTxt+'・轉人工 '+handoffs.length+' 筆</div>'
+    +'</div>'
+    +(stageBadges||'<div style="font-size:11px;color:var(--muted)">本週尚無對話</div>')
+    +'<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px">⚠️ 待檢視：轉人工對話</div>'
+    +handoffRows
+    +'</div>'
+    +'</div>';
+}
 function renderChloeLog(){
+  buildChlogSummary(chlogList);
   const tb=document.getElementById('chlog-tbody');
   if(!chlogList.length){
     tb.innerHTML='<tr><td colspan="6" style="padding:28px;text-align:center;color:var(--muted)">目前還沒有對話記錄</td></tr>';
@@ -9056,7 +9095,8 @@ init();
     <h2>Chloe 對話記錄</h2>
     <button class="close-btn" onclick="closeChloeLog()">✕</button>
   </div>
-  <div style="padding:0 17px 4px;overflow-x:auto;max-height:64vh;overflow-y:auto;display:block">
+  <div id="chlog-summary" style="padding:12px 17px 0"></div>
+  <div style="padding:0 17px 4px;overflow-x:auto;max-height:52vh;overflow-y:auto;display:block">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="position:sticky;top:0;background:#ECEEEA;border-bottom:2px solid var(--border);z-index:1">
