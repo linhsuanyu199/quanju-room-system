@@ -3185,6 +3185,10 @@ function init(){
   refreshInqBadge();
   refreshHoBadge();
   refreshRepBadge();
+  // Chloe通知webhook深連結：網址帶?chlog_visitor=訪客代稱時，登入後直接開「Chloe對話記錄」
+  // 並跳到那一筆，不用自己在列表裡找。
+  const chlogVisitor=new URLSearchParams(location.search).get('chlog_visitor');
+  if(chlogVisitor)openChloeLog().then(()=>openChloeLogDeepLink(chlogVisitor));
 }
 // 已離開企業、但名字還留在訂單「負責業務」或客戶「歸屬業務」上的人。
 // 不把這些名字補回下拉選單的話，開啟他們的舊訂單時瀏覽器會因為找不到對應的
@@ -6733,6 +6737,14 @@ function viewChloeLogDetail(id){
   document.getElementById('chlog-detail-ov').classList.add('open');
 }
 function closeChloeLogDetail(){document.getElementById('chlog-detail-ov').classList.remove('open');}
+// Chloe通知webhook帶的深連結用（?chlog_visitor=訪客代稱），讓真人收到通知點進來直接看那一筆，
+// 不用自己在列表裡找。同一訪客可能有多筆記錄（多次對話），優先挑有轉人工的那一筆。
+function openChloeLogDeepLink(ref){
+  const matches=chlogList.filter(c=>c.visitor_ref===ref);
+  if(!matches.length){alert('找不到這筆Chloe對話記錄（訪客代稱：'+ref+'），可能已超過後台顯示上限或尚未寫入完成。');return;}
+  const target=matches.find(c=>c.requires_human)||matches[0];
+  viewChloeLogDetail(target.id);
+}
 
 function openCustomers(){
   document.getElementById('cust-search').value='';
