@@ -9189,7 +9189,7 @@ init();
   <div style="padding:8px 17px;border-top:1px dashed var(--border);font-size:11px;font-weight:700;color:var(--muted)">⚡ 即時接管區（客戶不會看到「真人／Chloe」的分別，只會看到同一個人在回）</div>
   <div id="chlog-handoff-body" style="padding:6px 17px 14px;max-height:24vh;overflow-y:auto"></div>
   <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;gap:8px">
-    <input id="chlog-reply-input" placeholder="以Chloe的身分直接回覆客戶…" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px" onkeydown="if(event.key==='Enter')sendChloeHandoffReply()">
+    <input id="chlog-reply-input" placeholder="以Chloe的身分直接回覆客戶…" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px" onkeydown="if(event.key==='Enter'&&!event.isComposing)sendChloeHandoffReply()">
     <button class="btn btn-primary" onclick="sendChloeHandoffReply()">送出</button>
     <button class="btn btn-ghost" onclick="closeChloeLogDetail()">關閉</button>
   </div>
