@@ -595,7 +595,7 @@ textarea{height:58px;padding:7px 9px;resize:vertical}
             <button class="more-item" onclick="pickMore(openGreet)">🎁 祝福提醒</button>
             <button class="more-item" onclick="pickMore(openComplaints)">📣 客訴紀錄</button>
             <button class="more-item" onclick="pickMore(tnOpenLinks)">🔗 房客自助連結</button>
-            <button class="more-item" onclick="pickMore(openChloeLog)">💬 Chloe對話記錄</button>
+            <button class="more-item" onclick="pickMore(openChloeLog)">💬 Chloe對話記錄<span class="more-badge-inline" id="chlog-badge"></span></button>
           </div>
         </div>
         <div class="more-group">
@@ -3185,6 +3185,8 @@ function init(){
   refreshInqBadge();
   refreshHoBadge();
   refreshRepBadge();
+  refreshChlogBadge();
+  setInterval(refreshChlogBadge,30000);
   // Chloe通知webhook深連結：網址帶?chlog_visitor=訪客代稱時，登入後直接開「Chloe對話記錄」
   // 並跳到那一筆，不用自己在列表裡找。
   const chlogVisitor=new URLSearchParams(location.search).get('chlog_visitor');
@@ -6541,10 +6543,10 @@ let inqList=[],inqTab='new';
 // 若同一顆紅點有兩個來源各自直接寫 DOM，後跑的那一個會把前一個蓋掉——
 // 詢問單 3 筆加點交 2 筆，「更多」上只會顯示其中一個數字，另一邊就這樣消失了。
 // 日後新增待辦來源：在 MORE_COUNTS 加一個 key，再掛進下面對應層級的陣列即可。
-let MORE_COUNTS={inq:0,ho:0,rep:0};
+let MORE_COUNTS={inq:0,ho:0,rep:0,chlog:0};
 const NAV_BADGE_SRC={
-  'more-badge':['inq','ho','rep'], // 第一層：⚙️ 更多
-  'cat-badge-guest':['inq'],       // 第二層：👥 房客與招租
+  'more-badge':['inq','ho','rep','chlog'], // 第一層：⚙️ 更多
+  'cat-badge-guest':['inq','chlog'],       // 第二層：👥 房客與招租
   'cat-badge-doc':['ho'],          // 第二層：📄 合約與點交
   'cat-badge-ops':['rep']          // 第二層：🔧 維運
 };
@@ -6576,6 +6578,15 @@ async function refreshRepBadge(){
   try{n=typeof tnTodoCount==='function'?await tnTodoCount():0;}catch(e){n=0;}
   paintBadge(document.getElementById('rep-badge'),n);
   MORE_COUNTS.rep=n;paintMoreBadge();
+}
+// Chloe對話轉真人後還在等回覆的筆數。不靠LINE通知才看得到——登入後打開就能看到紅點，
+// 跟上面inq/ho/rep是同一套機制，數字來源是Cloud.countPendingHandoff()。
+async function refreshChlogBadge(){
+  if(!Cloud.isLoggedIn())return;
+  let n=0;
+  try{n=await Cloud.countPendingHandoff();}catch(e){n=0;}
+  paintBadge(document.getElementById('chlog-badge'),n);
+  MORE_COUNTS.chlog=n;paintMoreBadge();
 }
 async function openInq(){
   document.getElementById('inq-ov').classList.add('open');
@@ -6721,9 +6732,12 @@ function renderChloeLog(){
       +'</tr>';
   }).join('');
 }
-function viewChloeLogDetail(id){
+let chlogDetailVisitorRef=null;
+let chlogHandoffPollTimer=null;
+async function viewChloeLogDetail(id){
   const c=chlogList.find(x=>x.id===id);
   if(!c)return;
+  chlogDetailVisitorRef=c.visitor_ref||null;
   document.getElementById('chlog-detail-title').textContent='對話逐字稿 · '+(c.visitor_ref||'');
   const msgs=Array.isArray(c.messages)?c.messages:[];
   document.getElementById('chlog-detail-body').innerHTML=msgs.map(m=>{
@@ -6735,8 +6749,40 @@ function viewChloeLogDetail(id){
       +escH(m.content||'')+'</div></div>';
   }).join('')||'<div style="color:var(--muted);text-align:center;padding:20px">沒有逐字稿內容</div>';
   document.getElementById('chlog-detail-ov').classList.add('open');
+  await renderChloeHandoffThread();
+  if(chlogHandoffPollTimer)clearInterval(chlogHandoffPollTimer);
+  chlogHandoffPollTimer=setInterval(renderChloeHandoffThread,5000);
 }
-function closeChloeLogDetail(){document.getElementById('chlog-detail-ov').classList.remove('open');}
+// 即時接管區：顯示轉人工之後的連續對話串（customer/chloe/staff三種身分都標出來，
+// 這只是給員工自己看的內部標記，客戶那邊看到的訊息完全沒有分別）。
+async function renderChloeHandoffThread(){
+  if(!chlogDetailVisitorRef)return;
+  const rows=await Cloud.listHandoffMessages(chlogDetailVisitorRef);
+  const box=document.getElementById('chlog-handoff-body');
+  const roleLabel={customer:'訪客',chloe:'Chloe',staff:'我（真人）'};
+  const roleColor={customer:'var(--primary)',chloe:'#9FC2A8',staff:'#C9A227'};
+  box.innerHTML=rows.map(r=>{
+    const isMine=r.sender!=='customer';
+    return '<div style="margin-bottom:8px;display:flex;justify-content:'+(isMine?'flex-start':'flex-end')+'">'
+      +'<div style="max-width:80%;padding:6px 10px;border-radius:8px;font-size:12px;line-height:1.5;white-space:pre-wrap;'
+      +(isMine?'background:'+roleColor[r.sender]+'22':'background:var(--primary);color:#fff')+'">'
+      +'<div style="font-size:9px;opacity:.65;margin-bottom:2px">'+(roleLabel[r.sender]||r.sender)+'</div>'
+      +escH(r.message||'')+'</div></div>';
+  }).join('')||'<div style="color:var(--muted);font-size:11.5px;padding:6px 0">尚無接管後的新訊息</div>';
+}
+async function sendChloeHandoffReply(){
+  const input=document.getElementById('chlog-reply-input');
+  const text=input.value.trim();
+  if(!text||!chlogDetailVisitorRef)return;
+  input.value='';
+  const ok=await Cloud.sendHandoffMessage(chlogDetailVisitorRef,text);
+  if(ok){await renderChloeHandoffThread();refreshChlogBadge();}
+}
+function closeChloeLogDetail(){
+  document.getElementById('chlog-detail-ov').classList.remove('open');
+  if(chlogHandoffPollTimer){clearInterval(chlogHandoffPollTimer);chlogHandoffPollTimer=null;}
+  chlogDetailVisitorRef=null;
+}
 // Chloe通知webhook帶的深連結用（?chlog_visitor=訪客代稱），讓真人收到通知點進來直接看那一筆，
 // 不用自己在列表裡找。同一訪客可能有多筆記錄（多次對話），優先挑有轉人工的那一筆。
 function openChloeLogDeepLink(ref){
@@ -9139,8 +9185,12 @@ init();
     <h2 id="chlog-detail-title">對話逐字稿</h2>
     <button class="close-btn" onclick="closeChloeLogDetail()">✕</button>
   </div>
-  <div id="chlog-detail-body" style="padding:14px 17px;max-height:64vh;overflow-y:auto"></div>
-  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+  <div id="chlog-detail-body" style="padding:14px 17px;max-height:40vh;overflow-y:auto"></div>
+  <div style="padding:8px 17px;border-top:1px dashed var(--border);font-size:11px;font-weight:700;color:var(--muted)">⚡ 即時接管區（客戶不會看到「真人／Chloe」的分別，只會看到同一個人在回）</div>
+  <div id="chlog-handoff-body" style="padding:6px 17px 14px;max-height:24vh;overflow-y:auto"></div>
+  <div style="padding:10px 17px;border-top:1px solid var(--border);display:flex;gap:8px">
+    <input id="chlog-reply-input" placeholder="以Chloe的身分直接回覆客戶…" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px" onkeydown="if(event.key==='Enter')sendChloeHandoffReply()">
+    <button class="btn btn-primary" onclick="sendChloeHandoffReply()">送出</button>
     <button class="btn btn-ghost" onclick="closeChloeLogDetail()">關閉</button>
   </div>
 </div>

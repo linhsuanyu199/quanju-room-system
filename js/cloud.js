@@ -243,6 +243,42 @@ const Cloud = {
     return data || [];
   },
 
+  // ── Chloe 真人接管（agent_handoff_messages，獨立資料表，靠RLS隔離企業）──────────
+  // 升級／客戶轉人工後，從這裡看到的是「即時、持續」的對話串（含客戶後續講的話、
+  // Chloe本輪有沒有回、真人自己回的話），跟上面 agent_conversations 的全文快照互補。
+  async listHandoffMessages(visitorRef) {
+    const { data, error } = await _sb.from('agent_handoff_messages').select('*')
+      .eq('company_id', this.companyId).eq('visitor_ref', visitorRef)
+      .order('created_at', { ascending: true });
+    if (error) { console.error('讀取接管訊息失敗：', error.message); return []; }
+    return data || [];
+  },
+  async sendHandoffMessage(visitorRef, message) {
+    const { error } = await _sb.from('agent_handoff_messages').insert({
+      company_id: this.companyId, visitor_ref: visitorRef, sender: 'staff', message
+    });
+    if (error) { alert('發送失敗：' + error.message); return false; }
+    return true;
+  },
+  // 「還在等真人回」的對話數：requires_human=true的訪客裡，最後一則handoff訊息
+  // 不是staff發的（含從來沒有staff回過）。用來在「⚙️更多」與Chloe對話記錄按鈕上
+  // 顯示紅點，不用等LINE通知、登入後一看就知道有幾筆要處理。
+  async countPendingHandoff() {
+    const { data: convs, error } = await _sb.from('agent_conversations').select('visitor_ref')
+      .eq('company_id', this.companyId).eq('requires_human', true);
+    if (error || !convs?.length) return 0;
+    const refs = [...new Set(convs.map(c => c.visitor_ref).filter(Boolean))];
+    if (!refs.length) return 0;
+    const { data: msgs, error: err2 } = await _sb.from('agent_handoff_messages')
+      .select('visitor_ref,sender,created_at')
+      .eq('company_id', this.companyId).in('visitor_ref', refs)
+      .order('created_at', { ascending: true });
+    if (err2) return 0;
+    const latestSender = {};
+    for (const m of (msgs || [])) latestSender[m.visitor_ref] = m.sender;
+    return refs.filter(r => latestSender[r] !== 'staff').length;
+  },
+
   // ── 全平台成交行情庫（跨公司共享，但看不到是誰成交的）──────────
   // 只送出縣市／行政區／路名／社區名／房型／月租金／成交月份；
   // 不含門牌號、房客資料與館別名稱。company_id 由資料庫端蓋章，前端偽造不了。

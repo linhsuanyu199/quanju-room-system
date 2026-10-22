@@ -409,6 +409,13 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   color:#FCFCFA;border:none;box-shadow:0 4px 16px rgba(31,42,46,.18);
   font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
+#chloeWidgetBadge{
+  position:fixed;right:16px;bottom:62px;z-index:10001;
+  min-width:18px;height:18px;padding:0 4px;border-radius:9px;
+  background:#C92A2A;color:#fff;font-size:11px;font-weight:700;
+  display:none;align-items:center;justify-content:center;
+}
+#chloeWidgetBadge.show{display:flex}
 #chloeWidgetPanel{
   position:fixed;right:20px;bottom:88px;z-index:9999;
   width:380px;max-width:92vw;height:600px;max-height:75vh;
@@ -427,6 +434,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 }
 </style>
 <button id="chloeWidgetBtn" title="詢問線上顧問 Chloe">💬</button>
+<div id="chloeWidgetBadge"></div>
 <div id="chloeWidgetPanel">
   <button id="chloeWidgetClose" aria-label="關閉">✕</button>
   <iframe id="chloeWidgetFrame" title="Chloe 線上銷售顧問"></iframe>
@@ -434,6 +442,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
 <script>
 (function(){
   var btn=document.getElementById('chloeWidgetBtn');
+  var badge=document.getElementById('chloeWidgetBadge');
   var panel=document.getElementById('chloeWidgetPanel');
   var closeBtn=document.getElementById('chloeWidgetClose');
   var frame=document.getElementById('chloeWidgetFrame');
@@ -446,6 +455,7 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
     }
     panel.classList.add('open');
     btn.style.display='none';
+    badge.classList.remove('show');
   }
   function closePanel(){
     panel.classList.remove('open');
@@ -453,6 +463,18 @@ footer{background:var(--primary);color:rgba(255,255,255,.8);padding:40px 20px}
   }
   btn.addEventListener('click',openPanel);
   closeBtn.addEventListener('click',closePanel);
+  // Chloe視窗（iframe）即使被收起也持續在背景輪詢真人回覆，有新訊息時
+  // 用postMessage通知外層顯示未讀小紅點，客人看到就知道要點開來看。
+  window.addEventListener('message',function(ev){
+    if(!ev.data||ev.data.type!=='chloeUnread')return;
+    var n=ev.data.count||0;
+    if(n>0&&!panel.classList.contains('open')){
+      badge.textContent=n>9?'9+':String(n);
+      badge.classList.add('show');
+    }else{
+      badge.classList.remove('show');
+    }
+  });
 })();
 </script>
 
